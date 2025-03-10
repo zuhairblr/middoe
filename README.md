@@ -1,4 +1,4 @@
-<p align="center">
+<p align="left">
   <img src="https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png" width="232">
 </p>
 
