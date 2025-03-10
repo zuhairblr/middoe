@@ -59,7 +59,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.13"
+python = ">=3.9,<3.13"
 numpy = "<=2.2.3"
 scipy = "<=1.15.2"
 matplotlib = "<=3.10.1"
@@ -69,6 +69,7 @@ pendulum = ">=3.0.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 pytest-cov = "^4.0"
+mypy = "^1.15.0"
 
 [tool.poetry.urls]
 "Repository" = "https://github.com/zuhairblr/middoe/"
