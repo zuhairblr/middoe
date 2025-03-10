@@ -1,4 +1,6 @@
-![MIDDOE Logo](https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png)
+<p align="center">
+  <img src="https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png" width="232">
+</p>
 
 
 # MIDDoE: Model Identification, Discrimination, and Design of Experiments
