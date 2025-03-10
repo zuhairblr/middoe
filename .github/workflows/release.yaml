@@ -21,7 +21,7 @@ jobs:
       suffix: ${{ steps.release.outputs.suffix }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v3  # Updated checkout version
+      - uses: actions/checkout@v3
 
       - name: Extract tag and Details
         id: release
@@ -71,7 +71,7 @@ jobs:
     needs: [details, check_pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3  # Updated checkout version
+      - uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -103,6 +103,26 @@ jobs:
           name: dist
           path: dist/
 
+  test_pypi_publish:
+    name: Upload release to Test PyPI
+    needs: [setup_and_build, details]
+    runs-on: ubuntu-latest
+    environment:
+      name: test-release
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish distribution to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
   pypi_publish:
     name: Upload release to PyPI
     needs: [setup_and_build, details]
@@ -113,7 +133,7 @@ jobs:
       id-token: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4  # ✅ Fixed
+        uses: actions/download-artifact@v4
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -126,10 +146,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3  # Updated checkout version
+        uses: actions/checkout@v3
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4  # ✅ Fixed
+        uses: actions/download-artifact@v4
 
       - name: Create GitHub Release
         id: create_release
