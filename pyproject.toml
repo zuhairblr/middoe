@@ -65,6 +65,7 @@ scipy = "<=1.15.2"
 matplotlib = "<=3.10.1"
 pandas = "<=2.2.3"
 pendulum = ">=3.0.0"
+openpyxl = "^3.1.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
