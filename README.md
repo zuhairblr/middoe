@@ -62,9 +62,14 @@ MIDDOE has been tested across a variety of domains, including:
 
 ### Installation
 
-#### PyPI [![PyPI version](https://img.shields.io/pypi/v/pyomo.svg?maxAge=3600)](https://pypi.org/project/Pyomo/) [![PyPI downloads](https://img.shields.io/pypi/dm/pyomo.svg?maxAge=21600)](https://pypistats.org/packages/pyomo)
+#### PyPI 
 
     pip install middoe
+
+#### git clone
+
+    git clone https://github.com/zuhairblr/middoe.git
+
 
 ### Tutorials and Examples
 
