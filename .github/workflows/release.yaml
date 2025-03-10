@@ -133,3 +133,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ needs.details.outputs.tag_name }} dist/* --title ${{ needs.details.outputs.tag_name }} --generate-notes
+
+
+
+#🚀 Stable Release	0.0.12	PyPI
+#🧪 Test PyPI (Alpha)	0.0.12a1	Test PyPI
+#🧪 Test PyPI (Beta)	0.0.12b1	Test PyPI
+#🧪 Test PyPI (RC)	0.0.12rc1	Test PyPI
+#
+#
+#git tag 0.0.12
+#git push origin --tags
+#
+#git tag 0.0.12a1
+#git push origin --tags

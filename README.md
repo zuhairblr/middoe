@@ -1,5 +1,5 @@
-<p align="left">
-  <img src="https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png" width="300">
+<p align="center">
+  <img src="https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo.png" width="500">
 </p>
 
 
