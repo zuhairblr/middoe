@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def Parmest(model_structure, modelling_settings, estimation_settings, data, run_solver, case: Incomplete | None = None): ...
