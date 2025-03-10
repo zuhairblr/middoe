@@ -30,10 +30,10 @@ classifiers = [
 
 # Core dependencies (required for MIDDOE to function)
 dependencies = [
-    "numpy==2.2.3",
-    "scipy==1.15.2",
-    "matplotlib==3.10.1",
-    "pandas==2.2.3"
+    "numpy<=2.2.3",
+    "scipy<=1.15.2",
+    "matplotlib<=3.10.1",
+    "pandas<=2.2.3"
 ]
 
 [project.optional-dependencies]
