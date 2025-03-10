@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png" width="232">
+  <img src="https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png" width="300">
 </p>
 
 
