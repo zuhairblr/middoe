@@ -1,3 +1,7 @@
+.. image:: https://github.com/zuhairblr/middoe/blob/main/docs/assets/logo.png
+    :width: 232px
+    :align: center
+
 # MIDDoE: Model Identification, Discrimination, and Design of Experiments
 
 MIDDOE is an open-source Python package developed to support model identification for dynamic lumped models. 
