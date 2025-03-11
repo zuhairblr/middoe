@@ -71,6 +71,7 @@ openpyxl = "^3.1.5"
 pytest = "^7.0"
 pytest-cov = "^4.0"
 mypy = "^1.15.0"
+openpyxl = "^3.1.5"
 
 [tool.poetry.urls]
 "Repository" = "https://github.com/zuhairblr/middoe/"

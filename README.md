@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo.png" width="500">
+  <img src="https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo.png?ver=1741697849" width="500">
 </p>
 
 
