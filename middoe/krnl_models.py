@@ -4,6 +4,7 @@ from scipy.special import erfc
 from scipy.optimize import root_scalar
 
 #------------------------------------------ Model 05-----------------------------------------
+#shrinking core, De:const, surface reaction based, cylindrical particle
 
 def thetadic05():
     theta05 = [1.29e-10, 26927]
@@ -35,6 +36,7 @@ def f05(t, y, phi, phit, theta, te):
     return output
 
 #------------------------------------------ Model 06-----------------------------------------
+#shrinking core, De:const, surface reaction based, spherical particle
 
 def thetadic06():
     theta06 = [1.29e-5, 26927]
@@ -66,6 +68,7 @@ def f06(t, y, phi, phit, theta, te):
     return output
 
 #------------------------------------------ Model 07-----------------------------------------
+#shrinking core, De:const, Ash layer diffusion based, plate shape particle
 
 def thetadic07():
     theta07 = [1.29e-5, 26927]
@@ -96,83 +99,84 @@ def f07(t, y, phi, phit, theta, te):
     output = [dy1dt]
     return output
 
-# #our paper
-#
-# #my data-orig models
+
 # #------------------------------------------ Model 08-----------------------------------------
-#
-# def thetadic08():
-#     theta08 = [6.048450283701883e-07, 20191.94152486254]
-#     theta08min = [1.00e-9, 18000]
-#     theta08max = [1.00e-5, 28000]
-#     theta08maxs = [max_val / theta for max_val, theta in zip(theta08max, theta08)]
-#     theta08mins = [min_val / theta for min_val, theta in zip(theta08min, theta08)]
-#
-#     return theta08, theta08maxs, theta08mins
-#
-#
-# def f08(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = theta[0], theta[1]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#
-#     ka = (0.704 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = -ka / (np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
+#shrinking core, De:const, Ash layer diffusion based, cylindrical particle
+
+def thetadic08():
+    theta08 = [6.048450283701883e-07, 20191.94152486254]
+    theta08min = [1.00e-9, 18000]
+    theta08max = [1.00e-5, 28000]
+    theta08maxs = [max_val / theta for max_val, theta in zip(theta08max, theta08)]
+    theta08mins = [min_val / theta for min_val, theta in zip(theta08min, theta08)]
+
+    return theta08, theta08maxs, theta08mins
+
+
+def f08(t, y, phi, phit, theta, te):
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    y1 = y
+    P = np.interp(t, te_array, phit['P'])
+    T = np.interp(t, te_array, phit['T'])
+    rho = phi['rho']
+    aps = phi['aps']
+    k, Ea = theta[0], theta[1]
+    R = 8.314  # Gas constant in J/(mol*K)
+    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
+    cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
+    # # 2. modified 1
+    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
+    # # 3. modified 2
+    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+
+    ka = (0.704 * cm * ki) / (rho * (aps ** 2))
+    dy1dt = -ka / (np.log(1 - np.clip(y1, 0.001, 0.999)))
+    output = [dy1dt]
+    return output
+
 # #------------------------------------------ Model 09-----------------------------------------
-#
-# def thetadic09():
-#     theta09 = [3.056226327814133e-07, 20197.265107932555]
-#     theta09min = [1.00e-9, 18000]
-#     theta09max = [1.00e-5, 28000]
-#     theta09maxs = [max_val / theta for max_val, theta in zip(theta09max, theta09)]
-#     theta09mins = [min_val / theta for min_val, theta in zip(theta09min, theta09)]
-#
-#     return theta09, theta09maxs, theta09mins
-#
-# def f09(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = theta[0], theta[1]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (1.056 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = ka / (-2 + 2 * (1 - np.clip(y1, 0.001, 0.999)) ** (-1 / 3))
-#     output = [dy1dt]
-#     return output
-#
-#
+#shrinking core, De:const, Ash layer diffusion based, spherical particle
+
+def thetadic09():
+    theta09 = [3.056226327814133e-07, 20197.265107932555]
+    theta09min = [1.00e-9, 18000]
+    theta09max = [1.00e-5, 28000]
+    theta09maxs = [max_val / theta for max_val, theta in zip(theta09max, theta09)]
+    theta09mins = [min_val / theta for min_val, theta in zip(theta09min, theta09)]
+
+    return theta09, theta09maxs, theta09mins
+
+def f09(t, y, phi, phit, theta, te):
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    y1 = y
+    P = np.interp(t, te_array, phit['P'])
+    T = np.interp(t, te_array, phit['T'])
+    rho = phi['rho']
+    aps = phi['aps']
+    k, Ea = theta[0], theta[1]
+    R = 8.314  # Gas constant in J/(mol*K)
+    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
+    cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
+    # # 2. modified 1
+    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
+    # # 3. modified 2
+    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    ka = (1.056 * cm * ki) / (rho * (aps ** 2))
+    dy1dt = ka / (-2 + 2 * (1 - np.clip(y1, 0.001, 0.999)) ** (-1 / 3))
+    output = [dy1dt]
+    return output
+
+
 # #------------------------------------------ Model 11-----------------------------------------
+#shrinking core, De:dynamic, Ash layer diffusion based, plate shape particle
 #
 def thetadic11():
     # theta11 = [2.707812554014968e-08, 24144.427994246784, 1.931273198572943]
@@ -212,921 +216,12 @@ def f11(t, y, phi, phit, theta, te):
     return output
 #
 # #------------------------------------------ Model 12-----------------------------------------
-#
-# def thetadic12():
-#     theta12 = [8.657783497064711e-08, 20190.20009631406, 2.194284154090643]
-#     theta12min = [1.00e-10, 18000, 0.1]
-#     theta12max=[1.00e-6, 30000, 10]
-#     theta12maxs = [max_val / theta for max_val, theta in zip(theta12max, theta12)]
-#     theta12mins = [min_val / theta for min_val, theta in zip(theta12min, theta12)]
-#
-#     return theta12, theta12maxs, theta12mins
-#
-# def f12(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = ka * 2 * np.exp(-AK * ka * t) / -(np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 13-----------------------------------------
-#
-# def thetadic13():
-#     theta13 = [3.74989949780187e-08, 20213.603669155094, 6.949990334765804]
-#     theta13min = [1.00e-10, 18000, 0.1]
-#     theta13max=[1.00e-6, 30000, 10]
-#     theta13maxs = [max_val / theta for max_val, theta in zip(theta13max, theta13)]
-#     theta13mins = [min_val / theta for min_val, theta in zip(theta13min, theta13)]
-#
-#     return theta13, theta13maxs, theta13mins
-#
-#
-# def f13(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = (3 / 2) * ka * np.exp(-AK * ka * t) / -((1 - np.clip(y1, 0.001, 0.999)) ** (1 / 3) - 1)
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 14-----------------------------------------
-#
-# def thetadic14():
-#     theta14 = [3.822470068711253e-07, 20198.045600335983, 0.7671885604344969]
-#     theta14min = [1.00e-9, 18000, 0.1]
-#     theta14max=[1.00e-5, 30000, 10]
-#     theta14maxs = [max_val / theta for max_val, theta in zip(theta14max, theta14)]
-#     theta14mins = [min_val / theta for min_val, theta in zip(theta14min, theta14)]
-#
-#     return theta14, theta14maxs, theta14mins
-#
-# def f14(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (8 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1 - np.clip(y1, 0.001, 0.999)) ** (-0.5) - 1)
-#     output = [dy1dt]
-#     return output
-#
-#
-# def thetadic14p():
-#     theta14p = [1.3341960133302085e-06, 20239.41387867327, 2.426734975569295]
-#     theta14pmin = [1.00e-8, 18000, 0.1]
-#     theta14pmax=[1.00e-4, 32000, 10]
-#     theta14pmaxs = [max_val / theta for max_val, theta in zip(theta14pmax, theta14p)]
-#     theta14pmins = [min_val / theta for min_val, theta in zip(theta14pmin, theta14p)]
-#
-#     return theta14p, theta14pmaxs, theta14pmins
-#
-# def f14p(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (4 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / np.clip(y1, 0.001, 0.999)
-#     output = [dy1dt]
-#     return output
-#
-# def thetadic14s():
-#     theta14s = [1.8333977056274745e-07, 20170.507458025906, 2.5666991259436363e-07]
-#     theta14smin = [1.00e-9, 18000, 1e-8]
-#     theta14smax=[1.00e-5, 30000, 1e-6]
-#     theta14smaxs = [max_val / theta for max_val, theta in zip(theta14smax, theta14s)]
-#     theta14smins = [min_val / theta for min_val, theta in zip(theta14smin, theta14s)]
-#
-#     return theta14s, theta14smaxs, theta14smins
-#
-# def f14s(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (12*cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1-(1-np.clip(y1, 0.001, 0.999))**(1/3))*((1-np.clip(y1, 0.001, 0.999))**(-2/3)))
-#     output = [dy1dt]
-#     return output
-
-
-
-
-
-
-
-
-
-
-
-
-
-# #our paper
-#
-# #my data-reduced models
-# #------------------------------------------ Model 08-----------------------------------------
-#
-# def thetadic08():
-#     theta08 = [ 20191.94152486254]
-#     theta08min = [ 18000]
-#     theta08max = [ 28000]
-#     theta08maxs = [max_val / theta for max_val, theta in zip(theta08max, theta08)]
-#     theta08mins = [min_val / theta for min_val, theta in zip(theta08min, theta08)]
-#
-#     return theta08, theta08maxs, theta08mins
-#
-#
-# def f08(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = 6.093787157470513e-07, theta[0]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#
-#     ka = (0.704 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = -ka / (np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 09-----------------------------------------
-#
-# def thetadic09():
-#     theta09 = [20197.265107932555]
-#     theta09min = [18000]
-#     theta09max = [28000]
-#     theta09maxs = [max_val / theta for max_val, theta in zip(theta09max, theta09)]
-#     theta09mins = [min_val / theta for min_val, theta in zip(theta09min, theta09)]
-#
-#     return theta09, theta09maxs, theta09mins
-#
-# def f09(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = 3.0709296079313854e-07, theta[0]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (1.056 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = ka / (-2 + 2 * (1 - np.clip(y1, 0.001, 0.999)) ** (-1 / 3))
-#     output = [dy1dt]
-#     return output
-#
-#
-# #------------------------------------------ Model 11-----------------------------------------
-#
-# def thetadic11():
-#     # theta11 = [2.707812554014968e-08, 24144.427994246784, 1.931273198572943]
-#     theta11 = [20239.398294836665]
-#     theta11min = [18000]
-#     theta11max = [30000]
-#     theta11maxs = [max_val / theta for max_val, theta in zip(theta11max, theta11)]
-#     theta11mins = [min_val / theta for min_val, theta in zip(theta11min, theta11)]
-#
-#     return theta11, theta11maxs, theta11mins
-#
-# def f11(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = 3.1836716396085585e-07, theta[0], 1.2140496411789563
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))  # [mol.m-3]
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = ka * np.exp(-AK * ka * t) / (2 * np.clip(y1, 0.001, 0.999))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 12-----------------------------------------
-#
-# def thetadic12():
-#     theta12 = [20190.20009631406]
-#     theta12min = [ 18000]
-#     theta12max=[30000]
-#     theta12maxs = [max_val / theta for max_val, theta in zip(theta12max, theta12)]
-#     theta12mins = [min_val / theta for min_val, theta in zip(theta12min, theta12)]
-#
-#     return theta12, theta12maxs, theta12mins
-#
-# def f12(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = 8.754161236965817e-08, theta[0], 2.199508882068956
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = ka * 2 * np.exp(-AK * ka * t) / -(np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 13-----------------------------------------
-#
-# def thetadic13():
-#     theta13 = [20213.603669155094]
-#     theta13min = [ 18000]
-#     theta13max=[ 30000]
-#     theta13maxs = [max_val / theta for max_val, theta in zip(theta13max, theta13)]
-#     theta13mins = [min_val / theta for min_val, theta in zip(theta13min, theta13)]
-#
-#     return theta13, theta13maxs, theta13mins
-#
-#
-# def f13(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = 3.763304658276041e-08, theta[0], 6.951277345053975
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = (3 / 2) * ka * np.exp(-AK * ka * t) / -((1 - np.clip(y1, 0.001, 0.999)) ** (1 / 3) - 1)
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 14-----------------------------------------
-#
-# def thetadic14():
-#     theta14 = [20198.045600335983]
-#     theta14min = [ 18000]
-#     theta14max=[30000]
-#     theta14maxs = [max_val / theta for max_val, theta in zip(theta14max, theta14)]
-#     theta14mins = [min_val / theta for min_val, theta in zip(theta14min, theta14)]
-#
-#     return theta14, theta14maxs, theta14mins
-#
-# def f14(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = 3.853056974365147e-07, theta[0], 0.8469922192821213
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (8 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1 - np.clip(y1, 0.001, 0.999)) ** (-0.5) - 1)
-#     output = [dy1dt]
-#     return output
-#
-#
-# def thetadic14p():
-#     theta14p = [20239.41387867327, 2.426734975569295]
-#     theta14pmin = [ 18000, 0.1]
-#     theta14pmax=[ 32000, 10]
-#     theta14pmaxs = [max_val / theta for max_val, theta in zip(theta14pmax, theta14p)]
-#     theta14pmins = [min_val / theta for min_val, theta in zip(theta14pmin, theta14p)]
-#
-#     return theta14p, theta14pmaxs, theta14pmins
-#
-# def f14p(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = 1.341394433057882e-06, theta[0], theta[1]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (4 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / np.clip(y1, 0.001, 0.999)
-#     output = [dy1dt]
-#     return output
-#
-# def thetadic14s():
-#     theta14s = [ 20170.507458025906]
-#     theta14smin = [ 18000]
-#     theta14smax=[ 30000]
-#     theta14smaxs = [max_val / theta for max_val, theta in zip(theta14smax, theta14s)]
-#     theta14smins = [min_val / theta for min_val, theta in zip(theta14smin, theta14s)]
-#
-#     return theta14s, theta14smaxs, theta14smins
-#
-# def f14s(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = 1.845517392105026e-07, theta[0], 1.862677128831102e-07
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # # 1. base
-#     # ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # 4. modified 3
-#     ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (12*cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1-(1-np.clip(y1, 0.001, 0.999))**(1/3))*((1-np.clip(y1, 0.001, 0.999))**(-2/3)))
-#     output = [dy1dt]
-#     return output
-
-
-
-
-
-
-#
-#
-# #our paper
-#
-# #my data-orig models
-# #------------------------------------------ Model 08-----------------------------------------
-#
-# def thetadic08():
-#     theta08 = [6.123634259442429e-09, 22327.84145134412]
-#     theta08min = [1.00e-9, 18000]
-#     theta08max = [1.00e-5, 28000]
-#     theta08maxs = [max_val / theta for max_val, theta in zip(theta08max, theta08)]
-#     theta08mins = [min_val / theta for min_val, theta in zip(theta08min, theta08)]
-#
-#     return theta08, theta08maxs, theta08mins
-#
-#
-# def f08(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = theta[0], theta[1]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#
-#     ka = (0.704 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = -ka / (np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 09-----------------------------------------
-#
-# def thetadic09():
-#     theta09 = [3.4270989918108122e-09, 22593.290494972498]
-#     theta09min = [1.00e-9, 18000]
-#     theta09max = [1.00e-5, 28000]
-#     theta09maxs = [max_val / theta for max_val, theta in zip(theta09max, theta09)]
-#     theta09mins = [min_val / theta for min_val, theta in zip(theta09min, theta09)]
-#
-#     return theta09, theta09maxs, theta09mins
-#
-# def f09(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     aps = phi['aps']
-#     k, Ea = theta[0], theta[1]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (1.056 * cm * ki) / (rho * (aps ** 2))
-#     dy1dt = ka / (-2 + 2 * (1 - np.clip(y1, 0.001, 0.999)) ** (-1 / 3))
-#     output = [dy1dt]
-#     return output
-#
-#
-# #------------------------------------------ Model 11-----------------------------------------
-#
-# def thetadic11():
-#     # theta11 = [2.707812554014968e-08, 24144.427994246784, 1.931273198572943]
-#     theta11 = [2.7085852160960226e-08, 24145.261403540826, 1.9312105955376377]
-#     theta11min = [1.00e-9, 18000, 0.1]
-#     theta11max = [1.00e-5, 30000, 10]
-#     theta11maxs = [max_val / theta for max_val, theta in zip(theta11max, theta11)]
-#     theta11mins = [min_val / theta for min_val, theta in zip(theta11min, theta11)]
-#
-#     return theta11, theta11maxs, theta11mins
-#
-# def f11(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))  # [mol.m-3]
-#
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = ka * np.exp(-AK * ka * t) / (2 * np.clip(y1, 0.001, 0.999))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 12-----------------------------------------
-#
-# def thetadic12():
-#     theta12 = [7.787480228557358e-09, 24175.499957199194, 5.256598817693932]
-#     theta12min = [1.00e-10, 18000, 0.1]
-#     theta12max=[1.00e-6, 30000, 10]
-#     theta12maxs = [max_val / theta for max_val, theta in zip(theta12max, theta12)]
-#     theta12mins = [min_val / theta for min_val, theta in zip(theta12min, theta12)]
-#
-#     return theta12, theta12maxs, theta12mins
-#
-# def f12(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = ka * 2 * np.exp(-AK * ka * t) / -(np.log(1 - np.clip(y1, 0.001, 0.999)))
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 13-----------------------------------------
-#
-# def thetadic13():
-#     theta13 = [3.3041934285078867e-09, 24169.134790464035, 13.62202981032264]
-#     theta13min = [1.00e-10, 18000, 0.1]
-#     theta13max=[1.00e-6, 30000, 30]
-#     theta13maxs = [max_val / theta for max_val, theta in zip(theta13max, theta13)]
-#     theta13mins = [min_val / theta for min_val, theta in zip(theta13min, theta13)]
-#
-#     return theta13, theta13maxs, theta13mins
-#
-#
-# def f13(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     rho = phi['rho']
-#     cac = phi['cac']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     am = 0.056
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-#     dy1dt = (3 / 2) * ka * np.exp(-AK * ka * t) / -((1 - np.clip(y1, 0.001, 0.999)) ** (1 / 3) - 1)
-#     output = [dy1dt]
-#     return output
-#
-# #------------------------------------------ Model 14-----------------------------------------
-#
-# def thetadic14():
-#     theta14 = [1.4897971676833285e-08, 24193.33328469753, 4.120548809910462]
-#     theta14min = [1.00e-9, 18000, 0.1]
-#     theta14max=[1.00e-5, 30000, 10]
-#     theta14maxs = [max_val / theta for max_val, theta in zip(theta14max, theta14)]
-#     theta14mins = [min_val / theta for min_val, theta in zip(theta14min, theta14)]
-#
-#     return theta14, theta14maxs, theta14mins
-#
-# def f14(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (8 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1 - np.clip(y1, 0.001, 0.999)) ** (-0.5) - 1)
-#     output = [dy1dt]
-#     return output
-#
-#
-# def thetadic14p():
-#     theta14p = [4.801721849949891e-08, 24145.079391593325, 3.8624629595306534]
-#     theta14pmin = [1.00e-8, 18000, 0.1]
-#     theta14pmax=[1.00e-4, 32000, 10]
-#     theta14pmaxs = [max_val / theta for max_val, theta in zip(theta14pmax, theta14p)]
-#     theta14pmins = [min_val / theta for min_val, theta in zip(theta14pmin, theta14p)]
-#
-#     return theta14p, theta14pmaxs, theta14pmins
-#
-# def f14p(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (4 * cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / np.clip(y1, 0.001, 0.999)
-#     output = [dy1dt]
-#     return output
-#
-# def thetadic14s():
-#     theta14s = [2.9389515163416562e-09, 22964.17486273399, 9.57546639072975e-07]
-#     theta14smin = [1.00e-9, 18000, 1e-8]
-#     theta14smax=[1.00e-5, 30000, 1e-6]
-#     theta14smaxs = [max_val / theta for max_val, theta in zip(theta14smax, theta14s)]
-#     theta14smins = [min_val / theta for min_val, theta in zip(theta14smin, theta14s)]
-#
-#     return theta14s, theta14smaxs, theta14smins
-#
-# def f14s(t, y, phi, phit, theta, te):
-#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-#     y1 = y
-#     P = np.interp(t, te_array, phit['P'])
-#     T = np.interp(t, te_array, phit['T'])
-#     mld = phi['mld']
-#     aps = phi['aps']
-#     k, Ea, AK = theta[0], theta[1], theta[2]
-#     R = 8.314  # Gas constant in J/(mol*K)
-#     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-#     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-#
-#     # 1. base
-#     ki = k * np.exp((-Ea / (R*T)))
-#     # # 2. modified 1
-#     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-#     # # 3. modified 2
-#     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-#     # # 4. modified 3
-#     # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-#     ka = (12*cm * ki) / (mld * (aps ** 2))
-#     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1-(1-np.clip(y1, 0.001, 0.999))**(1/3))*((1-np.clip(y1, 0.001, 0.999))**(-2/3)))
-#     output = [dy1dt]
-#     return output
-
-
-
-
-#our paper
-
-#my data-orig models
-#------------------------------------------ Model 08-----------------------------------------
-
-def thetadic08():
-    theta08 = [6.123634259442429e-09, 22327.84145134412]
-    theta08min = [1.00e-9, 18000]
-    theta08max = [1.00e-5, 28000]
-    theta08maxs = [max_val / theta for max_val, theta in zip(theta08max, theta08)]
-    theta08mins = [min_val / theta for min_val, theta in zip(theta08min, theta08)]
-
-    return theta08, theta08maxs, theta08mins
-
-
-def f08(t, y, phi, phit, theta, te):
-    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-    y1 = y
-    P = np.interp(t, te_array, phit['P'])
-    T = np.interp(t, te_array, phit['T'])
-    rho = phi['rho']
-    aps = phi['aps']
-    k, Ea = theta[0], theta[1]
-    R = 8.314  # Gas constant in J/(mol*K)
-    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-    cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
-    # # 2. modified 1
-    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-    # # 3. modified 2
-    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-
-    ka = (0.704 * cm * ki) / (rho * (aps ** 2))
-    dy1dt = -ka / (np.log(1 - np.clip(y1, 0.001, 0.999)))
-    output = [dy1dt]
-    return output
-
-#------------------------------------------ Model 09-----------------------------------------
-
-def thetadic09():
-    theta09 = [3.4270989918108122e-09, 22593.290494972498]
-    theta09min = [1.00e-9, 18000]
-    theta09max = [1.00e-5, 28000]
-    theta09maxs = [max_val / theta for max_val, theta in zip(theta09max, theta09)]
-    theta09mins = [min_val / theta for min_val, theta in zip(theta09min, theta09)]
-
-    return theta09, theta09maxs, theta09mins
-
-def f09(t, y, phi, phit, theta, te):
-    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-    y1 = y
-    P = np.interp(t, te_array, phit['P'])
-    T = np.interp(t, te_array, phit['T'])
-    rho = phi['rho']
-    aps = phi['aps']
-    k, Ea = theta[0], theta[1]
-    R = 8.314  # Gas constant in J/(mol*K)
-    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-    cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
-    # # 2. modified 1
-    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-    # # 3. modified 2
-    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-    ka = (1.056 * cm * ki) / (rho * (aps ** 2))
-    dy1dt = ka / (-2 + 2 * (1 - np.clip(y1, 0.001, 0.999)) ** (-1 / 3))
-    output = [dy1dt]
-    return output
-
-
-#------------------------------------------ Model 11-----------------------------------------
-
-def thetadic11():
-    # theta11 = [2.707812554014968e-08, 24144.427994246784, 1.931273198572943]
-    theta11 = [ 1.931249398412675]
-    theta11min = [ 0.1]
-    theta11max = [ 10]
-    theta11maxs = [max_val / theta for max_val, theta in zip(theta11max, theta11)]
-    theta11mins = [min_val / theta for min_val, theta in zip(theta11min, theta11)]
-
-    return theta11, theta11maxs, theta11mins
-
-def f11(t, y, phi, phit, theta, te):
-    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-    y1 = y
-    P = np.interp(t, te_array, phit['P'])
-    T = np.interp(t, te_array, phit['T'])
-    rho = phi['rho']
-    cac = phi['cac']
-    aps = phi['aps']
-    k, Ea, AK = 2.7082983737865782e-08, 24144.940854636305, theta[0]
-    R = 8.314  # Gas constant in J/(mol*K)
-    am = 0.056
-    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-    cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))  # [mol.m-3]
-
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
-    # # 2. modified 1
-    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-    # # 3. modified 2
-    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-    ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
-    dy1dt = ka * np.exp(-AK * ka * t) / (2 * np.clip(y1, 0.001, 0.999))
-    output = [dy1dt]
-    return output
-
-#------------------------------------------ Model 12-----------------------------------------
+#shrinking core, De:dynamic, Ash layer diffusion based, cylindrical particle
 
 def thetadic12():
-    theta12 = [ 5.256432132408076]
-    theta12min = [ 0.1]
-    theta12max=[ 10]
+    theta12 = [8.657783497064711e-08, 20190.20009631406, 2.194284154090643]
+    theta12min = [1.00e-10, 18000, 0.1]
+    theta12max=[1.00e-6, 30000, 10]
     theta12maxs = [max_val / theta for max_val, theta in zip(theta12max, theta12)]
     theta12mins = [min_val / theta for min_val, theta in zip(theta12min, theta12)]
 
@@ -1140,30 +235,31 @@ def f12(t, y, phi, phit, theta, te):
     rho = phi['rho']
     cac = phi['cac']
     aps = phi['aps']
-    k, Ea, AK = 7.784315597484832e-09, 24174.47459078301, theta[0]
+    k, Ea, AK = theta[0], theta[1], theta[2]
     R = 8.314  # Gas constant in J/(mol*K)
     am = 0.056
     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
     cm = P * 1000 * 0.035 * np.exp(2400*(1/T-1/298.15))
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
     # # 2. modified 1
     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
     # # 3. modified 2
     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
     dy1dt = ka * 2 * np.exp(-AK * ka * t) / -(np.log(1 - np.clip(y1, 0.001, 0.999)))
     output = [dy1dt]
     return output
-
-#------------------------------------------ Model 13-----------------------------------------
+#
+# #------------------------------------------ Model 13-----------------------------------------
+#shrinking core, De:dynamic, Ash layer diffusion based, spherical particle
 
 def thetadic13():
-    theta13 = [3.305407834054765e-09,  13.621581302396294]
-    theta13min = [1.00e-10,  0.1]
-    theta13max=[1.00e-6,  30]
+    theta13 = [3.74989949780187e-08, 20213.603669155094, 6.949990334765804]
+    theta13min = [1.00e-10, 18000, 0.1]
+    theta13max=[1.00e-6, 30000, 10]
     theta13maxs = [max_val / theta for max_val, theta in zip(theta13max, theta13)]
     theta13mins = [min_val / theta for min_val, theta in zip(theta13min, theta13)]
 
@@ -1178,31 +274,33 @@ def f13(t, y, phi, phit, theta, te):
     rho = phi['rho']
     cac = phi['cac']
     aps = phi['aps']
-    k, Ea, AK = theta[0], 24170.141842277128, theta[1]
+    k, Ea, AK = theta[0], theta[1], theta[2]
     R = 8.314  # Gas constant in J/(mol*K)
     am = 0.056
     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
 
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
     # # 2. modified 1
     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
     # # 3. modified 2
     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
     ka = (200 * 4 * am * cm * ki) / (rho * cac * (aps ** 2))
     dy1dt = (3 / 2) * ka * np.exp(-AK * ka * t) / -((1 - np.clip(y1, 0.001, 0.999)) ** (1 / 3) - 1)
     output = [dy1dt]
     return output
 
-#------------------------------------------ Model 14-----------------------------------------
+#
+# #------------------------------------------ Model 14-----------------------------------------
+#shrinking core, De:dynamic and parabolic, Ash layer diffusion based, plate shape particle
 
 def thetadic14():
-    theta14 = [ 4.1205952870775775]
-    theta14min = [ 0.1]
-    theta14max=[ 10]
+    theta14 = [1.3341960133302085e-06, 20239.41387867327, 2.426734975569295]
+    theta14min = [1.00e-8, 18000, 0.1]
+    theta14max=[1.00e-4, 32000, 10]
     theta14maxs = [max_val / theta for max_val, theta in zip(theta14max, theta14)]
     theta14mins = [min_val / theta for min_val, theta in zip(theta14min, theta14)]
 
@@ -1215,88 +313,96 @@ def f14(t, y, phi, phit, theta, te):
     T = np.interp(t, te_array, phit['T'])
     mld = phi['mld']
     aps = phi['aps']
-    k, Ea, AK = 1.4890118791931668e-08, 24191.925871030264, theta[0]
+    k, Ea, AK = theta[0], theta[1], theta[2]
     R = 8.314  # Gas constant in J/(mol*K)
     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
 
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
     # # 2. modified 1
     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
     # # 3. modified 2
     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
-    ka = (8 * cm * ki) / (mld * (aps ** 2))
-    dy1dt = (ka * np.exp(-AK * ka * t)) / ((1 - np.clip(y1, 0.001, 0.999)) ** (-0.5) - 1)
-    output = [dy1dt]
-    return output
-
-
-def thetadic14p():
-    theta14p = [3.862418207089512]
-    theta14pmin = [0.1]
-    theta14pmax=[ 10]
-    theta14pmaxs = [max_val / theta for max_val, theta in zip(theta14pmax, theta14p)]
-    theta14pmins = [min_val / theta for min_val, theta in zip(theta14pmin, theta14p)]
-
-    return theta14p, theta14pmaxs, theta14pmins
-
-def f14p(t, y, phi, phit, theta, te):
-    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
-    y1 = y
-    P = np.interp(t, te_array, phit['P'])
-    T = np.interp(t, te_array, phit['T'])
-    mld = phi['mld']
-    aps = phi['aps']
-    k, Ea, AK = 4.8011826586961365e-08, 24144.805624598048, theta[0]
-    R = 8.314  # Gas constant in J/(mol*K)
-    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
-    cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
-
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
-    # # 2. modified 1
-    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
-    # # 3. modified 2
-    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
     ka = (4 * cm * ki) / (mld * (aps ** 2))
     dy1dt = (ka * np.exp(-AK * ka * t)) / np.clip(y1, 0.001, 0.999)
     output = [dy1dt]
     return output
 
-def thetadic14s():
-    theta14s = [2.9390288881519947e-09, 22964.24459636733]
-    theta14smin = [1.00e-9, 18000]
-    theta14smax=[1.00e-5, 30000]
-    theta14smaxs = [max_val / theta for max_val, theta in zip(theta14smax, theta14s)]
-    theta14smins = [min_val / theta for min_val, theta in zip(theta14smin, theta14s)]
 
-    return theta14s, theta14smaxs, theta14smins
+#
+# #------------------------------------------ Model 15-----------------------------------------
+#shrinking core, De:dynamic and parabolic, Ash layer diffusion based, cylindrical particle
 
-def f14s(t, y, phi, phit, theta, te):
+def thetadic15():
+    theta15 = [3.822470068711253e-07, 20198.045600335983, 0.7671885604344969]
+    theta15min = [1.00e-9, 18000, 0.1]
+    theta15max=[1.00e-5, 30000, 10]
+    theta15maxs = [max_val / theta for max_val, theta in zip(theta15max, theta15)]
+    theta15mins = [min_val / theta for min_val, theta in zip(theta15min, theta15)]
+
+    return theta15, theta15maxs, theta15mins
+
+def f15(t, y, phi, phit, theta, te):
     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
     y1 = y
     P = np.interp(t, te_array, phit['P'])
     T = np.interp(t, te_array, phit['T'])
     mld = phi['mld']
     aps = phi['aps']
-    k, Ea, AK = theta[0], theta[1], 9.985300665060775e-07
+    k, Ea, AK = theta[0], theta[1], theta[2]
     R = 8.314  # Gas constant in J/(mol*K)
     # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
     cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
 
-    # 1. base
-    ki = k * np.exp((-Ea / (R*T)))
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
     # # 2. modified 1
     # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
     # # 3. modified 2
     # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
-    # # 4. modified 3
-    # ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
+    ka = (8 * cm * ki) / (mld * (aps ** 2))
+    dy1dt = (ka * np.exp(-AK * ka * t)) / ((1 - np.clip(y1, 0.001, 0.999)) ** (-0.5) - 1)
+    output = [dy1dt]
+    return output
+
+#
+# #------------------------------------------ Model 16-----------------------------------------
+#shrinking core, De:dynamic and parabolic, Ash layer diffusion based, spherical particle
+
+def thetadic16():
+    theta16 = [1.8333977056274745e-07, 20170.507458025906, 2.5666991259436363e-07]
+    theta16min = [1.00e-9, 18000, 1e-8]
+    theta16max=[1.00e-5, 30000, 1e-6]
+    theta16maxs = [max_val / theta for max_val, theta in zip(theta16max, theta16)]
+    theta16mins = [min_val / theta for min_val, theta in zip(theta16min, theta16)]
+
+    return theta16, theta16maxs, theta16mins
+
+def f16(t, y, phi, phit, theta, te):
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    y1 = y
+    P = np.interp(t, te_array, phit['P'])
+    T = np.interp(t, te_array, phit['T'])
+    mld = phi['mld']
+    aps = phi['aps']
+    k, Ea, AK = theta[0], theta[1], theta[2]
+    R = 8.314  # Gas constant in J/(mol*K)
+    # cm = (P * 100000) / (2.82 * 10 ** 6 * np.exp(-2044 / T))
+    cm = P * 1000 * 0.035 * np.exp(2400 * (1 / T - 1 / 298.15))
+
+    # # 1. base
+    # ki = k * np.exp((-Ea / (R*T)))
+    # # 2. modified 1
+    # ki = (k * np.exp(-Ea / (R * 333.15))) * np.exp((Ea / R) * ((1 / 333.15) - (1 / T)))
+    # # 3. modified 2
+    # ki = np.exp((np.log(k) - (Ea/(R*333.15)) + (Ea/R) * ((1/333.15) - (1/T))))
+    # 4. modified 3
+    ki = np.exp((np.log(k) - (Ea / (R * 333.15))) + np.exp((np.log(Ea / R))) * ((1 / 333.15) - (1 / T)))
     ka = (12*cm * ki) / (mld * (aps ** 2))
     dy1dt = (ka * np.exp(-AK * ka * t)) / ((1-(1-np.clip(y1, 0.001, 0.999))**(1/3))*((1-np.clip(y1, 0.001, 0.999))**(-2/3)))
     output = [dy1dt]
@@ -1306,27 +412,10 @@ def f14s(t, y, phi, phit, theta, te):
 
 
 
-#------------------------------------------ Model 15-----------------------------------------
 
 
-def thetadic15():
-    theta15 = [4.04e-6, 114.19]
-    theta15min = [1.00e-9, 10]
-    theta15max=[1.00e-3, 500]
-    theta15maxs = [max_val / theta for max_val, theta in zip(theta15max, theta15)]
-    theta15mins = [min_val / theta for min_val, theta in zip(theta15min, theta15)]
 
-    return theta15, theta15maxs, theta15mins
 
-def f15(t, y, phi, phit, theta, te):
-    y1 = y
-    sg = phi['sg']
-    m = phi['m']
-    ks, kp = theta[0], theta[1]
-    # Compute reaction rates
-    dy1dt = sg * m * ks * np.exp(- ks * kp * t)
-    output = [dy1dt]
-    return output
 
 #------------------------------------------ Model 16-----------------------------------------
 #joint my made model for ash layer diffusion and surface reaction
