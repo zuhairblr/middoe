@@ -1,4 +1,5 @@
 from middoe.krnl_models import *
+import numpy as np
 from multiprocessing import Pool
 import time
 import os
@@ -13,9 +14,107 @@ from middoe.krnl_simula import Simula
 from middoe.iden_valida import validation
 
 
+def f17(t, y, phi, phit, theta, te):
+    """
+    Differential equations for gas-solid reaction kinetics.
+
+    Parameters:
+    - t: Time (seconds)
+    - y: [y1, y2] where
+        y1: Fraction of unoccupied surface (dimensionless, 0 ≤ y1 ≤ 1)
+        y2: Conversion (dimensionless, 0 ≤ y2 ≤ 1)
+    - phi: Time-invariant variables (dictionary containing):
+        S0: Initial surface area per unit volume (m²/m³)
+        epsilon_0: Initial porosity (dimensionless, 0 ≤ epsilon_0 ≤ 1)
+        Z: Ratio of product/reactant molar volumes (dimensionless)
+    - phit: Time-variant variables (dictionary containing):
+        C: Gas concentration (mol/m³)
+        T: Temperature (Kelvin)
+    - theta: Parameters [ks0, Ea_ks, Ds0, Ea_Ds, Dp0, Ea_Dp] where:
+        ks0: Pre-exponential factor for ks (m⁴/mol/s)
+        Ea_ks: Activation energy for ks (J/mol)
+        Ds0: Pre-exponential factor for Ds (m²/s)
+        Ea_Ds: Activation energy for Ds (J/mol)
+        Dp0: Pre-exponential factor for Dp (m²/s)
+        Ea_Dp: Activation energy for Dp (J/mol)
+    - te: Time points corresponding to profiles of phit variables (seconds)
+
+    Returns:
+    - [dy1_dt, dy2_dt]: Derivatives of y1 and y2 where:
+        dy1_dt: Rate of change of fraction of unoccupied surface (s⁻¹)
+        dy2_dt: Rate of change of conversion (s⁻¹)
+    """
+    # Unpack current state variables
+    y1, y2 = y  # y1: fraction of unoccupied surface, y2: conversion
+
+    # Interpolate time-variant inputs
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    C = np.interp(t, te_array, phit['C'])  # Gas concentration (mol/m³)
+    T = np.interp(t, te_array, phit['T'])  # Temperature (Kelvin)
+
+    # Extract time-invariant variables
+    S0 = phi['S0']  # Initial surface area per unit volume (m²/m³)
+    epsilon_0 = phi['epsilon_0']  # Initial porosity (dimensionless)
+    # Z = phi['Z']  # Ratio of product/reactant molar volumes (dimensionless)
+    Z = 2.18
+    # VBM = phi['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
+    VBM= 1.69e-5
+
+    # Extract parameters from theta
+    ks0 = theta[0]  # Pre-exponential factor for ks (m⁴/mol/s)
+    Ea_ks = theta[1]  # Activation energy for ks (J/mol)
+    Ds0 = theta[2]  # Pre-exponential factor for Ds (m²/s)
+    Ea_Ds = theta[3]  # Activation energy for Ds (J/mol)
+    Dp0 = theta[4]  # Pre-exponential factor for Dp (m²/s)
+    Ea_Dp = theta[5]  # Activation energy for Dp (J/mol)
+
+    # Constants
+    R = 8.314  # Universal gas constant (J/(mol*K))
+
+    # Arrhenius equations for reaction rates
+    ks = ks0 * np.exp(-Ea_ks / (R * T))  # Chemical reaction rate constant (m⁴/mol/s)
+    Ds = Ds0 * np.exp(-Ea_Ds / (R * T))  # Surface diffusion coefficient (m²/s)
+    Dp = Dp0 * np.exp(-Ea_Dp / (R * T))  # Product layer diffusion coefficient (m²/s)
+
+    # Equilibrium concentration Ce (mol/m³, function of temperature)
+    Ce = (1.826e6 / (R * T)) * np.exp(-19680 / T)
+
+    # Geometric model functions
+    jS_X = (1 - y2) ** (2 / 3)  # Reaction surface area function (dimensionless)
+    gD_X = (1 - y2) ** (2 / 3) / (((1 + Z / (1 - y1) - 1) * y2) ** (2 / 3))  # Geometric function (dimensionless)
+    pD_d_X = (3 * (1 - y2) ** (1 / 3)) / ((1 + (Z / (1 - y1) - 1) * y2) ** (1 / 3)) - (1 - y2) ** (1 / 3) * ((1 + ((Z / (1 - y1) - 1) * y2)) ** (1 / 3) - (1 - y2) ** (1 / 3))
+    Ks= ks*Z/Ds # ratio of chemical reaction rate to the Surface diffusion coefficient
+
+    # Differential equations
+    # Rate of change of fraction of unoccupied surface (y1, s⁻¹)
+    dy1_dt = -(ks * Z / Ds) * (C - Ce) * y1 / (1 + Ks * (C - Ce))
+
+    # Rate of change of conversion (y2, s⁻¹)
+    beta = (ks* (1 - epsilon_0)) / (Dp * S0 * VBM)  # Coupling term for product layer diffusion (dimensionless)
+    dy2_dt = (ks * S0 / (1 - epsilon_0)) * jS_X * (C - Ce) * ((y1 / (1 + ks * (C - Ce))) + ((1 - y1) / (gD_X + beta * (C - Ce) * pD_d_X )))
+
+    # Return the derivatives as a list
+    return [dy1_dt, dy2_dt]
+
 def main():
 
+    def thetadic17():
+        theta17 = [2.72e-7, 44760, 7.72e-10, 80210, 2.58e-6, 37990]
+        # theta17min = [1e-8, 20000, 1e-11, 40000, 1e-7, 20000]
+        # theta17max = [1e-5, 100000, 1e-8, 150000, 1e-4, 80000]
+        theta17min = [2.72e-7*0.999, 44760*0.999, 7.72e-10*0.999, 80210*0.999, 2.58e-6*0.999, 37990*0.999]
+        theta17max = [2.72e-7*1.001, 44760*1.001, 7.72e-10*1.001, 80210*1.001, 2.58e-6*1.001, 37990*1.001]
+        theta17maxs = [max_val / theta for max_val, theta in zip(theta17max, theta17)]
+        theta17mins = [min_val / theta for min_val, theta in zip(theta17min, theta17)]
+
+
+        return theta17, theta17maxs, theta17mins
+
+
+
     #reading parameters from embedded models
+    theta05, theta05max, theta05min = thetadic05()
+    theta06, theta06max, theta06min = thetadic06()
     theta07, theta07max, theta07min = thetadic07()
     theta08, theta08max, theta08min = thetadic08()
     theta09, theta09max, theta09min = thetadic09()
@@ -24,7 +123,8 @@ def main():
     theta13, theta13max, theta13min = thetadic13()
     theta14, theta14max, theta14min = thetadic14()
     theta15, theta15max, theta15min = thetadic15()
-    theta22, theta22max, theta22min = thetadic22()
+    theta16, theta16max, theta16min = thetadic16()
+    theta17, theta17max, theta17min = thetadic17()
 
 
     model_structure = {
@@ -70,43 +170,50 @@ def main():
     }
 
     modelling_settings = {
-        'ext_func': {},
-        # 'active_solvers': ['f09', 'f11'],
-        'active_solvers': [ 'f11'],
+        'ext_func': {'f17': f17},
+        'active_solvers': ['f11'],
         'theta_parameters': {
-            'f22': theta22,
-            'f15': theta15,
-            'f14': theta14,
-            'f13': theta13,
-            'f12': theta12,
-            'f11': theta11,
-            'f09': theta09,
-            'f08': theta08,
+            'f05': theta05,
+            'f06': theta06,
             'f07': theta07,
+            'f08': theta08,
+            'f09': theta09,
+            'f11': theta11,
+            'f12': theta12,
+            'f13': theta13,
+            'f14': theta14,
+            'f15': theta15,
+            'f16': theta16,
+            'f17': theta17
         },
         'bound_max': {
-            'f22': theta22max,
-            'f15': theta15max,
-            'f14': theta14max,
-            'f13': theta13max,
-            'f12': theta12max,
-            'f11': theta11max,
-            'f09': theta09max,
-            'f08': theta08max,
+            'f05': theta05max,
+            'f06': theta06max,
             'f07': theta07max,
+            'f08': theta08max,
+            'f09': theta09max,
+            'f11': theta11max,
+            'f12': theta12max,
+            'f13': theta13max,
+            'f14': theta14max,
+            'f15': theta15max,
+            'f16': theta16max,
+            'f17': theta17max
         },
         'bound_min': {
-            'f22': theta22min,
-            'f15': theta15min,
-            'f14': theta14min,
-            'f13': theta13min,
-            'f12': theta12min,
-            'f11': theta11min,
-            'f09': theta09min,
-            'f08': theta08min,
+            'f05': theta05min,
+            'f06': theta06min,
             'f07': theta07min,
+            'f08': theta08min,
+            'f09': theta09min,
+            'f11': theta11min,
+            'f12': theta12min,
+            'f13': theta13min,
+            'f14': theta14min,
+            'f15': theta15min,
+            'f16': theta16min,
+            'f17': theta17min
         },
-        'selected_rounds': [3, 4, 10]
     }
 
 
@@ -299,20 +406,20 @@ def main():
                 Simula
             )
 
-            # if j in [1, 2]:
-            #     ranking, k_optimal_value, rCC_values, J_k_values = Estima(
-            #         resultun,
-            #         model_structure,
-            #         modelling_settings,
-            #         estimation_settings,
-            #         j,
-            #         framework_settings,
-            #         data_storage,
-            #         Simula
-            #     )
-            # else:
-            #     ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+            if j in [1, 2]:
+                ranking, k_optimal_value, rCC_values, J_k_values = Estima(
+                    resultun,
+                    model_structure,
+                    modelling_settings,
+                    estimation_settings,
+                    j,
+                    framework_settings,
+                    data_storage,
+                    Simula
+                )
+            else:
+                ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+            # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'classic design', round_data, modelling_settings, scaled_params, estimation_settings,
                               solver_parameters, framework_settings, obs, case, data_storage, model_structure)
