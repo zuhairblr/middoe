@@ -273,9 +273,6 @@ def main():
     }
 
 
-
-
-
     def run_framework(framework_settings, logic_settings, model_structure, design_settings, modelling_settings,
                       simulator_settings, estimation_settings, GSA_settings):
         """
