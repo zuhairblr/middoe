@@ -158,10 +158,11 @@
 
 
 <p align="center">
-  <img src="https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo.png?ver=1741697849" width="500">
+  <img src="https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo-Page-5.png" width="500">
 </p>
 
-<h1 align="center">MIDDoE: Model-(based) Identification, Discrimination, and Design of Experiments 🚀</h1>
+
+<h1 align="center">MIDDoE: Model-(based) Identification, Discrimination, and Design of Experiments </h1>
 
 <p align="center">
     <a href="https://pypi.org/project/middoe/"><img src="https://img.shields.io/pypi/v/middoe?color=blue&label=PyPI&logo=pypi&logoColor=white" alt="PyPI"></a>
@@ -249,8 +250,11 @@ MIDDoE provides a comprehensive set of tutorials and case studies demonstrating 
 For support and community interaction:  
 - 🏷️ Use the `#MIDDoE` tag on **StackOverflow**.  
 - 📧 Contact the development team:  
-    - **Zuhair Tabrizi** — [zuhairtabrizi@gmail.com](mailto:zuhairtabrizi@gmail.com)  
-    - **Prof. Fabrizio Bezzo** — [fabrizio.bezzo@unipd.it](mailto:fabrizio.bezzo@unipd.it)  
+    - **Zuhair Tabrizi** — [zuhairtabrizi@gmail.com](mailto:zuhairtabrizi@gmail.com)
+    - **Dr. Elena Barbera** — [elena.barbera@unipd.it ](mailto:elena.barbera@unipd.it )
+    - **Dr. Wilson Ricardo Leal Da Silva** — [wilson.dasilva@flsmidth.com ](mailto:wilson.dasilva@flsmidth.com )
+    - **Prof. Fabrizio Bezzo** — [fabrizio.bezzo@unipd.it](mailto:fabrizio.bezzo@unipd.it)
+       
 
 ---
 
