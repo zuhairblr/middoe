@@ -662,7 +662,7 @@ def _runner(
     pp_obj = None
     solver_name = active_solvers[0]  # or whichever solver you want to measure
     if MBDOE_PP_criterion == 'D':
-        pp_obj = np.linalg.det(M[solver_name]) * 1e-1
+        pp_obj = np.linalg.det(M[solver_name])
     elif MBDOE_PP_criterion == 'A':
         pp_obj = np.trace(M[solver_name])
     elif MBDOE_PP_criterion == 'E':

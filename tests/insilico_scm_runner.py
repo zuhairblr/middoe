@@ -126,53 +126,88 @@ def main():
     theta16, theta16max, theta16min = thetadic16()
     theta17, theta17max, theta17min = thetadic17()
 
-
     model_structure = {
-        'tv_iphi': {
-            'T': {'swp': 5, 'constraints': 'rel', 'max': 373.15, 'min': 293.15, 'initial_cvp': 'none',
-                   'design_cvp': 'CPF', 'offsetl': 0.1, 'offsett': 0.1},
-            'P': {'swp': 5, 'constraints': 'dec', 'max': 5, 'min': 1, 'initial_cvp': 'none',
-                   'design_cvp': 'CPF', 'offsetl': 0.1, 'offsett': 0.1}
+        'tv_iphi': {  # Time-variant input variables (model input: phit), each key is a symbol nad key in phit as well
+            'T': {  # Temperature (K)
+                'swp': 5,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
+                # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
+                'constraints': 'rel',  # Constraint type: relative state of signal levels in CVPs
+                # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
+                'max': 373.15,  # Maximum allowable signal level, design space upper bound
+                'min': 293.15,  # Minimum allowable signal level, design space lower bound
+                'initial_cvp': 'none',  # Initial CVP method (none - no predefined profile)
+                'design_cvp': 'CPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
+                'offsetl': 0.1,  # minimum allowed perturbation of signal (ratio)
+                'offsett': 0.1  # minimum allowed perturbation of time (ratio)
+            },
+            'P': {  # Pressure (bar)
+                'swp': 5,
+                'constraints': 'dec',
+                'max': 5,
+                'min': 1,
+                'initial_cvp': 'none',
+                'design_cvp': 'CPF',
+                'offsetl': 0.1,
+                'offsett': 0.1
+            }
         },
-        'tv_ophi': {
-            'y1': {'initials': 0.001, 'measured': True, 'sp': 10, 'unc': 0.02, 'offsett': 0.1, 'matching': '1'}
+        'tv_ophi': {  # Time-variant output variables (responses, measured or unmeasured)
+            'y1': {  # response variable, here carbonation efficiency
+                'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
+                'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
+                'sp': 10,  # the amound of samples per each batch (run)
+                'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 0.1,  # minimum allowed perturbation of sampling times (ratio)
+                'matching': '1'  # Matching criterion for model prediction and data alignment
+            }
         },
-        'ti_iphi': {
-            'rho': {'max': 4000, 'min': 2300},
-            'cac': {'max': 54.5, 'min': 10},
-            'aps': {'max': 1e-4, 'min': 1e-5},
-            'mld': {'max': 40000, 'min': 30000},
+        'ti_iphi': {  # Time-invariant input variables (phi)
+            'rho': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
+                'max': 4000,  # Maximum allowable signal level, design space upper bound
+                'min': 2300  # Minimum allowable signal level, design space upper bound
+            },
+            'cac': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
+                'max': 54.5,  # Maximum allowable signal level, design space upper bound
+                'min': 10  # Minimum allowable signal level, design space upper bound
+            },
+            'aps': {  # 3rd symbolic time-invariant control, Average particle size (m)
+                'max': 1e-4,  # Maximum allowable signal level, design space upper bound
+                'min': 1e-5  # Minimum allowable signal level, design space upper bound
+            },
+            'mld': {  # 4th symbolic time-invariant control, Molar density of reaction product (mol/m³)
+                'max': 40000,  # Maximum allowable signal level, design space upper bound
+                'min': 30000  # Minimum allowable signal level, design space upper bound
+            },
         },
-        'ti_ophi': {
+        'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
-        't_s': [600, 10800]
+        't_s': [600, 10800]  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
     }
 
-
-    design_settings = {
-        'eps': 1e-3,
+    design_settings = { # Design settings for the experiment
+        'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'Local',
-            'mdopt_method': 'Local'
+            'ppopt_method': 'Local', # optimization method for MBDoE-PP, 'Local': trust-constr method, 'Global': differential evolution + trust-constr
+            'mdopt_method': 'Local' # optimization method for MBDoE-MD, 'Local': trust-constr method, 'Global': differential evolution + trust-constr
         },
         'criteria': {
-            'MBDOE_MD_criterion': 'HR',
-            'MBDOE_PP_criterion': 'E'
+            'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
+            'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 10,
-            'nd2': 300,
-            'maxmd': 100,
-            'tolmd': 1e-3,
-            'maxpp': 100,
-            'tolpp': 1e-3,
+            'nd': 10,   # the number of added points for trajectory smoothness in each batch (run)
+            'nd2': 300, # the number of added points for trajectory smoothness in each batch (report)
+            'maxmd': 100, # maximum number of MD runs
+            'tolmd': 1e-3, # tolerance for MD optimization
+            'maxpp': 100, # maximum number of PP runs
+            'tolpp': 1e-3, # tolerance for PP optimization
         }
     }
 
-    modelling_settings = {
-        'ext_func': {'f17': f17},
-        'active_solvers': ['f11'],
-        'theta_parameters': {
+    modelling_settings = { # Settings related to the rival models and their parameters
+        'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
+        'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
+        'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
             'f06': theta06,
             'f07': theta07,
@@ -186,7 +221,7 @@ def main():
             'f16': theta16,
             'f17': theta17
         },
-        'bound_max': {
+        'bound_max': { # Maximum bounds for theta parameters (based on normalized to 1)
             'f05': theta05max,
             'f06': theta06max,
             'f07': theta07max,
@@ -200,7 +235,7 @@ def main():
             'f16': theta16max,
             'f17': theta17max
         },
-        'bound_min': {
+        'bound_min': { # Minimum bounds for theta parameters (based on normalized to 1)
             'f05': theta05min,
             'f06': theta06min,
             'f07': theta07min,
@@ -219,27 +254,27 @@ def main():
 
 
     # scms
-    GSA_settings = {
-        'perform_sensitivity': False,
-        'phi_nom': [3191, 44.93, 5.5e-5, 36000],
-        'phit_nom': [293.15, 1],
-        'var_damping': False,
-        'par_damping': True,
-        'parallel': True,
-        'power': 0.7,
-        'var_damping_factor': 1.1,
-        'par_damping_factor': 1.1,
-        'sampling': 2**10,
-        'var_sensitivity': False,
-        'par_sensitivity': True
+    GSA_settings = { # Settings for the Global Sensitivity Analysis (GSA)
+        'perform_sensitivity': False, # Perform sensitivity analysis
+        'phi_nom': [3191, 44.93, 5.5e-5, 36000], # Nominal values for the time-invariant variables
+        'phit_nom': [293.15, 1], # Nominal values for the time-variant variables
+        'var_damping': False, # in case of GSA forvariables, True: use marginal damping factor, False: use design space
+        'par_damping': True, # in case of GSA for parameters, True: use marginal damping factor, False: use estimation space
+        'parallel': True, # Perform GSA in parallel
+        'power': 0.7, # CPU core usage ratio
+        'var_damping_factor': 1.1, # Damping factor for variables (in case on)
+        'par_damping_factor': 1.1, # Damping factor for parameters (in case on)
+        'sampling': 2**10, # Sampling size for GSA, always 2**n
+        'var_sensitivity': False, # Perform sensitivity analysis for variables
+        'par_sensitivity': True   # Perform sensitivity analysis for parameters
     }
 
 
     # scms
-    simulator_settings = {
-        'insilico_model': 'f11',
-        'smoothness': 300,
-        'classic-des': {
+    simulator_settings = { # Settings for the insilico data generation
+        'insilico_model': 'f11', # selected true model (with nominal values)
+        'smoothness': 300, # smoothness of the generated data in each batch, time series
+        'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
             '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
             '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
             '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
@@ -248,30 +283,30 @@ def main():
     }
 
 
-    estimation_settings = {
-        'method': 'Local',  # global, local
-        'initialization': 'random',   # use 'random' to have random starting point and use None to start from theta_parameters
-        'eps': 1e-3,  #usually 1e-3, or None to perform a mesh independent test
-        'objf': 'JWLS',  # LS: least squares, MLE: maximum likelihood, Chi: chi-square, JWLS: weighted least squares
-        'con_plot': False,
-        'fit_plot': True,
-        'logging': True
+    estimation_settings = { # Settings for the parameter estimation process
+        'method': 'Local',  # optimisation method, 'Global': differential evolution, 'Local': SLSQP
+        'initialization': 'random',   # use 'random' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
+        'eps': 1e-3,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
+        #usually 1e-3, or None to perform a mesh independency test, and auto adjustment
+        'objf': 'JWLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'JWLS': weighted least squares
+        'con_plot': False, # plot the confidence volumes
+        'fit_plot': True, # plot the fitting results
+        'logging': True # log the results
     }
 
-    logic_settings = {
-        'max_MD_runs': 1,
-        'max_PP_runs': 1,
-        'md_conf_tresh': 85,
-        'md_rej_tresh': 15,
-        'pp_conf_threshold': 1,
-        'parallel_sessions': 10
+    logic_settings = { # Logic settings for the workflow
+        'max_MD_runs': 1, # maximum number of MBDoE-MD runs
+        'max_PP_runs': 1, # maximum number of MBDoE-PP runs
+        'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
+        'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
+        'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
+        'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
     }
 
-    framework_settings = {
-        'path': 'C:\\datasim',
-        'case': 1
+    framework_settings = { # Framework settings for saving the results
+        'path': 'C:\\datasim', # path to save the results
+        'case': 1 # case number as the name of subfolder to be created and getting used for restoring
     }
-
 
     def run_framework(framework_settings, logic_settings, model_structure, design_settings, modelling_settings,
                       simulator_settings, estimation_settings, GSA_settings):
@@ -291,34 +326,39 @@ def main():
         Returns:
         None
         """
-        start_time = time.time()
-        data_storage = {}
-        round_data = {}
-        design_decisions = {}
-        winner_solver = None
-        winner_solver_found = False
+        start_time = time.time()  # Track the starting time for measuring total runtime
+        data_storage = {}  # Storage for collected data in different rounds
+        round_data = {}  # Tracks results of identification per round of estimation
+        design_decisions = {}  # Tracks experimental design decisions
+        winner_solver = None  # Tracks the solver with the highest discrimination performance
+        winner_solver_found = False  # Tracks if a winning solver is identified
 
+        # Check if only one active solver exists; if true, no MD analysis needed
         if len(modelling_settings['active_solvers']) == 1:
             winner_solver_found = True
             winner_solver = modelling_settings['active_solvers'][0]
             print("There are no rival models for:", winner_solver)
 
+        # Perform Sobol Sensitivity Analysis if enabled in GSA settings
         if GSA_settings['perform_sensitivity']:
-            sobol_results = {}
-            sobol_results['sobol_analysis_results'], sobol_results['sobol_problem'] = Sensa(GSA_settings,
-                                                                                            modelling_settings,
-                                                                                            model_structure,
-                                                                                            framework_settings)
+            sobol_results = {}  # Dictionary to store Sobol sensitivity results
+            sobol_results['sobol_analysis_results'], sobol_results['sobol_problem'] = Sensa(
+                GSA_settings, modelling_settings, model_structure, framework_settings)
 
+        # Run the initial round of experiments (Classic Design)
         data_storage = run_initial_round(framework_settings, model_structure, modelling_settings, simulator_settings,
                                          estimation_settings, round_data, design_decisions, data_storage)
 
+        # If no winner identified, proceed with Model Discrimination rounds
         if not winner_solver_found:
             winner_solver_found, winner_solver = run_md_rounds(framework_settings, model_structure, modelling_settings,
                                                                simulator_settings, estimation_settings, logic_settings,
                                                                design_settings, logic_settings['parallel_sessions'],
                                                                round_data, design_decisions, data_storage)
-        terminate_loop = False
+
+        terminate_loop = False  # Tracks if the framework's termination condition is met
+
+        # Proceed with Parameter Precision rounds if a winner is identified
         if winner_solver_found:
             terminate_loop = run_pp_rounds(framework_settings, model_structure, modelling_settings, simulator_settings,
                                            estimation_settings, logic_settings, design_settings,
@@ -332,31 +372,34 @@ def main():
 
         print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')
-        # Call cross-validation at the end
+
+        # Perform final validation with cross-validation metrics
         R2_prd, R2_val, parameters = validation(data_storage, model_structure, modelling_settings, estimation_settings,
                                                 Simula, round_data, framework_settings)
 
+        # Ensure the output folder structure exists for saving results
         base_path = framework_settings['path']
-        modelling_folder = str(framework_settings['case'])  # No leading backslash here
-
-        # Join the base path and modelling folder
+        modelling_folder = str(framework_settings['case'])
         path = os.path.join(base_path, modelling_folder)
-
-        # Ensure the 'modelling' directory exists
         os.makedirs(path, exist_ok=True)
 
+        # Calculate and display total runtime
         end_time = time.time()
         runtime = end_time - start_time
         print(f"Runtime of framework: {runtime} seconds")
 
+        # Save results in .jac files (JSON compressed files)
         folder_path = path
         file_path = os.path.join(folder_path, 'results.jac')
         file_path2 = os.path.join(folder_path, 'results2.jac')
 
         os.makedirs(folder_path, exist_ok=True)
         save_to_jac(round_data, file_path)
+
+        # Save Sobol results if sensitivity analysis was conducted
         if GSA_settings['perform_sensitivity']:
             save_to_jac(sobol_results, file_path2)
+
 
     def run_initial_round(framework_settings, model_structure, modelling_settings, simulator_settings,
                           estimation_settings, round_data, design_decisions, data_storage):
@@ -376,16 +419,24 @@ def main():
         Returns:
         None
         """
+        # Loop through classic design experiments defined in `simulator_settings`
         for i in range(len(simulator_settings['classic-des'])):
-            j = i + 1
-            expr = i + 1
-            case = 'classic'
+            j = i + 1  # Round counter (starting from 1)
+            expr = i + 1  # Experiment ID
+            case = 'classic'  # Case label for classic design
+
+            # Generate experimental data (insilico or from input profiles)
             excel_path, df_combined = Expera(framework_settings, model_structure, modelling_settings,
                                              simulator_settings, design_decisions, j)
+
+            # Write generated data to Excel and read it back for further processing
             write_excel(df_combined, expr, excel_path)
             data = read_excel(excel_path)
+
+            # Append data to the main storage for future analysis
             data_storage = data_appender(df_combined, expr, data)
 
+            # Perform parameter estimation using the available data
             resultpr = Parmest(
                 model_structure,
                 modelling_settings,
@@ -394,6 +445,7 @@ def main():
                 Simula
             )
 
+            # Perform uncertainty analysis to compute confidence intervals, etc.
             resultun, theta_parameters, solver_parameters, scaled_params, obs = Uncert(
                 data_storage,
                 resultpr,
@@ -403,6 +455,7 @@ def main():
                 Simula
             )
 
+            # Perform estimability analysis only in the first two rounds
             if j in [1, 2]:
                 ranking, k_optimal_value, rCC_values, J_k_values = Estima(
                     resultun,
@@ -415,11 +468,15 @@ def main():
                     Simula
                 )
             else:
+                # Skip estimability analysis in later rounds
                 ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-            # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+
+            # Save results for this round, including estimates, uncertainties, and observations
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'classic design', round_data, modelling_settings, scaled_params, estimation_settings,
                               solver_parameters, framework_settings, obs, case, data_storage, model_structure)
+
+        # Return the collected data for subsequent rounds
         return data_storage
 
     def run_md_rounds(framework_settings, model_structure, modelling_settings, simulator_settings, estimation_settings,
@@ -429,92 +486,76 @@ def main():
         Run multiple rounds of Model-Based Design of Experiments (MBDOE) using the MD approach.
 
         Parameters:
-        framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
-        model_structure (dict): User provided - Structure of the model, including variables and their properties.
-        modelling_settings (dict): User provided - Settings related to the modelling process, including theta parameters.
-        simulator_settings (dict): User provided - Settings for the simulator, including standard deviation and model name.
-        estimation_settings (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
-        logic_settings (dict): User provided - Logic settings for the identification process, including thresholds and maximum runs.
-        design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
-        num_parallel_runs (int): Number of parallel runs to execute MBDOE-MD.
-        round_data (dict): collection of saved data from each round of the experiment.
-        design_decisions (dict): Design decisions for the experiment, to be performed, insilico or in bench.
-        data_storage (dict): Storage for the experimental data observations
+        - framework_settings: Settings for framework paths and configurations.
+        - model_structure: Defines the model's structure, variables, and configurations.
+        - modelling_settings: Includes settings for theta parameters and active solvers.
+        - simulator_settings: Defines simulation settings for generating data.
+        - estimation_settings: Settings for parameter estimation, solvers, and confidence checks.
+        - logic_settings: Control settings for MD and PP runs, maximum iteration limits, etc.
+        - design_settings: Design-specific settings for MD/PP methods and constraints.
+        - num_parallel_runs: Number of parallel processes for computational efficiency.
+        - round_data: Stores results for each experimental round.
+        - design_decisions: Tracks design decisions for experiments.
+        - data_storage: Stores collected or generated experimental data.
 
         Returns:
-        tuple: A tuple containing:
-            - winner_solver_found (bool): Indicates if a winning solver was found.
-            - winner_solver (str or None): The name of the winning solver, if found.
+        tuple: (winner_solver_found, winner_solver) - Boolean for success and name of winning solver.
         """
-        winner_solver_found = False
-        winner_solver = None
-        start_round = len(round_data) + 1
-        case = 'doe'
+        winner_solver_found = False  # Flag to track if a winner model is found
+        winner_solver = None  # Placeholder for the identified winning solver
+        start_round = len(round_data) + 1  # Start counting from the next available round
+        case = 'doe'  # Design of Experiment identifier
 
+        # Iterate through MD rounds (maximum defined by logic_settings)
         for i in range(logic_settings['max_MD_runs']):
-            j = start_round + i
-            round = j
+            j = start_round + i  # Current round index
 
+            # Check optimization method for MBDoE-MD and apply appropriate logic
             if design_settings['optimization_methods']['mdopt_method'] == 'Local':
+                # Parallel execution using multiprocessing for speed improvement
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(run_mbdoe_md,
                                                 [(design_settings, model_structure, modelling_settings, core_num,
-                                                  framework_settings, round) for core_num in range(num_parallel_runs)])
+                                                  framework_settings, j) for core_num in range(num_parallel_runs)])
                 best_design_decisions, best_sum_squared_differences, best_swps = max(results_list, key=lambda x: x[1])
-                design_decisions.update(best_design_decisions)
+                design_decisions.update(best_design_decisions)  # Update design decisions with the best found
             elif design_settings['optimization_methods']['mdopt_method'] == 'Global':
                 core_num = 1
                 results_list = run_mbdoe_md(design_settings, model_structure, modelling_settings, core_num,
-                                            framework_settings, round)
+                                            framework_settings, j)
                 best_design_decisions, best_sum_squared_differences, best_swps = results_list
                 design_decisions.update(best_design_decisions)
 
+            # Generate experiment data using updated design decisions
             expr = j
-            # excel_path, df_combined = Expera(framework_settings, model_structure, modelling_settings, simulator_settings, design_decisions, j, swps=best_swps)
-            # write_excel(df_combined, expr, excel_path)
-            # # write_to_excel(df_combined, simulator_settings['expr'], excel_path)
-            # # data = read_excel_data(excel_path)
-            # data = read_excel(excel_path)
-            # # data_storage = data_appender(df_combined, expr, data_storage)
-
             excel_path, df_combined = Expera(framework_settings, model_structure, modelling_settings,
                                              simulator_settings, design_decisions, j, swps=best_swps)
-            write_excel(df_combined, expr, excel_path)
-            data = read_excel(excel_path)
-            data_storage = data_appender(df_combined, expr, data_storage)
+            write_excel(df_combined, expr, excel_path)  # Write experiment data to an Excel file
+            data = read_excel(excel_path)  # Read data back for processing
+            data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
 
-            resultpr = Parmest(
-                model_structure,
-                modelling_settings,
-                estimation_settings,
-                data,
-                Simula
-            )
+            # Perform parameter estimation using Parmest
+            resultpr = Parmest(model_structure, modelling_settings, estimation_settings, data, Simula)
 
+            # Perform uncertainty analysis to identify potential solvers and assess variability
             resultun, theta_parameters, solver_parameters, scaled_params, obs = Uncert(
-                data,
-                resultpr,
-                model_structure,
-                modelling_settings,
-                estimation_settings,
-                Simula
-            )
+                data, resultpr, model_structure, modelling_settings, estimation_settings, Simula)
 
-            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None  # Default placeholders
 
-            p_r_threshold = logic_settings['md_rej_tresh']
-            p_a_threshold = logic_settings['md_conf_tresh']
+            # Check discrimination thresholds for solver selection
+            p_r_threshold = logic_settings['md_rej_tresh']  # Rejection threshold for solvers
+            p_a_threshold = logic_settings['md_conf_tresh']  # Acceptance threshold for solvers
             for solver, solver_results in resultun.items():
-                if solver_results['P'] < p_r_threshold:
+                if solver_results['P'] < p_r_threshold:  # Remove rejected solvers
                     modelling_settings['active_solvers'].remove(solver)
-                if solver_results['P'] > p_a_threshold:
+                if solver_results['P'] > p_a_threshold:  # Identify accepted solver (winning model)
                     winner_solver = solver
                     winner_solver_found = True
                     break
 
-            # Check if this is the last iteration
+            # If this is the final iteration, pick the highest P-value model as the winner
             if i == logic_settings['max_MD_runs'] - 1:
-                # Find the model with the highest 'P' value
                 highest_p_solver = max(resultun.items(), key=lambda x: x[1]['P'])[0]
                 highest_p_value = resultun[highest_p_solver]['P']
                 winner_solver_found = True
@@ -522,10 +563,12 @@ def main():
                 print(
                     f"Model discrimination ended after {i + 1} iterations. Model '{winner_solver}' selected as winner based on P value = {highest_p_value}.")
 
+            # Save round data with key metrics and results
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'MBDOE_MD design', round_data, modelling_settings, scaled_params, estimation_settings,
                               solver_parameters, framework_settings, obs, case, data_storage, model_structure)
 
+            # Exit loop early if a winner is identified before max iterations
             if winner_solver_found:
                 break
 
@@ -547,43 +590,52 @@ def main():
         design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
         num_parallel_runs (int): Number of parallel runs to execute MBDOE-PP.
         winner_solver (str): The name of the winning solver from the MD rounds.
-        round_data (dict): collection of saved data from each round of the experiment.
-        design_decisions (dict): Design decisions for the experiment, to be performed, insilico or in bench.
-        data_storage (dict): Storage for the experimental data observations
+        round_data (dict): Collection of saved data from each round of the experiment.
+        design_decisions (dict): Design decisions for the experiment, to be performed in-silico or in-bench.
+        data_storage (dict): Storage for the experimental data observations.
 
         Returns:
         bool: Indicates if the loop was terminated based on the confidence threshold.
         """
-        terminate_loop = False
-        start_round = len(round_data) + 1
-        case = 'doe'
+        terminate_loop = False  # Flag to stop iterations if termination conditions are met
+        start_round = len(round_data) + 1  # Start round number for PP experiments
+        case = 'doe'  # Case identifier
 
-        for i in range(logic_settings['max_PP_runs']):
-            j = start_round + i
-            round = j
+        for i in range(logic_settings['max_PP_runs']):  # Iterate over maximum PP runs
+            j = start_round + i  # Round number tracking
+            round = j  # Alias for the round number
+
+            # Assign the winner solver as the only active solver for the PP round
             modelling_settings['active_solvers'] = [winner_solver]
 
+            # PP optimization strategy selection
             if design_settings['optimization_methods']['ppopt_method'] == 'Local':
+                # Perform Local Optimization using Parallel Execution
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(run_mbdoe_pp,
                                                 [(design_settings, model_structure, modelling_settings, core_num,
                                                   framework_settings, round) for core_num in range(num_parallel_runs)])
+                # Select the best design decisions based on objective value
                 best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
                 design_decisions.update(best_design_decisions)
+
             elif design_settings['optimization_methods']['ppopt_method'] == 'Global':
+                # Perform Global Optimization (Single Core Execution)
                 core_num = 1
                 results_list = run_mbdoe_pp(design_settings, model_structure, modelling_settings, core_num,
                                             framework_settings, round)
                 best_design_decisions, best_pp_obj, best_swps = results_list
                 design_decisions.update(best_design_decisions)
 
-            expr = j
+            # Data generation and storage
+            expr = j  # Experiment ID
             excel_path, df_combined = Expera(framework_settings, model_structure, modelling_settings,
                                              simulator_settings, design_decisions, j, swps=best_swps)
-            write_excel(df_combined, expr, excel_path)
-            data = read_excel(excel_path)
-            data_storage = data_appender(df_combined, expr, data_storage)
+            write_excel(df_combined, expr, excel_path)  # Save data to an Excel file
+            data = read_excel(excel_path)  # Load data from the file
+            data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
 
+            # Parameter Estimation and Uncertainty Analysis
             resultpr = Parmest(
                 model_structure,
                 modelling_settings,
@@ -601,17 +653,19 @@ def main():
                 Simula
             )
 
+            # Save results for further analysis
             ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'MBDOE_PP design', round_data, modelling_settings, scaled_params, estimation_settings,
                               solver_parameters, framework_settings, obs, case, data_storage, model_structure)
 
+            # Check termination condition: all t-values must exceed threshold in resultun
             for solver, solver_results in resultun.items():
                 if all(t_value > trv[solver] for t_value in solver_results['t_values']):
-                    terminate_loop = True
+                    terminate_loop = True  # Set termination flag if condition met
                     break
 
-            if terminate_loop:
+            if terminate_loop:  # Exit the loop if termination conditions are met
                 break
 
         return terminate_loop
