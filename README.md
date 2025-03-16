@@ -277,8 +277,8 @@ MIDDoE is licensed under the **MIT License**. See the `LICENSE` file for more de
 This work is part of the **CO2Valorize** project, funded by the European Union’s Horizon Europe research and innovation programme under the **Marie Skłodowska-Curie Grant Agreement No. 101073547**.
 
 **MIDDoE** is a collaborative effort between:  
-- 🏫 The **Computer-Aided Process Engineering (CAPE)** group at the University of Padova, Italy  
-- 🏢 The **Green Innovation team at FLSmidth Cement**, Denmark  
+- 🏫 The **[Computer-Aided Process Engineering (CAPE)](https://research.dii.unipd.it/capelab/)** group at the University of Padova, Italy  
+- 🏢 The **[Green Innovation team at FLSmidth Cement](https://www.flsmidth-cement.com/events/green-cement-and-concrete-innovation)**, Denmark  
 
 Special thanks to the research community for their valuable contributions and feedback.
 
