@@ -1,6 +1,0 @@
-from _typeshed import Incomplete
-from middoe.iden_utils import plot_sobol_results as plot_sobol_results
-from middoe.krnl_simula import Simula as Simula
-
-def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings): ...
-def sample(settings, N, calc_second_order: bool = True, scramble: bool = True, skip_values: int = 0, seed: Incomplete | None = None): ...
