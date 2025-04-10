@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="structuring">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="real data test">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/iden_valida.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_valida.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,6 +48,9 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;Python.intp.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scratch_23.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scratch_24.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scratch_29.executor&quot;: &quot;Run&quot;,
     &quot;Python.ui_insilico_scm_normal.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
@@ -74,8 +75,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23726.102" />
-        <option value="bundled-python-sdk-5e1850174b45-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23726.102" />
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.24807.21" />
+        <option value="bundled-python-sdk-00717045f1d3-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.24807.21" />
       </set>
     </attachedChunks>
   </component>
@@ -90,6 +91,16 @@
       <workItem from="1741596377740" duration="23138000" />
       <workItem from="1741636816619" duration="8057000" />
       <workItem from="1741785249497" duration="6141000" />
+      <workItem from="1741971133701" duration="19408000" />
+      <workItem from="1742168062055" duration="165000" />
+      <workItem from="1742168468278" duration="234000" />
+      <workItem from="1742168716698" duration="19000" />
+      <workItem from="1742169887849" duration="133000" />
+      <workItem from="1742544817546" duration="4434000" />
+      <workItem from="1742912859928" duration="1876000" />
+      <workItem from="1742985820380" duration="434000" />
+      <workItem from="1743604778552" duration="1011000" />
+      <workItem from="1743606431229" duration="571000" />
     </task>
     <task id="LOCAL-00001" summary="structuring">
       <option name="closed" value="true" />
@@ -283,7 +294,79 @@
       <option name="project" value="LOCAL" />
       <updated>1741699279509</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="test file management">
+      <option name="closed" value="true" />
+      <created>1741973658422</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1741973658422</updated>
+    </task>
+    <task id="LOCAL-00026" summary="test file management">
+      <option name="closed" value="true" />
+      <created>1741975093564</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1741975093564</updated>
+    </task>
+    <task id="LOCAL-00027" summary="model commenting">
+      <option name="closed" value="true" />
+      <created>1741982524450</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1741982524450</updated>
+    </task>
+    <task id="LOCAL-00028" summary="readme commenting">
+      <option name="closed" value="true" />
+      <created>1742124913566</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1742124913566</updated>
+    </task>
+    <task id="LOCAL-00029" summary="readme commenting">
+      <option name="closed" value="true" />
+      <created>1742125912126</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1742125912126</updated>
+    </task>
+    <task id="LOCAL-00030" summary="readme commenting">
+      <option name="closed" value="true" />
+      <created>1742126568682</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1742126568682</updated>
+    </task>
+    <task id="LOCAL-00031" summary="readme commenting">
+      <option name="closed" value="true" />
+      <created>1742126632523</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1742126632523</updated>
+    </task>
+    <task id="LOCAL-00032" summary="real data test">
+      <option name="closed" value="true" />
+      <created>1742128105243</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1742128105243</updated>
+    </task>
+    <task id="LOCAL-00033" summary="real data test">
+      <option name="closed" value="true" />
+      <created>1742166924917</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1742166924917</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -302,9 +385,16 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="structuring" />
-    <option name="LAST_COMMIT_MESSAGE" value="structuring" />
+    <MESSAGE value="test file management" />
+    <MESSAGE value="model commenting" />
+    <MESSAGE value="readme commenting" />
+    <MESSAGE value="real data test" />
+    <option name="LAST_COMMIT_MESSAGE" value="real data test" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/middoe$scratch_29.coverage" NAME="scratch_29 Coverage Results" MODIFIED="1742546827228" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
+    <SUITE FILE_PATH="coverage/middoe$scratch_23.coverage" NAME="scratch_23 Coverage Results" MODIFIED="1742549765681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
+    <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$ui_insilico_scm_normal.coverage" NAME="ui_insilico_scm_normal Coverage Results" MODIFIED="1741606489292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1741606573142" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
   </component>
