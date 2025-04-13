@@ -94,7 +94,6 @@ def _Piecewiser(t, swps, cvp, phit):
     """
 
     result = {}
-
     # Iterate over each variable defined in cvp
     for var, method in cvp.items():
         time_key = f'{var}t'

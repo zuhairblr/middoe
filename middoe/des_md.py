@@ -601,15 +601,10 @@ def md_objective_function(
     runner_function
 ):
     """
-    A top-level objective function that calls your _runner function
+    A top-level objective function that calls _runner function
     and returns -md_obj (assuming you want to maximize md_obj).
     """
     try:
-        # _runner signature:
-        # def _runner(x, nd, tv_iphi_vars, tv_iphi_max, ti_iphi_vars, ti_iphi_max,
-        #             tv_ophi_vars, ti_ophi_vars, active_solvers, theta_parameters,
-        #             tv_iphi_cvp, design_criteria, tf, eps, mutation,
-        #             index_dict, model_structure, modelling_settings)
         _, _, _, md_obj, _, _, _, _ = runner_function(
             x,
             nd,

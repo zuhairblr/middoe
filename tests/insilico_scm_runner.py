@@ -305,7 +305,7 @@ def main():
 
     framework_settings = { # Framework settings for saving the results
         'path': 'C:\\datasim', # path to save the results
-        'case': 1 # case number as the name of subfolder to be created and getting used for restoring
+        'case': 7 # case number as the name of subfolder to be created and getting used for restoring
     }
 
     def run_framework(framework_settings, logic_settings, model_structure, design_settings, modelling_settings,
@@ -455,22 +455,22 @@ def main():
                 Simula
             )
 
-            # Perform estimability analysis only in the first two rounds
-            if j in [1, 2]:
-                ranking, k_optimal_value, rCC_values, J_k_values = Estima(
-                    resultun,
-                    model_structure,
-                    modelling_settings,
-                    estimation_settings,
-                    j,
-                    framework_settings,
-                    data_storage,
-                    Simula
-                )
-            else:
-                # Skip estimability analysis in later rounds
-                ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-
+            # # Perform estimability analysis only in the first two rounds
+            # if j in [1, 2]:
+            #     ranking, k_optimal_value, rCC_values, J_k_values = Estima(
+            #         resultun,
+            #         model_structure,
+            #         modelling_settings,
+            #         estimation_settings,
+            #         j,
+            #         framework_settings,
+            #         data_storage,
+            #         Simula
+            #     )
+            # else:
+            #     # Skip estimability analysis in later rounds
+            #     ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
             # Save results for this round, including estimates, uncertainties, and observations
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'classic design', round_data, modelling_settings, scaled_params, estimation_settings,

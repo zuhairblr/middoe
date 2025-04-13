@@ -77,6 +77,7 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             mutation, V_matrix, design_criteria,
             model_structure, modelling_settings
         )
+
     elif method_key == 'Global':
         result, index_dict = _optimizeg(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
