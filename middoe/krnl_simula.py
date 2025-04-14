@@ -3,6 +3,14 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
 import importlib
 
+from pathlib import Path
+from subprocess import DEVNULL
+
+from pygpas.evaluate import evaluate, evaluate_trajectories
+from pygpas.server import StartedConnected
+from pygpas.special_variables import ExecutionOutcome
+from pygpas.special_variables.names import TIME
+
 def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, model_structure, modelling_settings):
     """
     Simulate the system dynamics using the provided parameters and model.
@@ -62,9 +70,9 @@ def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         except (ImportError, AttributeError):
             raise KeyError(f"Model function '{model_name}' not found in 'ext_func' or 'kernel_models'")
 
-    tv_ophi, ti_ophi, phit = _ivpsolver(
+    tv_ophi, ti_ophi, phit = _backscal(
         t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac,
-        cvp, uphit, model, model_structure, modelling_settings
+        cvp, uphit, model, model_structure, modelling_settings, model_name
     )
     return tv_ophi, ti_ophi, phit
 
@@ -131,7 +139,7 @@ def _Piecewiser(t, swps, cvp, phit):
     return result
 
 
-def _ivpsolver(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, model_structure, modelling_settings):
+def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, model_structure, modelling_settings, model_name):
     """
     Solve the ODE system defined by the model using solve_ivp.
 
@@ -196,18 +204,88 @@ def _ivpsolver(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit
     # Scale the time vector
     t_scaled = (np.array(t) * utsc).tolist()
 
-    # Solve the ODE system
-    result = solve_ivp(
-        model,
-        [min(t_scaled), max(t_scaled)],
-        y0,
-        method='LSODA',
-        t_eval=t_scaled,
-        args=(phi, phit, theta, t_scaled)
-    )
+    # Select the solver and perform the integration
+    tv_ophi, ti_ophi, phit = solver_selector(model, t_scaled, y0, phi, phit, theta, modelling_settings, model_name, model_structure)
 
-    # Extract time-varying outputs
-    tv_ophi = {f'y{i+1}': result.y[i] for i in range(len(result.y))}
-    ti_ophi = {}  # Currently empty, add logic if needed
+
+
+    return tv_ophi, ti_ophi, phit
+
+
+def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_name, model_structure):
+    """
+     Select the solver for the ODE system and perform the integration.
+
+     Parameters
+     ----------
+     model : callable
+         The model function to be integrated.
+     t : list or array of float
+         Time points for the simulation.
+     y0 : list of float
+         Initial conditions for the ODE system.
+     phi : dict
+         Time-invariant variables (scaled).
+     phit : dict
+         Time-variant variables (scaled).
+     theta : list of float
+         Model parameters (scaled).
+     modelling_settings : dict
+         Settings for simulation selection and file paths.
+     model_name : str
+         Identifier for the model being simulated.
+     model_structure : dict
+         Contains keys like 'tv_ophi' and 'ti_ophi' describing expected outputs.
+
+     Returns
+     -------
+     tuple
+         tv_ophi (dict): Time-variant outputs
+         ti_ophi (dict): Time-invariant outputs
+         phit (dict): Interpolated input profiles (unchanged)
+     """
+
+    if modelling_settings['sim'][model_name] == 'sci':
+        # Solve the ODE system
+        result = solve_ivp(
+            model,
+            [min(t), max(t)],
+            y0,
+            method='LSODA',
+            t_eval=t,
+            args=(phi, phit, theta, t)
+        )
+
+        # Extract time-varying outputs
+        tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
+        ti_ophi = {}  # Currently empty, add logic if needed
+
+    elif modelling_settings['sim'][model_name] == 'gp':
+        # Use the pygpas framework for simulation
+        with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
+            client.open(str(modelling_settings['gpmodels']['connector'][model_name]), modelling_settings['gpmodels']['credentials'][model_name])
+            for key, value in phi.items():
+                client.set_input_value(key, value)
+            for key, value in phit.items():
+                client.set_input_value(key, value)
+            client.set_input_value('theta', theta)
+            client.set_input_value('y0', y0)
+            client.set_input_value('t', t)
+            result = evaluate_trajectories(client)
+            if result.outcome != ExecutionOutcome.success:
+                raise RuntimeError(f"Simulation failed for model '{model_name}'")
+            tv_ophi = {
+                key: result.trajectories[key]
+                for key in model_structure.get('tv_ophi', {})
+                if key in result.trajectories
+            }
+            ti_ophi = {
+                key: result.trajectories[key]
+                for key in model_structure.get('ti_ophi', {})
+                if key in result.trajectories
+            }
+
+    else:
+        raise ValueError(f"Unsupported simulation method for model '{model_name}'")
 
     return tv_ophi, ti_ophi, phit

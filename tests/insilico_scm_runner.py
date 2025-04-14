@@ -207,6 +207,11 @@ def main():
     modelling_settings = { # Settings related to the rival models and their parameters
         'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
         'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
+        'sim': {'f11': 'sci', 'f12':'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gP means gPAS extracted gPROSMs models)
+        'gpmodels': {
+            'credentials': {'f12': '123456'},  # credentials for gPAS models, if not needed, leave empty
+            'connector': {'f12': 'C:/Users/Tadmin/Desktop/f12/solvef12.zip'},            # for now only for gPAS readable files, it is the path to zip file
+        },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
             'f06': theta06,
