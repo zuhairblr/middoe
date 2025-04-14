@@ -274,6 +274,7 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
             result = evaluate_trajectories(client)
             if result.outcome != ExecutionOutcome.success:
                 raise RuntimeError(f"Simulation failed for model '{model_name}'")
+            times = result.trajectories[TIME]
             tv_ophi = {
                 key: result.trajectories[key]
                 for key in model_structure.get('tv_ophi', {})
