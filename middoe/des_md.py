@@ -80,8 +80,6 @@ def MD(design_settings, model_structure, modelling_settings, core_number, framew
     else:
         raise ValueError(f"Unknown method '{method_key}' for mdopt_method.")
 
-    # 3) Evaluate again at nd2
-    nd = design_settings['iteration_settings']['nd2']
 
     # 4) Use the final solution in _runner
     phi, swps, St, sum_sq_diffs, t_vals, tv_ophi_dict, ti_ophi_dict, phit = _runner(

@@ -94,8 +94,6 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
     else:
         raise ValueError(f"Unknown method '{method_key}' for mdopt_method in PP().")
 
-    # ------------------------ RE-EVALUATE AT ND2 ------------------------ #
-    nd = design_settings['iteration_settings']['nd2']
 
     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
     phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _runner(
@@ -480,13 +478,15 @@ def _runner(
     # ---------------------------------------------------------------------
     # 1) Extract design parameters via _slicer
     # ---------------------------------------------------------------------
-    ti, swps, St = _slicer(x, index_dict)
+    tlin=np.linspace(0, 1, nd)
+    ti, swps, St = _slicer(x, index_dict, tlin)
     # Convert St into dict of var -> np.array
     St = {var: np.array(St[var]) for var in St}
 
     # Combine nd equally spaced points in [0,1] with the sampling points
     t_values_flat = [tp for times in St.values() for tp in times]
-    t_values = np.unique(np.concatenate((np.linspace(0, 1, nd), t_values_flat))).tolist()
+
+    t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
     # ---------------------------------------------------------------------
     # 2) Prepare data structures

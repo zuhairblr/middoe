@@ -277,7 +277,7 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
 
     return bounds, x0, index_pairs_levels, index_pairs_times, index_dict
 
-def _slicer(x, index_dict):
+def _slicer(x, index_dict, tlin):
     """
     Slice the optimization variables into time-invariant inputs, switching points, and sampling times (a index base decomposer of design decision concated list
 
@@ -305,15 +305,17 @@ def _slicer(x, index_dict):
             values.append(values[-1])  # Append the last value again (repetition)
             swps[key] = values
         elif key.endswith('t'):  # Handle time-based variables (e.g., 'Pt', 'Tt')
-            values = [0] + [x[i] for i in idx_list] + [1]  # Add 0 at the start and 1 at the end
-            swps[key] = values
+            raw_times = [0] + [x[i] for i in idx_list] + [1]  # Add 0 at the start and 1 at the end
+            snapped = [float(tlin[np.argmin(np.abs(tlin - t))]) for t in raw_times]
+            swps[key] = snapped
 
     # Extract sampling times (St)
     # St = [0] + [x[i] for i in index_dict['st']] + [1]  # Add 0 at the start and 1 at the end
     St = {}
     for key, idx_list in index_dict['st'].items():
-            values = [0] + [x[i] for i in idx_list] + [1]  # Add 0 at the start and 1 at the end
-            St[key] = values
+        raw_times = [0] + [x[i] for i in idx_list] + [1]
+        snapped = [float(tlin[np.argmin(np.abs(tlin - t))]) for t in raw_times]
+        St[key] = snapped
 
     return ti, swps, St
 
