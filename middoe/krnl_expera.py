@@ -58,6 +58,7 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
     # Extract scaling constant for independent variables
     tsc = model_structure['t_s'][1]
 
+
     # Construct piecewise functions for initial and DOE cases
     cvp_initial = {
         var: model_structure['tv_iphi'][var]['initial_cvp']
@@ -92,6 +93,8 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
     if not design_decisions:
         # Time values for each measured variable
         # Step 1: Create tlin
+        dt_real = model_structure['t_r']
+        nodes = int(round(tsc / dt_real)) + 1
         tlin = np.linspace(0, 1, nodes)
 
         # Step 2: Generate t_values, snapping each to the closest value in tlin

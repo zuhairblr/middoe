@@ -478,7 +478,9 @@ def _runner(
     # ---------------------------------------------------------------------
     # 1) Extract design parameters via _slicer
     # ---------------------------------------------------------------------
-    tlin=np.linspace(0, 1, nd)
+    dt_real = model_structure['t_r']
+    nodes = int(round(tf / dt_real)) + 1
+    tlin = np.linspace(0, 1, nodes)
     ti, swps, St = _slicer(x, index_dict, tlin)
     # Convert St into dict of var -> np.array
     St = {var: np.array(St[var]) for var in St}

@@ -4,10 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="">
+    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="time fix 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qodana.yaml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/insilico_scm_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/insilico_scm_runner.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -116,7 +116,7 @@
       <workItem from="1744281572376" duration="24930000" />
       <workItem from="1744708280740" duration="5383000" />
       <workItem from="1744725034914" duration="599000" />
-      <workItem from="1744727122183" duration="18345000" />
+      <workItem from="1744727122183" duration="19337000" />
     </task>
     <task id="LOCAL-00001" summary="structuring">
       <option name="closed" value="true" />
@@ -406,7 +406,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744803122221</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="time fix 2">
+      <option name="closed" value="true" />
+      <created>1744809282230</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1744809282230</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -431,7 +439,8 @@
     <MESSAGE value="real data test" />
     <MESSAGE value="gitig" />
     <MESSAGE value="time fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="time fix" />
+    <MESSAGE value="time fix 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="time fix 2" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

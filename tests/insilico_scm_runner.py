@@ -181,7 +181,8 @@ def main():
         },
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
-        't_s': [600, 10800]  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
+        't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
+        't_r': 5,  # Time resolution (5 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
