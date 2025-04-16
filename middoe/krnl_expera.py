@@ -91,9 +91,14 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
     # If no design decisions are provided, run the "initial" case
     if not design_decisions:
         # Time values for each measured variable
+        # Step 1: Create tlin
+        tlin = np.linspace(0, 1, nodes)
+
+        # Step 2: Generate t_values, snapping each to the closest value in tlin
         t_values = {
-            var: np.linspace(0, 1, model_structure['tv_ophi'][var]['sp']).tolist()
-            for var in model_structure['tv_ophi'].keys()
+            var: [float(tlin[np.argmin(np.abs(tlin - t))]) for t in
+                  np.linspace(0, 1, model_structure['tv_ophi'][var]['sp'])]
+            for var in model_structure['tv_ophi']
             if model_structure['tv_ophi'][var].get('measured', True)
         }
 
@@ -101,7 +106,7 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
         t_values_flat = [tp for times in t_values.values() for tp in times]
 
         # Create unique accumulated time points for simulation
-        t_acc_unique = np.unique(np.concatenate((np.linspace(0, 1, nodes), t_values_flat))).tolist()
+        t_acc_unique = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
         # Construct variables and parameters for the "initial" case
         phi, phit, phisc, phitsc = _construct_var(model_structure, classic_des, j)

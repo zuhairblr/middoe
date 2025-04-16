@@ -195,7 +195,7 @@ def main():
             'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 101,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
+            'nd': 1001,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
             'maxpp': 100, # maximum number of PP runs
@@ -277,7 +277,7 @@ def main():
     # scms
     simulator_settings = { # Settings for the insilico data generation
         'insilico_model': 'f11', # selected true model (with nominal values)
-        'smoothness': 101, # smoothness of the generated data in each batch, time series
+        'smoothness': 1001, # smoothness of the generated data in each batch, time series
         'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
             '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
             '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
