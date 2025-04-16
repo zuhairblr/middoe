@@ -182,7 +182,7 @@ def main():
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
         't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 5,  # Time resolution (5 s), minimum time steps for the simulation/design/controls
+        't_r': 10,  # Time resolution (5 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
@@ -278,7 +278,6 @@ def main():
     # scms
     simulator_settings = { # Settings for the insilico data generation
         'insilico_model': 'f11', # selected true model (with nominal values)
-        'smoothness': 1001, # smoothness of the generated data in each batch, time series
         'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
             '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
             '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},

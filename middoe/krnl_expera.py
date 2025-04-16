@@ -80,7 +80,6 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
     model_name = simulator_settings.get('insilico_model')
     classic_des = simulator_settings['classic-des']
     theta_parameters = modelling_settings['theta_parameters']
-    nodes = simulator_settings.get('smoothness', 101)
 
     # Standard deviations for measured tv_ophi variables
     std_dev = {
