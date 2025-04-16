@@ -263,25 +263,27 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
     elif modelling_settings['sim'][model_name] == 'gp':
         # Use the pygpas framework for simulation
         with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
-            client.open(str(modelling_settings['gpmodels']['connector'][model_name]), modelling_settings['gpmodels']['credentials'][model_name])
+            client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
+                        modelling_settings['gpmodels']['credentials'][model_name])
             for key, value in phi.items():
-                client.set_input_value(key, value)
+                client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
             for key, value in phit.items():
-                client.set_input_value(key, value)
-            client.set_input_value('theta', theta)
-            client.set_input_value('y0', y0)
-            client.set_input_value('t', t)
+                client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
+
+            client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
+            client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
             result = evaluate_trajectories(client)
             if result.outcome != ExecutionOutcome.success:
                 raise RuntimeError(f"Simulation failed for model '{model_name}'")
-            times = result.trajectories[TIME]
             tv_ophi = {
-                key: result.trajectories[key]
+                key: result.trajectories[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
+                result.trajectories[key]
                 for key in model_structure.get('tv_ophi', {})
                 if key in result.trajectories
             }
             ti_ophi = {
-                key: result.trajectories[key]
+                key: result.trajectories[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
+                result.trajectories[key]
                 for key in model_structure.get('ti_ophi', {})
                 if key in result.trajectories
             }
@@ -290,3 +292,4 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
         raise ValueError(f"Unsupported simulation method for model '{model_name}'")
 
     return tv_ophi, ti_ophi, phit
+
