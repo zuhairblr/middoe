@@ -613,7 +613,7 @@ def main():
             modelling_settings['active_solvers'] = [winner_solver]
 
             # PP optimization strategy selection
-            if design_settings['optimization_methods']['ppopt_method'] == 'L' or design_settings['optimization_methods']['ppopt_method'] == 'G':
+            if design_settings['optimization_methods']['ppopt_method'] == 'L' or design_settings['optimization_methods']['ppopt_method'] == 'G_C' or design_settings['optimization_methods']['ppopt_method'] == 'G_P':
                 # Perform Local Optimization using Parallel Execution
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(run_mbdoe_pp,

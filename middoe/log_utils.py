@@ -5,7 +5,7 @@ import pandas as pd
 from scipy import stats
 from middoe.iden_utils import Plotting_Results
 from middoe.des_md import MD
-from middoe.des_pp import PP
+from middoe.des_pp import run_pp
 import importlib
 
 def fun_globalizer(func_name):
@@ -57,7 +57,7 @@ def run_mbdoe_pp(design_settings, model_structure, modelling_settings, core_num,
     design_settings_copy = copy.deepcopy(design_settings)
     model_structure_copy = copy.deepcopy(model_structure)
     modelling_settings_copy = copy.deepcopy(modelling_settings)
-    design_decisions, pp_obj, swps = PP(design_settings_copy, model_structure_copy, modelling_settings_copy, core_num, framework_settings, round)
+    design_decisions, pp_obj, swps = run_pp(design_settings_copy, model_structure_copy, modelling_settings_copy, core_num, framework_settings, round)
     return design_decisions, pp_obj, swps
 
 

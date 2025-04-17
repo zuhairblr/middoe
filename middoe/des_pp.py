@@ -10,10 +10,91 @@ from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.optimize import minimize as pymoo_minimize
 from casadi import MX, vertcat, nlpsol
 
-def PP(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
+def run_pp(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
     """
-    Perform MBDOE for Parameter Precision (MBDOE_PP) with a structure parallel
-    to des-md's MD(...) function.
+    Perform Model-Based Design of Experiments for Parameter Precision (MBDOE-PP).
+
+    This function implements a strategy for designing experiments that maximise
+    the information content of data with respect to parameter estimation.
+    It supports multiple optimisation strategies—local, global, and hybrid—implemented
+    in Python or C++, depending on the user's configuration.
+
+    The algorithm structure follows the principles of parameter-precision-oriented
+    design described in Franceschini and Macchietto [1]_, where the goal is to select
+    experimental conditions that maximise a precision criterion—typically defined
+    based on the Fisher Information Matrix (FIM). The most common criteria include:
+
+    - **D-optimality**: Maximises the determinant of the FIM. This minimises the volume
+      of the confidence ellipsoid in parameter space, improving the overall identifiability
+      of parameters.
+
+    - **A-optimality**: Minimises the trace of the inverse FIM, reducing the average variance
+      across all parameter estimates.
+
+    - **E-optimality**: Maximises the smallest eigenvalue of the FIM, ensuring the least identifiable
+      parameter is still well-estimated.
+
+    - **Modified E-optimality (ME)**: Minimises the condition number of the FIM, improving
+      numerical stability and distributing sensitivity more evenly across parameters.
+
+    Various optimisation strategies are supported to improve exploration of the design space,
+    depending on the computational budget:
+
+    - **Local optimisation** (`L`): A local search method using `trust-constr` to refine
+      an initial design. Efficient, but may converge to local optima.
+
+    - **Global optimisation** (`G_P`, `G_C`): Global search strategies such as
+      differential evolution with penalised constraints (`G_P`, Python-based),
+      or CasADi+IPOPT (`G_C`, C++-based) are used to explore complex, non-convex
+      regions of the design space.
+
+    - **Joint optimisation** (`GL`): Combines global and local strategies—
+      using a penalised differential evolution phase for exploration and `trust-constr`
+      for local refinement. This hybrid approach often yields higher-quality designs
+      with better convergence properties.
+
+    Parameters
+    ----------
+    design_settings : dict
+        Dictionary specifying design criteria, optimisation settings, and iteration limits.
+    model_structure : dict
+        Model structure including time domain, input/output definitions, and constraints.
+    modelling_settings : dict
+        Estimation settings including active solvers, parameter values, and mutation masks.
+    core_number : int
+        Core index used to differentiate parallel optimisation jobs.
+    framework_settings : dict
+        Dictionary containing file paths and case ID for saving results.
+    round : int
+        Current round number in the MBDOE-PE iterative design framework.
+
+    Returns
+    -------
+    design_decisions : dict
+        Dictionary containing:
+        - 'phi': Time-invariant input levels.
+        - 'phit': Time-variant input profiles.
+        - 'swps': Switching points (levels and times) for CVP inputs.
+        - 'St': Sampling time schedule.
+        - 'pp_obj': Precision criterion value.
+        - 't_values': Full simulation time grid.
+    pp_obj : float
+        The final value of the selected precision criterion (e.g., determinant of FIM).
+    swps : dict
+        Switching point values for CVP input profiles.
+
+    Notes
+    -----
+    This function serves as the main entry point for MBDOE-PP. It manages the entire
+    workflow including optimisation strategy selection, simulation execution, and
+    design result processing.
+
+    References
+    ----------
+    .. [1] Franceschini, G., & Macchietto, S. (2008).
+       Model-based design of experiments for parameter precision: State of the art.
+       *Chemical Engineering Science*, 63(19), 4846–4872.
+       https://doi.org/10.1016/j.ces.2007.11.034
     """
 
     # --------------------------- EXTRACT DATA --------------------------- #
@@ -58,7 +139,6 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
 
     # Criterion, iteration, and penalty settings
     design_criteria = design_settings['criteria']['MBDOE_PP_criterion']
-    nd = design_settings['iteration_settings']['nd']
     maxpp = design_settings['iteration_settings']['maxpp']
     tolpp = design_settings['iteration_settings']['tolpp']
     eps = design_settings['eps']
@@ -68,7 +148,7 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
     method_key = design_settings['optimization_methods']['mdopt_method']
     if method_key == 'L':
-        result, index_dict = _optimizel(
+        result, index_dict = _optimize_l(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -76,13 +156,13 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
-            nd, eps, maxpp, tolpp,
+            eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
             model_structure, modelling_settings
         )
 
     elif method_key == 'G_C':
-        result, index_dict = _optimizeg_c(
+        result, index_dict = _optimize_g_c(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -90,12 +170,12 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
-            nd, eps, maxpp, tolpp,
+            eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
             model_structure, modelling_settings
         )
     elif method_key == 'G_P':
-        result, index_dict = _optimizeg_p(
+        result, index_dict = _optimize_g_p(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -103,13 +183,13 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
-            nd, eps, maxpp, tolpp,
+            eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
             model_structure, modelling_settings
         )
 
     elif method_key == 'GL':
-        result, index_dict = _optimizegl(
+        result, index_dict = _optimize_gl(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -117,7 +197,7 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
-            nd, eps, maxpp, tolpp,
+            eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
             model_structure, modelling_settings
         )
@@ -173,14 +253,14 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
     return design_decisions, pp_obj, swps
 
 
-def _optimizel(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
                 tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
                 ti_iphi_vars, ti_iphi_max, ti_iphi_min,
                 tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
                 ti_ophi_vars,
                 tf, ti,
                 active_solvers, theta_parameters,
-                nd, eps, maxpp, tolpp,
+                eps, maxpp, tolpp,
                 mutation, V_matrix, design_criteria,
                 model_structure, modelling_settings):
     """
@@ -217,8 +297,8 @@ def _optimizel(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
 
     # 4) Objective function that calls _runnerpp
     def local_objective(x):
-        return pp_objective_function(
-            x, nd,
+        return _pp_objective_function(
+            x,
             tv_iphi_vars, tv_iphi_max,
             ti_iphi_vars, ti_iphi_max,
             tv_ophi_vars, ti_ophi_vars,
@@ -254,16 +334,16 @@ def _optimizel(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
     return result, index_dict
 
 
-def _optimizegl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-               tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-               ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-               tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-               ti_ophi_vars,
-               tf, ti,
-               active_solvers, theta_parameters,
-               nd, eps, maxpp, tolpp,
-               mutation, V_matrix, design_criteria,
-               model_structure, modelling_settings):
+def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+                 tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+                 ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+                 tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+                 ti_ophi_vars,
+                 tf, ti,
+                 active_solvers, theta_parameters,
+                 eps, maxpp, tolpp,
+                 mutation, V_matrix, design_criteria,
+                 model_structure, modelling_settings):
 
     # 1) Build var_groups (parallel to des-md)
     var_groups = build_var_groups(
@@ -297,8 +377,7 @@ def _optimizegl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
 
     # 4) Build partial function for local objective (pp_objective_function)
     local_obj_fun = partial(
-        pp_objective_function,
-        nd=nd,
+        _pp_objective_function,
         tv_iphi_vars=tv_iphi_vars,
         tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars,
@@ -383,8 +462,7 @@ def _optimizegl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
     return result, index_dict
 
 
-
-def _optimizeg_p(
+def _optimize_g_p(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -392,7 +470,7 @@ def _optimizeg_p(
     ti_ophi_vars,
     tf, ti,
     active_solvers, theta_parameters,
-    nd, eps, maxpp, tolpp,
+    eps, maxpp, tolpp,
     mutation, V_matrix, design_criteria,
     model_structure, modelling_settings
 ):
@@ -456,8 +534,7 @@ def _optimizeg_p(
 
     # 2) Build the objective wrapper
     local_obj = partial(
-        pp_objective_function,
-        nd=nd,
+        _pp_objective_function,
         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
@@ -536,9 +613,7 @@ def _optimizeg_p(
     return res_de, index_dict
 
 
-
-
-def _optimizeg_c(
+def _optimize_g_c(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -546,7 +621,7 @@ def _optimizeg_c(
     ti_ophi_vars,
     tf, ti,
     active_solvers, theta_parameters,
-    nd, eps, maxpp, tolpp,
+    eps, maxpp, tolpp,
     mutation, V_matrix, design_criteria,
     model_structure, modelling_settings
 ):
@@ -597,8 +672,7 @@ def _optimizeg_c(
 
     # Objective wrapper using partial
     local_obj = partial(
-        pp_objective_function,
-        nd=nd,
+        _pp_objective_function,
         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
@@ -675,9 +749,8 @@ def _optimizeg_c(
 
 
 
-def pp_objective_function(
+def _pp_objective_function(
     x,
-    nd,
     tv_iphi_vars, tv_iphi_max,
     ti_iphi_vars, ti_iphi_max,
     tv_ophi_vars, ti_ophi_vars,
