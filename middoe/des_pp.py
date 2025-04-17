@@ -8,7 +8,7 @@ from scipy.optimize import differential_evolution, minimize, Bounds
 from pymoo.core.problem import Problem
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.optimize import minimize as pymoo_minimize
-
+from casadi import MX, vertcat, nlpsol
 
 def PP(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
     """
@@ -81,8 +81,21 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             model_structure, modelling_settings
         )
 
-    elif method_key == 'G':
-        result, index_dict = _optimizeg(
+    elif method_key == 'G_C':
+        result, index_dict = _optimizeg_c(
+            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+            ti_ophi_vars,
+            tf, ti,
+            active_solvers, theta_parameters,
+            nd, eps, maxpp, tolpp,
+            mutation, V_matrix, design_criteria,
+            model_structure, modelling_settings
+        )
+    elif method_key == 'G_P':
+        result, index_dict = _optimizeg_p(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -371,7 +384,7 @@ def _optimizegl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
 
 
 
-def _optimizeg(
+def _optimizeg_p(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -520,22 +533,146 @@ def _optimizeg(
         verbose=False
     )
 
-    # # 5) Local refinement with SciPy trust-constr
-    # result = minimize(
-    #     fun=local_obj,
-    #     x0=res_de.x,
-    #     bounds=list(zip(lower, upper)),
-    #     constraints=[],  # any SciPy nonlinear constraints if needed
-    #     method='trust-constr',
-    #     options={
-    #         'maxiter': maxpp,
-    #         'xtol': tolpp,
-    #         'gtol': tolpp,
-    #         'barrier_tol': 1e-8
-    #     }
-    # )
-
     return res_de, index_dict
+
+
+
+
+def _optimizeg_c(
+    tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+    tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+    ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+    tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+    ti_ophi_vars,
+    tf, ti,
+    active_solvers, theta_parameters,
+    nd, eps, maxpp, tolpp,
+    mutation, V_matrix, design_criteria,
+    model_structure, modelling_settings
+):
+    bounds = []
+    x0 = []
+    index_dict = {'ti': {}, 'lvl': {}, 't': {}, 'st': {}}
+
+    for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+        lo, hi = mn / mx, 1.0
+        bounds.append((lo, hi))
+        x0.append((lo + hi) / 2)
+        index_dict['ti'][name] = [i]
+
+    start = len(x0)
+    for i, name in enumerate(tv_iphi_vars):
+        seg = tv_iphi_seg[i]
+        lo = tv_iphi_min[i] / tv_iphi_max[i]
+        idxs = list(range(start, start + seg - 1))
+        index_dict['lvl'][name] = idxs
+        for _ in range(seg - 1):
+            bounds.append((lo, 1.0))
+            x0.append((lo + 1.0) / 2)
+        start += seg - 1
+
+    for i, name in enumerate(tv_iphi_vars):
+        seg = tv_iphi_seg[i]
+        lo, hi = ti / tf, 1 - ti / tf
+        idxs = list(range(start, start + seg - 2))
+        index_dict['t'][name] = idxs
+        for _ in range(seg - 2):
+            bounds.append((lo, hi))
+            x0.append((lo + hi) / 2)
+        start += seg - 2
+
+    for i, name in enumerate(tv_ophi_vars):
+        seg = tv_ophi_seg[i]
+        lo, hi = ti / tf, 1 - ti / tf
+        idxs = list(range(start, start + seg - 2))
+        index_dict['st'][name] = idxs
+        for _ in range(seg - 2):
+            bounds.append((lo, hi))
+            x0.append((lo + hi) / 2)
+        start += seg - 2
+
+    lower = np.array([b[0] for b in bounds])
+    upper = np.array([b[1] for b in bounds])
+    x0 = np.array(x0)
+
+    # Objective wrapper using partial
+    local_obj = partial(
+        pp_objective_function,
+        nd=nd,
+        tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+        ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+        tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+        tv_iphi_cvp=tv_iphi_cvp, tv_ophi_matching=tv_ophi_matching,
+        active_solvers=active_solvers,
+        theta_parameters=theta_parameters,
+        tf=tf, eps=eps, mutation=mutation,
+        V_matrix=V_matrix, design_criteria=design_criteria,
+        index_dict=index_dict,
+        model_structure=model_structure,
+        modelling_settings=modelling_settings
+    )
+
+    # Symbolic variables
+    x = MX.sym('x', len(x0))
+
+    # Objective expression
+    f = local_obj(x)
+
+    # Constraint expressions
+    g = []
+    for i, name in enumerate(tv_iphi_vars):
+        offs = tv_iphi_offsetl[i]
+        idxs = index_dict['lvl'][name]
+        const = tv_iphi_const[i]
+        for j in range(len(idxs) - 1):
+            i1, i2 = idxs[j], idxs[j + 1]
+            diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+            g.append(diff - offs)
+
+    for i, name in enumerate(tv_iphi_vars):
+        offs = tv_iphi_offsett[i] / tf
+        idxs = index_dict['t'][name]
+        for j in range(len(idxs) - 1):
+            i1, i2 = idxs[j], idxs[j + 1]
+            g.append(x[i2] - x[i1] - offs)
+
+    for i, name in enumerate(tv_ophi_vars):
+        offs = tv_ophi_offsett_ophi[i] / tf
+        idxs = index_dict['st'][name]
+        for j in range(len(idxs) - 1):
+            i1, i2 = idxs[j], idxs[j + 1]
+            g.append(x[i2] - x[i1] - offs)
+
+    g = vertcat(*g)
+
+    # Create NLP dictionary
+    nlp = {'x': x, 'f': f, 'g': g}
+
+    solver = nlpsol('solver', 'ipopt', nlp, {
+        'ipopt.max_iter': maxpp,
+        'ipopt.tol': tolpp,
+        'print_time': False,
+        'ipopt.print_level': 5
+    })
+
+    sol = solver(
+        x0=x0,
+        lbx=lower,
+        ubx=upper,
+        lbg=np.zeros(g.shape[0]),
+        ubg=np.full(g.shape[0], np.inf)
+    )
+
+    result = {
+        'x': np.array(sol['x']).flatten(),
+        'f': float(sol['f']),
+        'success': solver.stats()['success'],
+        'status': solver.stats()['return_status'],
+        'iter': solver.stats().get('iter_count', None)
+    }
+
+    return result, index_dict
+
 
 
 def pp_objective_function(

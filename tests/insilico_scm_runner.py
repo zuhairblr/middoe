@@ -188,8 +188,8 @@ def main():
     design_settings = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'G', # optimization method for MBDoE-PP, 'L': trust-constr method, 'G': differential evolution , 'GL': + penalised differential evolution + trust-constr  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G' is suggested for usage over the rest
-            'mdopt_method': 'L' # optimization method for MBDoE-PP, 'L': trust-constr method, 'G': differential evolution , 'GL': + penalised differential evolution + trust-constr   Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G' is suggested for usage over the rest
+            'ppopt_method': 'G_C', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
+            'mdopt_method': 'L' # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
         },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
@@ -304,7 +304,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 24 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 15 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -613,7 +613,7 @@ def main():
             modelling_settings['active_solvers'] = [winner_solver]
 
             # PP optimization strategy selection
-            if design_settings['optimization_methods']['ppopt_method'] == 'L' and design_settings['optimization_methods']['mdopt_method'] == 'G':
+            if design_settings['optimization_methods']['ppopt_method'] == 'L' or design_settings['optimization_methods']['ppopt_method'] == 'G':
                 # Perform Local Optimization using Parallel Execution
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(run_mbdoe_pp,
