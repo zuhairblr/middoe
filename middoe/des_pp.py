@@ -5,6 +5,9 @@ from collections import defaultdict
 from functools import partial
 import numpy as np
 from scipy.optimize import differential_evolution, minimize, Bounds
+from pymoo.core.problem import Problem
+from pymoo.algorithms.soo.nonconvex.de import DE
+from pymoo.optimize import minimize as pymoo_minimize
 
 
 def PP(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
@@ -64,7 +67,7 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
     method_key = design_settings['optimization_methods']['mdopt_method']
-    if method_key == 'Local':
+    if method_key == 'L':
         result, index_dict = _optimizel(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -78,8 +81,22 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
             model_structure, modelling_settings
         )
 
-    elif method_key == 'Global':
+    elif method_key == 'G':
         result, index_dict = _optimizeg(
+            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+            ti_ophi_vars,
+            tf, ti,
+            active_solvers, theta_parameters,
+            nd, eps, maxpp, tolpp,
+            mutation, V_matrix, design_criteria,
+            model_structure, modelling_settings
+        )
+
+    elif method_key == 'GL':
+        result, index_dict = _optimizegl(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -224,7 +241,7 @@ def _optimizel(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
     return result, index_dict
 
 
-def _optimizeg(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+def _optimizegl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
                tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
                ti_iphi_vars, ti_iphi_max, ti_iphi_min,
                tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
@@ -351,6 +368,174 @@ def _optimizeg(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
         print("Global+Local Parameter-Precision Optimization succeeded!")
 
     return result, index_dict
+
+
+
+def _optimizeg(
+    tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+    tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+    ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+    tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+    ti_ophi_vars,
+    tf, ti,
+    active_solvers, theta_parameters,
+    nd, eps, maxpp, tolpp,
+    mutation, V_matrix, design_criteria,
+    model_structure, modelling_settings
+):
+    """
+    Single-stage DE optimization via pymoo with embedded bounds, initial guess,
+    and inline constraint evaluation—no external segmenter or linear builder.
+    Returns the SciPy-refined result and the index dictionary mapping variables to x-indices.
+    """
+    # 1) Build bounds, initial guess, and index mapping
+    bounds = []
+    x0 = []
+    index_dict = {'ti': {}, 'lvl': {}, 't': {}, 'st': {}}
+
+    # Time-invariant inputs
+    for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+        lo, hi = mn / mx, 1.0
+        bounds.append((lo, hi))
+        x0.append((lo + hi) / 2)
+        index_dict['ti'][name] = [i]
+
+    # Levels for time-variant inputs
+    start = len(x0)
+    for i, name in enumerate(tv_iphi_vars):
+        seg = tv_iphi_seg[i]
+        mn, mx = tv_iphi_min[i], tv_iphi_max[i]
+        lo = mn / mx
+        idxs = list(range(start, start + seg - 1))
+        index_dict['lvl'][name] = idxs
+        for _ in range(seg - 1):
+            bounds.append((lo, 1.0))
+            x0.append((lo + 1.0) / 2)
+        start += seg - 1
+
+    # Switch times for time-variant inputs
+    for i, name in enumerate(tv_iphi_vars):
+        seg = tv_iphi_seg[i]
+        lo = ti / tf
+        hi = 1 - ti / tf
+        idxs = list(range(start, start + seg - 2))
+        index_dict['t'][name] = idxs
+        for _ in range(seg - 2):
+            bounds.append((lo, hi))
+            x0.append((lo + hi) / 2)
+        start += seg - 2
+
+    # Sampling times for output variables
+    for i, name in enumerate(tv_ophi_vars):
+        seg = tv_ophi_seg[i]
+        lo = ti / tf
+        hi = 1 - ti / tf
+        idxs = list(range(start, start + seg - 2))
+        index_dict['st'][name] = idxs
+        for _ in range(seg - 2):
+            bounds.append((lo, hi))
+            x0.append((lo + hi) / 2)
+        start += seg - 2
+
+    lower = np.array([b[0] for b in bounds])
+    upper = np.array([b[1] for b in bounds])
+    x0 = np.array(x0)
+
+    # 2) Build the objective wrapper
+    local_obj = partial(
+        pp_objective_function,
+        nd=nd,
+        tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+        ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+        tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+        tv_iphi_cvp=tv_iphi_cvp, tv_ophi_matching=tv_ophi_matching,
+        active_solvers=active_solvers,
+        theta_parameters=theta_parameters,
+        tf=tf, eps=eps, mutation=mutation,
+        V_matrix=V_matrix, design_criteria=design_criteria,
+        index_dict=index_dict,
+        model_structure=model_structure,
+        modelling_settings=modelling_settings
+    )
+
+    # 3) Define pymoo DE problem with inline constraints
+    class DEProblem(Problem):
+        def __init__(self):
+            super().__init__(
+                n_var=len(bounds),
+                n_obj=1,
+                n_constr=0,
+                xl=lower,
+                xu=upper,
+                elementwise_evaluation=True
+            )
+
+        def _evaluate(self, x, out, *args, **kwargs):
+            # Objective
+            f_val = local_obj(x)
+            # Constraint evaluations: g(x) <= 0
+            g = []
+            # Level-ordering: diff >= offset -> offset - diff <= 0
+            for i, name in enumerate(tv_iphi_vars):
+                offs = tv_iphi_offsetl[i]
+                idxs = index_dict['lvl'][name]
+                const = tv_iphi_const[i]
+                for j in range(len(idxs) - 1):
+                    i1, i2 = idxs[j], idxs[j + 1]
+                    diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+                    g.append(offs - diff)
+            # Switch-time ordering
+            for i, name in enumerate(tv_iphi_vars):
+                offs = tv_iphi_offsett[i] / tf
+                idxs = index_dict['t'][name]
+                for j in range(len(idxs) - 1):
+                    i1, i2 = idxs[j], idxs[j + 1]
+                    g.append(offs - (x[i2] - x[i1]))
+            # Sampling-time ordering
+            for i, name in enumerate(tv_ophi_vars):
+                offs = tv_ophi_offsett_ophi[i] / tf
+                idxs = index_dict['st'][name]
+                for j in range(len(idxs) - 1):
+                    i1, i2 = idxs[j], idxs[j + 1]
+                    g.append(offs - (x[i2] - x[i1]))
+
+            out['F'] = f_val
+            out['G'] = np.array(g)
+
+    problem = DEProblem()
+
+    # 4) Run the global DE stage
+    algo = DE(
+        pop_size=1000,
+        sampling='real_random',
+        variant='DE/rand/1/bin',
+        F=mutation,
+        CR=0.7
+    )
+    res_de = pymoo_minimize(
+        problem,
+        algo,
+        termination=('n_gen', maxpp),
+        seed=None,
+        verbose=False
+    )
+
+    # # 5) Local refinement with SciPy trust-constr
+    # result = minimize(
+    #     fun=local_obj,
+    #     x0=res_de.x,
+    #     bounds=list(zip(lower, upper)),
+    #     constraints=[],  # any SciPy nonlinear constraints if needed
+    #     method='trust-constr',
+    #     options={
+    #         'maxiter': maxpp,
+    #         'xtol': tolpp,
+    #         'gtol': tolpp,
+    #         'barrier_tol': 1e-8
+    #     }
+    # )
+
+    return res_de, index_dict
 
 
 def pp_objective_function(

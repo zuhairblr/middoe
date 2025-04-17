@@ -188,8 +188,8 @@ def main():
     design_settings = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'Local', # optimization method for MBDoE-PP, 'Local': trust-constr method, 'Global': differential evolution + trust-constr
-            'mdopt_method': 'Local' # optimization method for MBDoE-MD, 'Local': trust-constr method, 'Global': differential evolution + trust-constr
+            'ppopt_method': 'G', # optimization method for MBDoE-PP, 'L': trust-constr method, 'G': differential evolution , 'GL': + penalised differential evolution + trust-constr  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G' is suggested for usage over the rest
+            'mdopt_method': 'L' # optimization method for MBDoE-PP, 'L': trust-constr method, 'G': differential evolution , 'GL': + penalised differential evolution + trust-constr   Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G' is suggested for usage over the rest
         },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
@@ -199,7 +199,7 @@ def main():
             'nd': 1001,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 100, # maximum number of PP runs
+            'maxpp': 1000, # maximum number of PP runs
             'tolpp': 1e-3, # tolerance for PP optimization
         }
     }
@@ -210,7 +210,7 @@ def main():
         'sim': {'f11': 'sci'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'gpmodels': {
             'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model3.zip'},            # for now only for gPAS readable files, it is the path to zip file
+            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model4.zip'},            # for now only for gPAS readable files, it is the path to zip file
         },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
@@ -304,7 +304,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 24 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -613,7 +613,7 @@ def main():
             modelling_settings['active_solvers'] = [winner_solver]
 
             # PP optimization strategy selection
-            if design_settings['optimization_methods']['ppopt_method'] == 'Local':
+            if design_settings['optimization_methods']['ppopt_method'] == 'L' and design_settings['optimization_methods']['mdopt_method'] == 'G':
                 # Perform Local Optimization using Parallel Execution
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(run_mbdoe_pp,
@@ -623,7 +623,7 @@ def main():
                 best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
                 design_decisions.update(best_design_decisions)
 
-            elif design_settings['optimization_methods']['ppopt_method'] == 'Global':
+            elif design_settings['optimization_methods']['ppopt_method'] == 'GL':
                 # Perform Global Optimization (Single Core Execution)
                 core_num = 1
                 results_list = run_mbdoe_pp(design_settings, model_structure, modelling_settings, core_num,
