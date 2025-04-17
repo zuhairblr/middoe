@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="time fix 4">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/insilico_scm_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/insilico_scm_runner.py" afterDir="false" />
-    </list>
+    <list default="true" id="ba1b97ba-7448-4e5a-b546-5f5d4b83d9c0" name="Changes" comment="time fix 4" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -116,7 +112,7 @@
       <workItem from="1744281572376" duration="24930000" />
       <workItem from="1744708280740" duration="5383000" />
       <workItem from="1744725034914" duration="599000" />
-      <workItem from="1744727122183" duration="32654000" />
+      <workItem from="1744727122183" duration="33021000" />
     </task>
     <task id="LOCAL-00001" summary="structuring">
       <option name="closed" value="true" />
@@ -430,7 +426,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744813591457</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="time fix 4">
+      <option name="closed" value="true" />
+      <created>1744826106014</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1744826106014</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -472,12 +476,23 @@
     <MESSAGE value="time fix 4" />
     <option name="LAST_COMMIT_MESSAGE" value="time fix 4" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/middoe/krnl_simula.py</url>
+          <line>277</line>
+          <option name="timeStamp" value="11" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/middoe$scratch_29.coverage" NAME="scratch_29 Coverage Results" MODIFIED="1742546827228" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$scratch_23.coverage" NAME="scratch_23 Coverage Results" MODIFIED="1742549765681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$ui_insilico_scm_normal.coverage" NAME="ui_insilico_scm_normal Coverage Results" MODIFIED="1741606489292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$insilico_scm_runner.coverage" NAME="insilico_scm_runner Coverage Results" MODIFIED="1744825628002" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/middoe$insilico_scm_runner.coverage" NAME="insilico_scm_runner Coverage Results" MODIFIED="1744826063538" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$krnl_simula.coverage" NAME="krnl_simula Coverage Results" MODIFIED="1744824175802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1741606573142" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
   </component>

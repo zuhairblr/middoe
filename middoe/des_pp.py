@@ -98,7 +98,6 @@ def PP(design_settings, model_structure, modelling_settings, core_number, framew
     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
     phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _runner(
         result.x,
-        nd,
         tv_iphi_vars, tv_iphi_max,
         ti_iphi_vars, ti_iphi_max,
         tv_ophi_vars, ti_ophi_vars,
@@ -374,7 +373,6 @@ def pp_objective_function(
     try:
         _, _, _, pp_obj, _, _, _, _ = _runner(
             x,
-            nd,
             tv_iphi_vars, tv_iphi_max,
             ti_iphi_vars, ti_iphi_max,
             tv_ophi_vars, ti_ophi_vars,
@@ -395,7 +393,6 @@ def pp_objective_function(
 
 def _runner(
     x,
-    nd,
     tv_iphi_vars,
     tv_iphi_max,
     ti_iphi_vars,

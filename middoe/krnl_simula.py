@@ -272,17 +272,16 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
 
             client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
             client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
-            result = evaluate_trajectories(client)
+            result = evaluate(client)
             if result.outcome != ExecutionOutcome.success:
                 raise RuntimeError(f"Simulation failed for model '{model_name}'")
             tv_ophi = {
-                key: result.trajectories[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
-                result.trajectories[key]
+                key: result.values[key]
                 for key in model_structure.get('tv_ophi', {})
-                if key in result.trajectories
+                if key in result.values
             }
             ti_ophi = {
-                key: result.trajectories[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
+                key: result.values[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
                 result.trajectories[key]
                 for key in model_structure.get('ti_ophi', {})
                 if key in result.trajectories
