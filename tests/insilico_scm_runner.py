@@ -288,7 +288,7 @@ def main():
 
 
     estimation_settings = { # Settings for the parameter estimation process
-        'method': 'Local',  # optimisation method, 'Global': differential evolution, 'Local': SLSQP
+        'method': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
         'initialization': 'random',   # use 'random' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
         'eps': 1e-3,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         #usually 1e-3, or None to perform a mesh independency test, and auto adjustment

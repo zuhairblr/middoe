@@ -535,7 +535,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
             for x, theta, thetmax, thetmin in zip(initial_x0, thetas, thetamax, thetamin)
         ]
 
-        if method == 'Local':
+        if method == 'Ls':
             result = minimize(
                 _objective_function,
                 initial_x0,
@@ -546,17 +546,17 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
                 tol=1e-6
             )
 
-        # if method == 'Local':
-        #     result = minimize(
-        #         _objective_function,
-        #         initial_x0,
-        #         args=(data, solver, initial_x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings),
-        #         method='Nelder-Mead',
-        #         options={'maxiter': 100000, 'disp': False, 'fatol': 1e-6}
-        #     )
+        if method == 'Ln':
+            result = minimize(
+                _objective_function,
+                initial_x0,
+                args=(data, solver, initial_x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings),
+                method='Nelder-Mead',
+                options={'maxiter': 100000, 'disp': False, 'fatol': 1e-6}
+            )
 
 
-        elif method == 'Global':
+        elif method == 'G':
             result = differential_evolution(
                 _objective_function,
                 bounds=bounds,
