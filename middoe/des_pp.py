@@ -748,7 +748,6 @@ def _optimize_g_c(
     return result, index_dict
 
 
-
 def _pp_objective_function(
     x,
     tv_iphi_vars, tv_iphi_max,

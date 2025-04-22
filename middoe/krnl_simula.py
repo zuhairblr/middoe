@@ -262,7 +262,7 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
 
     elif modelling_settings['sim'][model_name] == 'gp':
         # Use the pygpas framework for simulation
-        with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
+        with StartedConnected() as client:
             client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
                         modelling_settings['gpmodels']['credentials'][model_name])
             for key, value in phi.items():
