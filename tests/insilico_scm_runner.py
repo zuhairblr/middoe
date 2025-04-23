@@ -196,10 +196,10 @@ def main():
             'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 1001,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
+            'nd': 101,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 1000, # maximum number of PP runs
+            'maxpp': 100, # maximum number of PP runs
             'tolpp': 1e-3, # tolerance for PP optimization
         }
     }
@@ -304,7 +304,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 15 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 2 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results

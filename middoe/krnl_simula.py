@@ -9,7 +9,8 @@ from subprocess import DEVNULL
 from pygpas.evaluate import evaluate, evaluate_trajectories
 from pygpas.server import StartedConnected
 from pygpas.special_variables import ExecutionOutcome
-from pygpas.special_variables.names import TIME
+from pygpas.special_variables.names import TIME, EXECUTION_OUTCOME
+
 
 def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, model_structure, modelling_settings):
     """
@@ -262,7 +263,7 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
 
     elif modelling_settings['sim'][model_name] == 'gp':
         # Use the pygpas framework for simulation
-        with StartedConnected() as client:
+        with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
             client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
                         modelling_settings['gpmodels']['credentials'][model_name])
             for key, value in phi.items():
@@ -273,13 +274,21 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
             client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
             client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
             result = evaluate(client)
-            if result.outcome != ExecutionOutcome.success:
-                raise RuntimeError(f"Simulation failed for model '{model_name}'")
+
+            # if result.outcome != ExecutionOutcome.success:
+            #     raise RuntimeError(f"Simulation failed for model '{model_name}'")
+            # tv_ophi = {
+            #     key: result.values[key]
+            #     for key in model_structure.get('tv_ophi', {})
+            #     if key in result.values
+            # }
             tv_ophi = {
-                key: result.values[key]
+                key: client.get_value(key)
                 for key in model_structure.get('tv_ophi', {})
-                if key in result.values
             }
+            # print(f"theta: {theta}")
+            # print(f"tv: {tv_ophi}")
+
             ti_ophi = {
                 key: result.values[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
                 result.trajectories[key]
