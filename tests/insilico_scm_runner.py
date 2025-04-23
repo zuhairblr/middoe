@@ -182,7 +182,7 @@ def main():
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
         't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_r': 10.8,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
@@ -196,7 +196,7 @@ def main():
             'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 101,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
+            'nd': 1001,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
             'maxpp': 100, # maximum number of PP runs
@@ -304,7 +304,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 2 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 1 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -377,9 +377,9 @@ def main():
         print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')
 
-        # Perform final validation with cross-validation metrics
-        R2_prd, R2_val, parameters = validation(data_storage, model_structure, modelling_settings, estimation_settings,
-                                                Simula, round_data, framework_settings)
+        # # Perform final validation with cross-validation metrics
+        # R2_prd, R2_val, parameters = validation(data_storage, model_structure, modelling_settings, estimation_settings,
+        #                                         Simula, round_data, framework_settings)
 
         # Ensure the output folder structure exists for saving results
         base_path = framework_settings['path']
