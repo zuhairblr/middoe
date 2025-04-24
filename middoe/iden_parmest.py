@@ -457,6 +457,7 @@ def _objective(
 
     return data, metrics
 
+import time
 
 def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings):
     """
@@ -477,10 +478,16 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_str
     Returns:
     float: Value of the objective function.
     """
+
+    start_time = time.time()  # Start timer
     # Call the objective function
     optimized_data, metrics = _objective(
         theta, data, [solver], x0, thetac, thetas, model_structure, run_solver, modelling_settings
     )
+    end_time = time.time()  # End timer
+    elapsed_time = end_time - start_time
+    print(f"Objective function '{objf}' evaluation for solver '{solver}' took {elapsed_time:.4f} seconds.")
+
 
     # Extract the metrics needed for the optimization
     LS, MLE, Chi, JWLS = metrics['LS'], metrics['MLE'], metrics['Chi'], metrics['JWLS']

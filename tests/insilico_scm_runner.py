@@ -131,7 +131,7 @@ def main():
             'T': {  # Temperature (K)
                 'swp': 5,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
                 # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
-                'constraints': 'rel',  # Constraint type: relative state of signal levels in CVPs
+                'constraints': 'dec',  # Constraint type: relative state of signal levels in CVPs
                 # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
                 'max': 373.15,  # Maximum allowable signal level, design space upper bound
                 'min': 293.15,  # Minimum allowable signal level, design space lower bound
@@ -142,7 +142,7 @@ def main():
             },
             'P': {  # Pressure (bar)
                 'swp': 5,
-                'constraints': 'dec',
+                'constraints': 'rel',
                 'max': 5,
                 'min': 1,
                 'initial_cvp': 'none',
@@ -182,25 +182,25 @@ def main():
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
         't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 10.8,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'G_C', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
+            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
             'mdopt_method': 'L' # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
         },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
-            'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
+            'MBDOE_PP_criterion': 'D'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 1001,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
+            'nd': 101,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 100, # maximum number of PP runs
-            'tolpp': 1e-3, # tolerance for PP optimization
+            'maxpp': 10, # maximum number of PP runs
+            'tolpp': 1e-2, # tolerance for PP optimization
         }
     }
 
@@ -210,7 +210,7 @@ def main():
         'sim': {'f11': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'gpmodels': {
             'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model4.zip'},            # for now only for gPAS readable files, it is the path to zip file
+            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model5.zip'},            # for now only for gPAS readable files, it is the path to zip file
         },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
@@ -280,9 +280,9 @@ def main():
         'insilico_model': 'f11', # selected true model (with nominal values)
         'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
             '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
-            '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
-            '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
-            '4': {'T': 353.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
+            '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
+            # '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
+            # '4': {'T': 353.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
         }
     }
 
@@ -290,7 +290,7 @@ def main():
     estimation_settings = { # Settings for the parameter estimation process
         'method': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
         'initialization': 'random',   # use 'random' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
-        'eps': 1e-3,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
+        'eps': 1e-2,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         #usually 1e-3, or None to perform a mesh independency test, and auto adjustment
         'objf': 'JWLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'JWLS': weighted least squares
         'con_plot': False, # plot the confidence volumes
@@ -304,7 +304,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 1 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results

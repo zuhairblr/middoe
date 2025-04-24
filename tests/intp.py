@@ -3,8 +3,8 @@ from middoe.iden_utils import Plotting_FinalResults, Plot_estimability, save_sob
 from middoe.log_utils import load_from_jac
 
 # Usage
-file_path = 'C:\\datasim\\1\\results.jac'  # Replace with your actual file path
-file_path2 = 'C:\\datasim\\1\\results2.jac'  # Replace with your actual file path
+file_path = 'C:\\datasim\\7\\results.jac'  # Replace with your actual file path
+file_path2 = 'C:\\datasim\\7\\results2.jac'  # Replace with your actual file path
 
 # Load the results
 results = load_from_jac(file_path)
@@ -13,7 +13,7 @@ results2 = load_from_jac(file_path2)
 # Extract directory from file_path
 directory_path = os.path.dirname(file_path)
 base_path = 'C:\\datasim'
-modelling_folder = str(1)  # No leading backslash here
+modelling_folder = str(7)  # No leading backslash here
 
 # Join the base path and modelling folder
 path = os.path.join(base_path, modelling_folder)
@@ -30,7 +30,7 @@ if results:
     # Iterate over solvers to create solver-specific plots
     for solver in ['f11']:
         # Create an instance of the Plotting_FinalResults class for the specific solver and rounds
-        selected_rounds = [ 3, 4, 5]  # Define the rounds to include
+        selected_rounds = [1, 2, 3]  # Define the rounds to include
         plotting = Plotting_FinalResults(results, solver, selected_rounds)
 
         # Define filenames for each type of plot
