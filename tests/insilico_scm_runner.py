@@ -198,7 +198,7 @@ def main():
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 10, # maximum number of PP runs
+            'maxpp': 100, # maximum number of PP runs
             'tolpp': 1e-2, # tolerance for PP optimization
         }
     }
@@ -303,7 +303,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 1 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -610,24 +610,31 @@ def main():
 
             # Assign the winner solver as the only active solver for the PP round
             modelling_settings['active_solvers'] = [winner_solver]
+            method = design_settings['optimization_methods']['ppopt_method']
 
-            # PP optimization strategy selection
-            if design_settings['optimization_methods']['ppopt_method'] == 'L' or design_settings['optimization_methods']['ppopt_method'] == 'G_C' or design_settings['optimization_methods']['ppopt_method'] == 'G_P':
-                # Perform Local Optimization using Parallel Execution
+            if method in ['L', 'G_C']:
+                # Local/Constrained optimization using parallel execution
                 with Pool(num_parallel_runs) as pool:
-                    results_list = pool.starmap(run_mbdoe_pp,
-                                                [(design_settings, model_structure, modelling_settings, core_num,
-                                                  framework_settings, round) for core_num in range(num_parallel_runs)])
-                # Select the best design decisions based on objective value
+                    results_list = pool.starmap(
+                        run_mbdoe_pp,
+                        [(design_settings, model_structure, modelling_settings, core_num,
+                          framework_settings, round) for core_num in range(num_parallel_runs)]
+                    )
                 best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
                 design_decisions.update(best_design_decisions)
 
-            elif design_settings['optimization_methods']['ppopt_method'] == 'GL':
-                # Perform Global Optimization (Single Core Execution)
-                core_num = 1
-                results_list = run_mbdoe_pp(design_settings, model_structure, modelling_settings, core_num,
-                                            framework_settings, round)
-                best_design_decisions, best_pp_obj, best_swps = results_list
+            elif method == 'G_P':
+                # Global optimization (pre-screened) using single-core execution
+                result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 0,
+                                      framework_settings, round)
+                best_design_decisions, best_pp_obj, best_swps = result
+                design_decisions.update(best_design_decisions)
+
+            elif method == 'GL':
+                # Global optimization (single-core execution)
+                result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 1,
+                                      framework_settings, round)
+                best_design_decisions, best_pp_obj, best_swps = result
                 design_decisions.update(best_design_decisions)
 
             # Data generation and storage

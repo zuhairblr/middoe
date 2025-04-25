@@ -10,6 +10,8 @@ import numpy as np
 from scipy.optimize import differential_evolution, minimize, Bounds
 from pymoo.core.problem import Problem
 from pymoo.algorithms.soo.nonconvex.de import DE
+from pymoo.operators.sampling.lhs import LHS
+from pymoo.core.problem import ElementwiseProblem
 
 
 from pymoo.optimize import minimize as pymoo_minimize
@@ -212,10 +214,15 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     else:
         raise ValueError(f"Unknown method '{method_key}' for mdopt_method in PP().")
 
-
+    if hasattr(result, 'X'):
+        x_final = result.X
+    elif hasattr(result, 'x'):
+        x_final = result.x
+    else:
+        raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
     phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _runner(
-        result.x,
+        x_final,
         tv_iphi_vars, tv_iphi_max,
         ti_iphi_vars, ti_iphi_max,
         tv_ophi_vars, ti_ophi_vars,
@@ -470,6 +477,7 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
     return result, index_dict
 
 
+
 def _optimize_g_p(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -482,15 +490,13 @@ def _optimize_g_p(
     mutation, V_matrix, design_criteria,
     model_structure, modelling_settings
 ):
-    """
-    Single-stage DE optimization via pymoo with embedded bounds, initial guess,
-    and inline constraint evaluation—no external segmenter or linear builder.
-    Returns the SciPy-refined result and the index dictionary mapping variables to x-indices.
-    """
-    # 1) Build bounds, initial guess, and index mapping
     bounds = []
     x0 = []
-    index_dict = {'ti': {}, 'lvl': {}, 't': {}, 'st': {}}
+    index_dict = {
+        'ti': {},
+        'swps': {},
+        'st': {}
+    }
 
     # Time-invariant inputs
     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
@@ -499,36 +505,38 @@ def _optimize_g_p(
         x0.append((lo + hi) / 2)
         index_dict['ti'][name] = [i]
 
-    # Levels for time-variant inputs
+    # Time-variant input levels and times
     start = len(x0)
     for i, name in enumerate(tv_iphi_vars):
         seg = tv_iphi_seg[i]
         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
         lo = mn / mx
-        idxs = list(range(start, start + seg - 1))
-        index_dict['lvl'][name] = idxs
+
+        # Level indexes
+        level_idxs = list(range(start, start + seg - 1))
+        index_dict['swps'][name + 'l'] = level_idxs
         for _ in range(seg - 1):
             bounds.append((lo, 1.0))
             x0.append((lo + 1.0) / 2)
         start += seg - 1
 
-    # Switch times for time-variant inputs
     for i, name in enumerate(tv_iphi_vars):
         seg = tv_iphi_seg[i]
-        lo = ti / tf
-        hi = 1 - ti / tf
-        idxs = list(range(start, start + seg - 2))
-        index_dict['t'][name] = idxs
+        lo, hi = ti / tf, 1 - ti / tf
+
+        # Time indexes
+        time_idxs = list(range(start, start + seg - 2))
+        index_dict['swps'][name + 't'] = time_idxs
         for _ in range(seg - 2):
             bounds.append((lo, hi))
             x0.append((lo + hi) / 2)
         start += seg - 2
 
-    # Sampling times for output variables
+    # Sampling times
     for i, name in enumerate(tv_ophi_vars):
         seg = tv_ophi_seg[i]
-        lo = ti / tf
-        hi = 1 - ti / tf
+        lo, hi = ti / tf, 1 - ti / tf
+
         idxs = list(range(start, start + seg - 2))
         index_dict['st'][name] = idxs
         for _ in range(seg - 2):
@@ -540,13 +548,39 @@ def _optimize_g_p(
     upper = np.array([b[1] for b in bounds])
     x0 = np.array(x0)
 
-    # 2) Build the objective wrapper
+    # === Build constraints and store indexes ===
+    constraint_index_list = []
+
+    # Level constraints
+    for i, name in enumerate(tv_iphi_vars):
+        const = tv_iphi_const[i]
+        if const != 'rel':
+            idxs = index_dict['swps'][name + 'l']
+            for j in range(len(idxs) - 1):
+                constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
+
+    # Time constraints
+    for i, name in enumerate(tv_iphi_vars):
+        idxs = index_dict['swps'][name + 't']
+        for j in range(len(idxs) - 1):
+            constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
+
+    # Sampling time constraints
+    for i, name in enumerate(tv_ophi_vars):
+        idxs = index_dict['st'][name]
+        for j in range(len(idxs) - 1):
+            constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+
+    # Number of constraints
+    total_constraints = len(constraint_index_list)
+
+    # Objective wrapper
     local_obj = partial(
         _pp_objective_function,
         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-        tv_iphi_cvp=tv_iphi_cvp, tv_ophi_matching=tv_ophi_matching,
+        tv_iphi_cvp=tv_iphi_cvp,
         active_solvers=active_solvers,
         theta_parameters=theta_parameters,
         tf=tf, eps=eps, mutation=mutation,
@@ -556,66 +590,54 @@ def _optimize_g_p(
         modelling_settings=modelling_settings
     )
 
-    # 3) Define pymoo DE problem with inline constraints
-    class DEProblem(Problem):
+    # Constraint-aware DE problem
+    class DEProblem(ElementwiseProblem):
         def __init__(self):
+
             super().__init__(
                 n_var=len(bounds),
                 n_obj=1,
-                n_constr=0,
+                n_constr=total_constraints,
                 xl=lower,
-                xu=upper,
-                elementwise_evaluation=True
+                xu=upper
             )
 
         def _evaluate(self, x, out, *args, **kwargs):
-            # Objective
             f_val = local_obj(x)
-            # Constraint evaluations: g(x) <= 0
             g = []
-            # Level-ordering: diff >= offset -> offset - diff <= 0
-            for i, name in enumerate(tv_iphi_vars):
-                offs = tv_iphi_offsetl[i]
-                idxs = index_dict['lvl'][name]
-                const = tv_iphi_const[i]
-                for j in range(len(idxs) - 1):
-                    i1, i2 = idxs[j], idxs[j + 1]
+
+            for kind, i, i1, i2 in constraint_index_list:
+                if kind == 'lvl':
+                    offs = tv_iphi_offsetl[i]
+                    const = tv_iphi_const[i]
                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
                     g.append(offs - diff)
-            # Switch-time ordering
-            for i, name in enumerate(tv_iphi_vars):
-                offs = tv_iphi_offsett[i] / tf
-                idxs = index_dict['t'][name]
-                for j in range(len(idxs) - 1):
-                    i1, i2 = idxs[j], idxs[j + 1]
+                elif kind == 't':
+                    offs = tv_iphi_offsett[i]
                     g.append(offs - (x[i2] - x[i1]))
-            # Sampling-time ordering
-            for i, name in enumerate(tv_ophi_vars):
-                offs = tv_ophi_offsett_ophi[i] / tf
-                idxs = index_dict['st'][name]
-                for j in range(len(idxs) - 1):
-                    i1, i2 = idxs[j], idxs[j + 1]
+                elif kind == 'st':
+                    offs = tv_ophi_offsett_ophi[i]
                     g.append(offs - (x[i2] - x[i1]))
 
             out['F'] = f_val
-            out['G'] = np.array(g)
+            out['G'] = np.array(g, dtype=np.float64)
 
     problem = DEProblem()
 
-    # 4) Run the global DE stage
     algo = DE(
-        pop_size=1000,
-        sampling='real_random',
+        pop_size=100,
+        sampling=LHS(),
         variant='DE/rand/1/bin',
-        F=mutation,
         CR=0.7
     )
+
     res_de = pymoo_minimize(
         problem,
         algo,
         termination=('n_gen', maxpp),
         seed=None,
-        verbose=False
+        verbose=False,
+        constraint_tolerance = 1e-2
     )
 
     return res_de, index_dict
@@ -756,6 +778,7 @@ def _optimize_g_c(
 
     return result, index_dict
 
+import traceback
 
 def _pp_objective_function(
     x,
@@ -791,6 +814,7 @@ def _pp_objective_function(
         return -pp_obj  # negative => maximize pp_obj
     except Exception as e:
         print(f"Exception in pp_objective_function: {e}")
+        traceback.print_exc()
         return 1e6
 
 
