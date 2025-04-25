@@ -5,7 +5,6 @@ import importlib
 import random
 from pathlib import Path
 from subprocess import DEVNULL
-
 from pygpas.evaluate import evaluate, evaluate_trajectories
 from pygpas.server import StartedConnected
 from pygpas.special_variables import ExecutionOutcome
@@ -212,106 +211,192 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 
     return tv_ophi, ti_ophi, phit
 
+# def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_name, model_structure):
+#     """
+#      Select the solver for the ODE system and perform the integration.
+#
+#      Parameters
+#      ----------
+#      model : callable
+#          The model function to be integrated.
+#      t : list or array of float
+#          Time points for the simulation.
+#      y0 : list of float
+#          Initial conditions for the ODE system.
+#      phi : dict
+#          Time-invariant variables (scaled).
+#      phit : dict
+#          Time-variant variables (scaled).
+#      theta : list of float
+#          Model parameters (scaled).
+#      modelling_settings : dict
+#          Settings for simulation selection and file paths.
+#      model_name : str
+#          Identifier for the model being simulated.
+#      model_structure : dict
+#          Contains keys like 'tv_ophi' and 'ti_ophi' describing expected outputs.
+#
+#      Returns
+#      -------
+#      tuple
+#          tv_ophi (dict): Time-variant outputs
+#          ti_ophi (dict): Time-invariant outputs
+#          phit (dict): Interpolated input profiles (unchanged)
+#      """
+#
+#     if modelling_settings['sim'][model_name] == 'sci':
+#         # Solve the ODE system
+#         result = solve_ivp(
+#             model,
+#             [min(t), max(t)],
+#             y0,
+#             method='LSODA',
+#             t_eval=t,
+#             args=(phi, phit, theta, t)
+#         )
+#
+#         # Extract time-varying outputs
+#         tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
+#         ti_ophi = {}  # Currently empty, add logic if needed
+#
+#     # elif modelling_settings['sim'][model_name] == 'gp':
+#     #     start_time = time.time()
+#     #     # Use the pygpas framework for simulation
+#     #     with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
+#     #             client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
+#     #                         modelling_settings['gpmodels']['credentials'][model_name])
+#     #             for key, value in phi.items():
+#     #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
+#     #             for key, value in phit.items():
+#     #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
+#     #
+#     #             client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
+#     #             client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
+#     #             result = evaluate(client)
+#     #             end_time = time.time()  # End timing
+#     #             elapsed_time = end_time - start_time
+#     #             print(f"GP simulation for model '{model_name}' took {elapsed_time:.4f} seconds")
+#     #
+#     #             # if result.outcome != ExecutionOutcome.success:
+#     #             #     raise RuntimeError(f"Simulation failed for model '{model_name}'")
+#     #             # tv_ophi = {
+#     #             #     key: result.values[key]
+#     #             #     for key in model_structure.get('tv_ophi', {})
+#     #             #     if key in result.values
+#     #             # }
+#     #             tv_ophi = {
+#     #                 key: client.get_value(key)
+#     #                 for key in model_structure.get('tv_ophi', {})
+#     #             }
+#     #             # print(f"theta: {theta}")
+#     #             # print(f"tv: {tv_ophi}")
+#     #
+#     #             # ti_ophi = {
+#     #             #     key: result.values[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
+#     #             #     result.trajectories[key]
+#     #             #     for key in model_structure.get('ti_ophi', {})
+#     #             #     if key in result.trajectories
+#     #             # }
+#     #             ti_ophi = {
+#     #                 key: client.get_value(key)
+#     #                 for key in model_structure.get('ti_ophi', {})
+#     #             }
+#
+#     elif modelling_settings['sim'][model_name] == 'gp':
+#         import time
+#         max_retries = 10  # You can increase or decrease this
+#         retry_count = 0
+#         success = False
+#         while not success and retry_count < max_retries:
+#             try:
+#                 ports = random.randint(10000, 90000)
+#                 with StartedConnected(port= str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
+#                     client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
+#                                 modelling_settings['gpmodels']['credentials'][model_name])
+#                     for key, value in phi.items():
+#                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
+#                     for key, value in phit.items():
+#                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
+#                     client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
+#                     client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
+#                     evaluate(client)
+#                     tv_ophi = {
+#                         key: client.get_value(key)
+#                         for key in model_structure.get('tv_ophi', {})
+#                     }
+#                     ti_ophi = {
+#                         key: client.get_value(key)
+#                         for key in model_structure.get('ti_ophi', {})
+#                     }
+#                     success = True  # Success!
+#             except Exception as e:
+#                 retry_count += 1
+#                 print(f"GP simulation attempt {retry_count} for model '{model_name}' failed: {e}")
+#                 time.sleep(1)  # Optional: wait a bit before retrying
+#         if not success:
+#             print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'.")
+#             tv_ophi, ti_ophi = {}, {}
+#
+#     else:
+#         raise ValueError(f"Unsupported simulation method for model '{model_name}'")
+#
+#     return tv_ophi, ti_ophi, phit
+
+
 def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_name, model_structure):
     """
-     Select the solver for the ODE system and perform the integration.
+    Select the solver for the ODE system and perform the integration.
 
-     Parameters
-     ----------
-     model : callable
-         The model function to be integrated.
-     t : list or array of float
-         Time points for the simulation.
-     y0 : list of float
-         Initial conditions for the ODE system.
-     phi : dict
-         Time-invariant variables (scaled).
-     phit : dict
-         Time-variant variables (scaled).
-     theta : list of float
-         Model parameters (scaled).
-     modelling_settings : dict
-         Settings for simulation selection and file paths.
-     model_name : str
-         Identifier for the model being simulated.
-     model_structure : dict
-         Contains keys like 'tv_ophi' and 'ti_ophi' describing expected outputs.
-
-     Returns
-     -------
-     tuple
-         tv_ophi (dict): Time-variant outputs
-         ti_ophi (dict): Time-invariant outputs
-         phit (dict): Interpolated input profiles (unchanged)
-     """
-
+    Returns
+    -------
+    tuple
+        tv_ophi (dict): Time-variant outputs
+        ti_ophi (dict): Time-invariant outputs
+        phit (dict): Interpolated input profiles (unchanged)
+    """
+    import time
     if modelling_settings['sim'][model_name] == 'sci':
-        # Solve the ODE system
-        result = solve_ivp(
-            model,
-            [min(t), max(t)],
-            y0,
-            method='LSODA',
-            t_eval=t,
-            args=(phi, phit, theta, t)
-        )
+        max_retries = 10
+        retry_count = 0
+        success = False
+        tv_ophi, ti_ophi = {}, {}
 
-        # Extract time-varying outputs
-        tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
-        ti_ophi = {}  # Currently empty, add logic if needed
+        while not success and retry_count < max_retries:
+            try:
+                result = solve_ivp(
+                    model,
+                    [min(t), max(t)],
+                    y0,
+                    method='LSODA',
+                    t_eval=t,
+                    args=(phi, phit, theta, t),
+                    rtol=1e-8,
+                    atol=1e-10,
+                )
+                if not result.success:
+                    raise RuntimeError(f"SciPy solver failed with message: {result.message}")
+                tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
+                ti_ophi = {}  # Extend if needed
+                success = True
+            except Exception as e:
+                retry_count += 1
+                print(f"SciPy simulation attempt {retry_count} for model '{model_name}' failed: {e}")
+                time.sleep(0.5)
 
-    # elif modelling_settings['sim'][model_name] == 'gp':
-    #     start_time = time.time()
-    #     # Use the pygpas framework for simulation
-    #     with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
-    #             client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
-    #                         modelling_settings['gpmodels']['credentials'][model_name])
-    #             for key, value in phi.items():
-    #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
-    #             for key, value in phit.items():
-    #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
-    #
-    #             client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
-    #             client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
-    #             result = evaluate(client)
-    #             end_time = time.time()  # End timing
-    #             elapsed_time = end_time - start_time
-    #             print(f"GP simulation for model '{model_name}' took {elapsed_time:.4f} seconds")
-    #
-    #             # if result.outcome != ExecutionOutcome.success:
-    #             #     raise RuntimeError(f"Simulation failed for model '{model_name}'")
-    #             # tv_ophi = {
-    #             #     key: result.values[key]
-    #             #     for key in model_structure.get('tv_ophi', {})
-    #             #     if key in result.values
-    #             # }
-    #             tv_ophi = {
-    #                 key: client.get_value(key)
-    #                 for key in model_structure.get('tv_ophi', {})
-    #             }
-    #             # print(f"theta: {theta}")
-    #             # print(f"tv: {tv_ophi}")
-    #
-    #             # ti_ophi = {
-    #             #     key: result.values[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
-    #             #     result.trajectories[key]
-    #             #     for key in model_structure.get('ti_ophi', {})
-    #             #     if key in result.trajectories
-    #             # }
-    #             ti_ophi = {
-    #                 key: client.get_value(key)
-    #                 for key in model_structure.get('ti_ophi', {})
-    #             }
+        if not success:
+            print(f"All {max_retries} SciPy simulation attempts failed for model '{model_name}'")
 
     elif modelling_settings['sim'][model_name] == 'gp':
         import time
-        max_retries = 10  # You can increase or decrease this
+        max_retries = 10
         retry_count = 0
         success = False
+        tv_ophi, ti_ophi = {}, {}
+
         while not success and retry_count < max_retries:
             try:
                 ports = random.randint(10000, 90000)
-                with StartedConnected(port= str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
+                with StartedConnected(port=str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
                     client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
                                 modelling_settings['gpmodels']['credentials'][model_name])
                     for key, value in phi.items():
@@ -329,17 +414,16 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
                         key: client.get_value(key)
                         for key in model_structure.get('ti_ophi', {})
                     }
-                    success = True  # Success!
+                    success = True
             except Exception as e:
                 retry_count += 1
                 print(f"GP simulation attempt {retry_count} for model '{model_name}' failed: {e}")
-                time.sleep(1)  # Optional: wait a bit before retrying
+                time.sleep(1)
+
         if not success:
-            print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'.")
-            tv_ophi, ti_ophi = {}, {}
+            print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'")
 
     else:
         raise ValueError(f"Unsupported simulation method for model '{model_name}'")
 
     return tv_ophi, ti_ophi, phit
-

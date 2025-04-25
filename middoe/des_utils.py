@@ -135,7 +135,7 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
 
                 current_min = min_bound[0]
                 for j in range(num_times):
-                    feasible_min = max(current_min + tv_iphi_offsett[i] / tf, min_bound[j])
+                    feasible_min = max(current_min + tv_iphi_offsett[i], min_bound[j])
                     feasible_max = max_bound[j]
                     if feasible_min > feasible_max:
                         # Adjust feasible_min if it exceeds feasible_max
@@ -176,7 +176,7 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
 
                 current_min = min_bound[0]
                 for j in range(num_times):
-                    feasible_min = max(current_min + tv_ophi_offsett[i] / tf, min_bound[j])
+                    feasible_min = max(current_min + tv_ophi_offsett[i], min_bound[j])
                     feasible_max = max_bound[j]
                     if feasible_min > feasible_max:
                         # Adjust feasible_min if it exceeds feasible_max

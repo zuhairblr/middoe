@@ -1,4 +1,7 @@
 import os
+
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+
 from middoe.des_utils import _segmenter, _slicer, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
 from middoe.krnl_simula import Simula
 from collections import defaultdict
@@ -7,6 +10,8 @@ import numpy as np
 from scipy.optimize import differential_evolution, minimize, Bounds
 from pymoo.core.problem import Problem
 from pymoo.algorithms.soo.nonconvex.de import DE
+
+
 from pymoo.optimize import minimize as pymoo_minimize
 from casadi import MX, vertcat, nlpsol
 
@@ -107,8 +112,11 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     tv_iphi_min = [model_structure['tv_iphi'][var]['min'] for var in tv_iphi_vars]
     tv_iphi_seg = [model_structure['tv_iphi'][var]['swp'] for var in tv_iphi_vars]
     tv_iphi_const = [model_structure['tv_iphi'][var]['constraints'] for var in tv_iphi_vars]
-    tv_iphi_offsett = [model_structure['tv_iphi'][var]['offsett'] for var in tv_iphi_vars]
-    tv_iphi_offsetl = [model_structure['tv_iphi'][var]['offsetl'] for var in tv_iphi_vars]
+    tv_iphi_offsett = [model_structure['tv_iphi'][var]['offsett']/tf for var in tv_iphi_vars]
+    tv_iphi_offsetl = [
+        model_structure['tv_iphi'][var]['offsetl'] / model_structure['tv_iphi'][var]['max']
+        for var in tv_iphi_vars
+    ]
     tv_iphi_cvp = {var: model_structure['tv_iphi'][var]['design_cvp'] for var in tv_iphi_vars}
 
     # Time-invariant inputs
@@ -122,7 +130,7 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
         if model_structure['tv_ophi'][var].get('measured', True)
     ]
     tv_ophi_seg = [model_structure['tv_ophi'][var]['sp'] for var in tv_ophi_vars]
-    tv_ophi_offsett_ophi = [model_structure['tv_ophi'][var]['offsett'] for var in tv_ophi_vars]
+    tv_ophi_offsett_ophi = [model_structure['tv_ophi'][var]['offsett']/tf for var in tv_ophi_vars]
     tv_ophi_matching = [model_structure['tv_ophi'][var]['matching'] for var in tv_ophi_vars]
 
     # Time-invariant outputs
@@ -146,7 +154,7 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     V_matrix = modelling_settings['V_matrix']
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
-    method_key = design_settings['optimization_methods']['mdopt_method']
+    method_key = design_settings['optimization_methods']['ppopt_method']
     if method_key == 'L':
         result, index_dict = _optimize_l(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -416,7 +424,7 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
         penalized_objective,  # or penalized_objective_de
         obj_args=obj_args,
         constraint_args=constraint_args,
-        penalty_weight=1e4  # tune your penalty factor
+        penalty_weight=1e-1  # tune your penalty factor
     )
 
     # 6) Run Differential Evolution with the penalized objective
@@ -425,7 +433,7 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
         penalized_de_fun,
         bounds=de_bounds,
         strategy='best1bin',
-        maxiter=50,          # or any other suitable number
+        maxiter=maxpp,          # or any other suitable number
         popsize=15,
         tol=1e-6,
         mutation=(0.5, 1.0),
@@ -613,6 +621,7 @@ def _optimize_g_p(
     return res_de, index_dict
 
 
+
 def _optimize_g_c(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -704,14 +713,14 @@ def _optimize_g_c(
             g.append(diff - offs)
 
     for i, name in enumerate(tv_iphi_vars):
-        offs = tv_iphi_offsett[i] / tf
+        offs = tv_iphi_offsett[i]
         idxs = index_dict['t'][name]
         for j in range(len(idxs) - 1):
             i1, i2 = idxs[j], idxs[j + 1]
             g.append(x[i2] - x[i1] - offs)
 
     for i, name in enumerate(tv_ophi_vars):
-        offs = tv_ophi_offsett_ophi[i] / tf
+        offs = tv_ophi_offsett_ophi[i]
         idxs = index_dict['st'][name]
         for j in range(len(idxs) - 1):
             i1, i2 = idxs[j], idxs[j + 1]

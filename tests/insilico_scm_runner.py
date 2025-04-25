@@ -137,8 +137,8 @@ def main():
                 'min': 293.15,  # Minimum allowable signal level, design space lower bound
                 'initial_cvp': 'none',  # Initial CVP method (none - no predefined profile)
                 'design_cvp': 'CPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
-                'offsetl': 0.1,  # minimum allowed perturbation of signal (ratio)
-                'offsett': 0.1  # minimum allowed perturbation of time (ratio)
+                'offsetl': 10,  # minimum allowed perturbation of signal (ratio)
+                'offsett': 600  # minimum allowed perturbation of time (ratio)
             },
             'P': {  # Pressure (bar)
                 'swp': 5,
@@ -147,8 +147,8 @@ def main():
                 'min': 1,
                 'initial_cvp': 'none',
                 'design_cvp': 'CPF',
-                'offsetl': 0.1,
-                'offsett': 0.1
+                'offsetl': 0.5,
+                'offsett': 600
             }
         },
         'tv_ophi': {  # Time-variant output variables (responses, measured or unmeasured)
@@ -157,7 +157,7 @@ def main():
                 'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
                 'sp': 10,  # the amound of samples per each batch (run)
                 'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
-                'offsett': 0.1,  # minimum allowed perturbation of sampling times (ratio)
+                'offsett': 600,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for model prediction and data alignment
             }
         },
@@ -182,7 +182,7 @@ def main():
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
         't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 10.8,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
@@ -193,7 +193,7 @@ def main():
         },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
-            'MBDOE_PP_criterion': 'D'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
+            'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
