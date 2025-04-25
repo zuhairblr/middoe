@@ -182,7 +182,7 @@ def main():
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
         't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_r': 10.8,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
@@ -196,7 +196,6 @@ def main():
             'MBDOE_PP_criterion': 'D'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'nd': 101,   # the number of added points for trajectory smoothness in each batch (run) suggested 11, 101, or 1001
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
             'maxpp': 10, # maximum number of PP runs
@@ -207,10 +206,10 @@ def main():
     modelling_settings = { # Settings related to the rival models and their parameters
         'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
         'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
-        'sim': {'f11': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
+        'sim': {'f11': 'sci'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'gpmodels': {
             'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model5.zip'},            # for now only for gPAS readable files, it is the path to zip file
+            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model6.zip'},            # for now only for gPAS readable files, it is the path to zip file
         },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
