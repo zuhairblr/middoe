@@ -1,21 +1,18 @@
 import os
 
-from pymoo.operators.sampling.rnd import FloatRandomSampling
-
 from middoe.des_utils import _segmenter, _slicer, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
 from middoe.krnl_simula import Simula
 from collections import defaultdict
 from functools import partial
 import numpy as np
 from scipy.optimize import differential_evolution, minimize, Bounds
-from pymoo.core.problem import Problem
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.core.problem import ElementwiseProblem
-
-
 from pymoo.optimize import minimize as pymoo_minimize
-from casadi import MX, vertcat, nlpsol
+# import casadi as ca
+# from casadi import MX, vertcat, nlpsol
+
 
 def run_pp(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
     """
@@ -171,19 +168,19 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
             model_structure, modelling_settings
         )
 
-    elif method_key == 'G_C':
-        result, index_dict = _optimize_g_c(
-            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-            ti_ophi_vars,
-            tf, ti,
-            active_solvers, theta_parameters,
-            eps, maxpp, tolpp,
-            mutation, V_matrix, design_criteria,
-            model_structure, modelling_settings
-        )
+    # elif method_key == 'G_C':
+    #     result, index_dict = _optimize_g_c(
+    #         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+    #         tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+    #         ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+    #         tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+    #         ti_ophi_vars,
+    #         tf, ti,
+    #         active_solvers, theta_parameters,
+    #         eps, maxpp, tolpp,
+    #         mutation, V_matrix, design_criteria,
+    #         model_structure, modelling_settings
+    #     )
     elif method_key == 'G_P':
         result, index_dict = _optimize_g_p(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -644,141 +641,164 @@ def _optimize_g_p(
 
 
 
-def _optimize_g_c(
-    tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-    tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-    ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-    tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-    ti_ophi_vars,
-    tf, ti,
-    active_solvers, theta_parameters,
-    eps, maxpp, tolpp,
-    mutation, V_matrix, design_criteria,
-    model_structure, modelling_settings
-):
-    bounds = []
-    x0 = []
-    index_dict = {'ti': {}, 'lvl': {}, 't': {}, 'st': {}}
+# def _optimize_g_c(
+#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+#     ti_ophi_vars,
+#     tf, ti,
+#     active_solvers, theta_parameters,
+#     eps, maxpp, tolpp,
+#     mutation, V_matrix, design_criteria,
+#     model_structure, modelling_settings
+# ):
+#     # 1) Build bounds, x0, index_dict (same as original)
+#     bounds, x0 = [], []
+#     index_dict = {'ti': {}, 'swps': {}, 'st': {}}
+#
+#     # Time-invariant inputs
+#     for i, (name, mn, mx) in enumerate(zip(
+#             ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+#         lo, hi = mn/mx, 1.0
+#         bounds.append((lo, hi)); x0.append((lo+hi)/2)
+#         index_dict['ti'][name] = [i]
+#
+#     # Time-variant levels ('l')
+#     start = len(x0)
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg, lo = tv_iphi_seg[i], tv_iphi_min[i]/tv_iphi_max[i]
+#         idxs = list(range(start, start+seg-1))
+#         index_dict['swps'][f"{name}l"] = idxs
+#         for _ in idxs:
+#             bounds.append((lo, 1.0)); x0.append((lo+1)/2)
+#         start += seg-1
+#
+#     # Time-variant transition times ('t')
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]; lo, hi = ti/tf, 1 - ti/tf
+#         idxs = list(range(start, start+seg-2))
+#         index_dict['swps'][f"{name}t"] = idxs
+#         for _ in idxs:
+#             bounds.append((lo, hi)); x0.append((lo+hi)/2)
+#         start += seg-2
+#
+#     # Sampling times for tv_ophi_vars ('st')
+#     for i, name in enumerate(tv_ophi_vars):
+#         seg = tv_ophi_seg[i]; lo, hi = ti/tf, 1 - ti/tf
+#         idxs = list(range(start, start+seg-2))
+#         index_dict['st'][name] = idxs
+#         for _ in idxs:
+#             bounds.append((lo, hi)); x0.append((lo+hi)/2)
+#         start += seg-2
+#
+#     lower = np.array([b[0] for b in bounds])
+#     upper = np.array([b[1] for b in bounds])
+#     x0 = np.array(x0)
+#     n_var = len(bounds)
+#
+#     # 2) Build CasADi symbol and wrap objective
+#     x = ca.MX.sym('x', n_var)
+#     local_obj = partial(
+#         _pp_objective_function,
+#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+#         tv_iphi_cvp=tv_iphi_cvp,
+#         active_solvers=active_solvers,
+#         theta_parameters=theta_parameters,
+#         tf=tf, eps=eps, mutation=mutation,
+#         V_matrix=V_matrix, design_criteria=design_criteria,
+#         index_dict=index_dict,
+#         model_structure=model_structure,
+#         modelling_settings=modelling_settings
+#     )
+#
+#     # 3) Define Callback subclass for objective (finite differences)
+#     class PPCallback(ca.Callback):
+#         def __init__(self, name, nx, opts):
+#             ca.Callback.__init__(self)
+#             self.nx = nx
+#             self.fun = local_obj
+#             self.construct(name, opts)
+#
+#         def get_n_in(self):     return 1
+#         def get_n_out(self):    return 1
+#
+#         def get_sparsity_in(self, idx):
+#             return ca.Sparsity.dense(self.nx, 1)
+#
+#         def get_sparsity_out(self, idx):
+#             return ca.Sparsity.dense(1, 1)
+#
+#         def eval(self, args):
+#             # args[0] is an MXDense; convert to numpy
+#             x_val = np.array(args[0]).flatten()
+#             return [float(self.fun(x_val))]
+#
+#     # Persist the callback so it's not garbage-collected
+#     pp_cb = PPCallback('pp_cb', n_var, opts={'enable_fd': True})
+#
+#     # 4) Build inequality constraints g(x) <= 0
+#     constraint_index_list = []
+#     for i, name in enumerate(tv_iphi_vars):
+#         if tv_iphi_const[i] != 'rel':
+#             idxs = index_dict['swps'][f"{name}l"]
+#             for j in range(len(idxs)-1):
+#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j+1]))
+#     for i, name in enumerate(tv_iphi_vars):
+#         idxs = index_dict['swps'][f"{name}t"]
+#         for j in range(len(idxs)-1):
+#             constraint_index_list.append(('t', i, idxs[j], idxs[j+1]))
+#     for i, name in enumerate(tv_ophi_vars):
+#         idxs = index_dict['st'][name]
+#         for j in range(len(idxs)-1):
+#             constraint_index_list.append(('st', i, idxs[j], idxs[j+1]))
+#
+#     g_list = []
+#     for kind, i, i1, i2 in constraint_index_list:
+#         if kind == 'lvl':
+#             diff = x[i2] - x[i1] if tv_iphi_const[i]=='inc' else x[i1] - x[i2]
+#             g_list.append(tv_iphi_offsetl[i] - diff)
+#         elif kind == 't':
+#             g_list.append(tv_iphi_offsett[i] - (x[i2] - x[i1]))
+#         else:  # 'st'
+#             g_list.append(tv_ophi_offsett_ophi[i] - (x[i2] - x[i1]))
+#     g_concat = ca.vertcat(*g_list) if g_list else ca.vertcat()
+#
+#     # 5) Assemble NLP and solver (no iteration_callback here)
+#     f_expr = pp_cb(x)
+#     nlp = {'x': x, 'f': f_expr, 'g': g_concat}
+#     # Define solver options
+#     opts = {
+#         'ipopt': {
+#             'max_iter': 10,
+#             'tol': 1e-1,
+#             'print_level': 0,
+#             'linear_solver': 'mumps',
+#             'mu_strategy': 'adaptive',
+#             'hessian_approximation': 'exact',
+#             'nlp_scaling_method': 'gradient-based'
+#         }
+#     }
+#     solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
+#
+#     # 6) Define bounds and solve
+#     lbx, ubx = lower, upper
+#     if g_list:
+#         lbg = -ca.inf * np.ones(g_concat.size1())
+#         ubg = np.zeros(g_concat.size1())
+#     else:
+#         lbg, ubg = [], []
+#
+#     sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
+#
+#     # 7) Extract and return solution
+#     x_opt = np.array(sol['x']).flatten()
+#     return x_opt, index_dict
 
-    for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-        lo, hi = mn / mx, 1.0
-        bounds.append((lo, hi))
-        x0.append((lo + hi) / 2)
-        index_dict['ti'][name] = [i]
 
-    start = len(x0)
-    for i, name in enumerate(tv_iphi_vars):
-        seg = tv_iphi_seg[i]
-        lo = tv_iphi_min[i] / tv_iphi_max[i]
-        idxs = list(range(start, start + seg - 1))
-        index_dict['lvl'][name] = idxs
-        for _ in range(seg - 1):
-            bounds.append((lo, 1.0))
-            x0.append((lo + 1.0) / 2)
-        start += seg - 1
 
-    for i, name in enumerate(tv_iphi_vars):
-        seg = tv_iphi_seg[i]
-        lo, hi = ti / tf, 1 - ti / tf
-        idxs = list(range(start, start + seg - 2))
-        index_dict['t'][name] = idxs
-        for _ in range(seg - 2):
-            bounds.append((lo, hi))
-            x0.append((lo + hi) / 2)
-        start += seg - 2
-
-    for i, name in enumerate(tv_ophi_vars):
-        seg = tv_ophi_seg[i]
-        lo, hi = ti / tf, 1 - ti / tf
-        idxs = list(range(start, start + seg - 2))
-        index_dict['st'][name] = idxs
-        for _ in range(seg - 2):
-            bounds.append((lo, hi))
-            x0.append((lo + hi) / 2)
-        start += seg - 2
-
-    lower = np.array([b[0] for b in bounds])
-    upper = np.array([b[1] for b in bounds])
-    x0 = np.array(x0)
-
-    # Objective wrapper using partial
-    local_obj = partial(
-        _pp_objective_function,
-        tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-        ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-        tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-        tv_iphi_cvp=tv_iphi_cvp, tv_ophi_matching=tv_ophi_matching,
-        active_solvers=active_solvers,
-        theta_parameters=theta_parameters,
-        tf=tf, eps=eps, mutation=mutation,
-        V_matrix=V_matrix, design_criteria=design_criteria,
-        index_dict=index_dict,
-        model_structure=model_structure,
-        modelling_settings=modelling_settings
-    )
-
-    # Symbolic variables
-    x = MX.sym('x', len(x0))
-
-    # Objective expression
-    f = local_obj(x)
-
-    # Constraint expressions
-    g = []
-    for i, name in enumerate(tv_iphi_vars):
-        offs = tv_iphi_offsetl[i]
-        idxs = index_dict['lvl'][name]
-        const = tv_iphi_const[i]
-        for j in range(len(idxs) - 1):
-            i1, i2 = idxs[j], idxs[j + 1]
-            diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
-            g.append(diff - offs)
-
-    for i, name in enumerate(tv_iphi_vars):
-        offs = tv_iphi_offsett[i]
-        idxs = index_dict['t'][name]
-        for j in range(len(idxs) - 1):
-            i1, i2 = idxs[j], idxs[j + 1]
-            g.append(x[i2] - x[i1] - offs)
-
-    for i, name in enumerate(tv_ophi_vars):
-        offs = tv_ophi_offsett_ophi[i]
-        idxs = index_dict['st'][name]
-        for j in range(len(idxs) - 1):
-            i1, i2 = idxs[j], idxs[j + 1]
-            g.append(x[i2] - x[i1] - offs)
-
-    g = vertcat(*g)
-
-    # Create NLP dictionary
-    nlp = {'x': x, 'f': f, 'g': g}
-
-    solver = nlpsol('solver', 'ipopt', nlp, {
-        'ipopt.max_iter': maxpp,
-        'ipopt.tol': tolpp,
-        'print_time': False,
-        'ipopt.print_level': 5
-    })
-
-    sol = solver(
-        x0=x0,
-        lbx=lower,
-        ubx=upper,
-        lbg=np.zeros(g.shape[0]),
-        ubg=np.full(g.shape[0], np.inf)
-    )
-
-    result = {
-        'x': np.array(sol['x']).flatten(),
-        'f': float(sol['f']),
-        'success': solver.stats()['success'],
-        'status': solver.stats()['return_status'],
-        'iter': solver.stats().get('iter_count', None)
-    }
-
-    return result, index_dict
-
-import traceback
 
 def _pp_objective_function(
     x,
@@ -814,7 +834,6 @@ def _pp_objective_function(
         return -pp_obj  # negative => maximize pp_obj
     except Exception as e:
         print(f"Exception in pp_objective_function: {e}")
-        traceback.print_exc()
         return 1e6
 
 

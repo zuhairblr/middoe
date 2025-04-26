@@ -188,8 +188,8 @@ def main():
     design_settings = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
-            'mdopt_method': 'L' # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'G_C': differential evolution in c++ , 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_C', and 'G_P' are suggested for usage over the rest
+            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
+            'mdopt_method': 'L' # optimization method for MBDoE-MD, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
         },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
@@ -303,7 +303,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 1 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -612,7 +612,7 @@ def main():
             modelling_settings['active_solvers'] = [winner_solver]
             method = design_settings['optimization_methods']['ppopt_method']
 
-            if method in ['L', 'G_C']:
+            if method in ['L', 'G_P']:
                 # Local/Constrained optimization using parallel execution
                 with Pool(num_parallel_runs) as pool:
                     results_list = pool.starmap(
@@ -623,16 +623,16 @@ def main():
                 best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
                 design_decisions.update(best_design_decisions)
 
-            elif method == 'G_P':
-                # Global optimization (pre-screened) using single-core execution
-                result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 0,
-                                      framework_settings, round)
-                best_design_decisions, best_pp_obj, best_swps = result
-                design_decisions.update(best_design_decisions)
+            # elif method == 'G_P':
+            #     # Global optimization (pre-screened) using single-core execution
+            #     result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 0,
+            #                           framework_settings, round)
+            #     best_design_decisions, best_pp_obj, best_swps = result
+            #     design_decisions.update(best_design_decisions)
 
             elif method == 'GL':
                 # Global optimization (single-core execution)
-                result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 1,
+                result = run_mbdoe_pp(design_settings, model_structure, modelling_settings, 0,
                                       framework_settings, round)
                 best_design_decisions, best_pp_obj, best_swps = result
                 design_decisions.update(best_design_decisions)
