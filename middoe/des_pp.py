@@ -1,7 +1,7 @@
 import os
 
 from middoe.des_utils import _segmenter, _slicer, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
-from middoe.krnl_simula import Simula
+from middoe.krnl_simula import simula
 from collections import defaultdict
 from functools import partial
 import numpy as np
@@ -179,7 +179,7 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     #         active_solvers, theta_parameters,
     #         eps, maxpp, tolpp,
     #         mutation, V_matrix, design_criteria,
-    #         model_structure, modelling_settings
+    #         system, models
     #     )
     elif method_key == 'G_P':
         result, index_dict = _optimize_g_p(
@@ -622,7 +622,7 @@ def _optimize_g_p(
     problem = DEProblem()
 
     algo = DE(
-        pop_size=100,
+        pop_size=50,
         sampling=LHS(),
         variant='DE/rand/1/bin',
         CR=0.7
@@ -633,8 +633,8 @@ def _optimize_g_p(
         algo,
         termination=('n_gen', maxpp),
         seed=None,
-        verbose=False,
-        constraint_tolerance = 1e-2
+        verbose=True,
+        constraint_tolerance = tolpp
     )
 
     return res_de, index_dict
@@ -651,7 +651,7 @@ def _optimize_g_p(
 #     active_solvers, theta_parameters,
 #     eps, maxpp, tolpp,
 #     mutation, V_matrix, design_criteria,
-#     model_structure, modelling_settings
+#     system, models
 # ):
 #     # 1) Build bounds, x0, index_dict (same as original)
 #     bounds, x0 = [], []
@@ -710,8 +710,8 @@ def _optimize_g_p(
 #         tf=tf, eps=eps, mutation=mutation,
 #         V_matrix=V_matrix, design_criteria=design_criteria,
 #         index_dict=index_dict,
-#         model_structure=model_structure,
-#         modelling_settings=modelling_settings
+#         system=system,
+#         models=models
 #     )
 #
 #     # 3) Define Callback subclass for objective (finite differences)
@@ -986,7 +986,7 @@ def _runner(
         # -----------------------------------------------------------------
         # 3a) Run the solver for unperturbed (baseline) theta
         # -----------------------------------------------------------------
-        tv_out, ti_out, interp_data = Simula(
+        tv_out, ti_out, interp_data = simula(
             t_values, swps_data, ti_iphi_data,
             phisc, phitsc, tsc,
             theta, thetac,
@@ -1031,7 +1031,7 @@ def _runner(
             # -------------------------------------------------------------
             # 3b-i) Run solver with modified theta
             # -------------------------------------------------------------
-            tv_out_mod, ti_out_mod, _ = Simula(
+            tv_out_mod, ti_out_mod, _ = simula(
                 t_values, swps_data, ti_iphi_data,
                 phisc, phitsc, tsc,
                 modified_theta, thetac,

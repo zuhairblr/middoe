@@ -1,4 +1,5 @@
 import numpy as np
+from middoe.krnl_simula import simula
 import scipy.stats as stats
 import logging
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ import math
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def Uncert(data, resultpr, model_structure, modelling_settings, estimation_settings, run_solver):
+def uncert(data, resultpr, system, models, iden_opt):
     """
     Perform uncertainty analysis on the optimization results.
 
@@ -19,11 +20,11 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
         Dictionary containing the experimental data.
     resultpr : dict
         Dictionary containing the results of the optimization from parameter estimation.
-    model_structure : dict
+    system : dict
         User-provided dictionary containing the model structure.
-    modelling_settings : dict
+    models : dict
         User-provided dictionary containing the modelling settings.
-    estimation_settings : dict
+    iden_opt : dict
         User-provided dictionary containing the estimation settings.
     run_solver : function
         Simulator function to run the model.
@@ -39,41 +40,41 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
     import numpy as np
 
     # Gather variable names
-    tv_iphi_vars = list(model_structure.get('tv_iphi', {}).keys())
-    ti_iphi_vars = list(model_structure.get('ti_iphi', {}).keys())
+    tv_iphi_vars = list(system.get('tvi', {}).keys())
+    ti_iphi_vars = list(system.get('tii', {}).keys())
     tv_ophi_vars = [
-        var for var in model_structure.get('tv_ophi', {}).keys()
-        if model_structure['tv_ophi'][var].get('measured', True)
+        var for var in system.get('tvo', {}).keys()
+        if system['tvo'][var].get('measured', True)
     ]
     ti_ophi_vars = [
-        var for var in model_structure.get('ti_ophi', {}).keys()
-        if model_structure['ti_ophi'][var].get('measured', True)
+        var for var in system.get('tio', {}).keys()
+        if system['tio'][var].get('measured', True)
     ]
 
     # Attempt to retrieve standard deviations for each measured variable.
     # If not found or NaN, default to 1.0.
     # (Although we don't use them directly here, we show how you'd gather them.)
     std_dev = {}
-    for var in model_structure.get('tv_ophi', {}):
-        if model_structure['tv_ophi'][var].get('measured', True):
-            sigma = model_structure['tv_ophi'][var].get('unc', None)
+    for var in system.get('tvo', {}):
+        if system['tvo'][var].get('measured', True):
+            sigma = system['tvo'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
-    for var in model_structure.get('ti_ophi', {}):
-        if model_structure['ti_ophi'][var].get('measured', True):
-            sigma = model_structure['ti_ophi'][var].get('unc', None)
+    for var in system.get('tio', {}):
+        if system['tio'][var].get('measured', True):
+            sigma = system['tio'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
 
     # Estimation settings
-    eps = estimation_settings.get('eps', None)
-    logging = estimation_settings.get('logging', False)
+    eps = iden_opt.get('eps', None)
+    logging = iden_opt.get('logging', False)
 
     # Modelling settings
-    mutation = modelling_settings.get('mutation', {})
-    theta_parameters = modelling_settings.get('theta_parameters', {})
+    mutation = models.get('mutation', {})
+    theta_parameters = models.get('theta_parameters', {})
 
     resultun = {}
 
@@ -95,9 +96,8 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
                 initial_x0,
                 thetac,
                 solver,
-                model_structure,
-                modelling_settings,
-                run_solver,
+                system,
+                models,
                 tv_iphi_vars,
                 ti_iphi_vars,
                 tv_ophi_vars,
@@ -122,7 +122,7 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
             ti_input_m,
             tv_output_m,
             ti_output_m,
-            JWLS,
+            WLS,
             obs,
             MSE,
             R2_responses
@@ -138,9 +138,8 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
             tv_iphi_vars,
             tv_ophi_vars,
             ti_ophi_vars,
-            run_solver,
-            model_structure,
-            modelling_settings
+            system,
+            models
         )
         observed_values = obs  # store how many measurements used, etc.
 
@@ -152,7 +151,7 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
             'MSE': MSE,                   # Mean squared error (unweighted)
             'Chi': Chi,                   # Sum((res^2) / abs(pred))
             'LSA': LSA,                   # Jacobian (sensitivities)
-            'JWLS': JWLS,                 # Weighted least squares
+            'WLS': WLS,                   # Weighted least squares
             'R2_responses': R2_responses, # dictionary of per-variable R²
             'V_matrix': np.array(V_matrix),
             'CI': CI,
@@ -177,7 +176,7 @@ def Uncert(data, resultpr, model_structure, modelling_settings, estimation_setti
         resultun,
         mutation,
         theta_parameters,
-        modelling_settings,
+        models,
         logging
     )
 
@@ -195,9 +194,8 @@ def _uncert_metrics(
     tv_iphi_vars,
     tv_ophi_vars,
     ti_ophi_vars,
-    run_solver,
-    model_structure,
-    modelling_settings
+    system,
+    models
 ):
     """
     Calculate the uncertainty metrics for the optimization results.
@@ -228,9 +226,9 @@ def _uncert_metrics(
         List of time-invariant output variables.
     run_solver : function
         Simulator function.
-    model_structure : dict
+    system : dict
         Dictionary describing the model structure.
-    modelling_settings : dict
+    models : dict
         Dictionary describing the modelling settings.
 
     Returns
@@ -239,8 +237,6 @@ def _uncert_metrics(
         (data, LS, MLE, Chi, LSA, V_matrix, CI, t_values,
          t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m, JWLS, obs, MSE, R2_responses)
     """
-    import numpy as np
-    from scipy import stats
 
     if len(theta) != len(x0):
         raise ValueError("Length of theta and x0 must be the same")
@@ -258,16 +254,16 @@ def _uncert_metrics(
     # Fallback to sigma=1.0 if none is provided or if not measured.
     # -------------------------------------------------------------------------
     std_dev = {}
-    for var in model_structure.get('tv_ophi', {}):
-        if model_structure['tv_ophi'][var].get('measured', True):
-            sigma = model_structure['tv_ophi'][var].get('unc', None)
+    for var in system.get('tvo', {}):
+        if system['tvo'][var].get('measured', True):
+            sigma = system['tvo'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
 
-    for var in model_structure.get('ti_ophi', {}):
-        if model_structure['ti_ophi'][var].get('measured', True):
-            sigma = model_structure['ti_ophi'][var].get('unc', None)
+    for var in system.get('tio', {}):
+        if system['tio'][var].get('measured', True):
+            sigma = system['tio'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
@@ -365,7 +361,7 @@ def _uncert_metrics(
             t_valuese = np.unique(t_valuese)  # ensure unique & sorted
 
             # Run solver
-            tv_ophi_sim, ti_ophi_sim, phit_interp = run_solver(
+            tv_ophi_sim, ti_ophi_sim, phit_interp = simula(
                 t_valuese,
                 swps_data,
                 ti_iphi_data,
@@ -377,8 +373,8 @@ def _uncert_metrics(
                 cvp,
                 tv_iphi_data_,
                 solver_name,
-                model_structure,
-                modelling_settings
+                system,
+                models
             )
 
             # Filter solver outputs at the measurement times for TV outputs
@@ -478,7 +474,7 @@ def _uncert_metrics(
                 modified_theta[param_idx] += eps
 
                 # Run solver with the perturbed parameter
-                tv_ophi_mod, ti_ophi_mod, _ = run_solver(
+                tv_ophi_mod, ti_ophi_mod, _ = simula(
                     t_valuese,
                     swps_data,
                     ti_iphi_data,
@@ -490,8 +486,8 @@ def _uncert_metrics(
                     cvp,
                     tv_iphi_data_,
                     solver_name,
-                    model_structure,
-                    modelling_settings
+                    system,
+                    models
                 )
 
                 # Filter them at measurement times
@@ -571,7 +567,7 @@ def _uncert_metrics(
     #   R2_responses[var] = classical R2 (unweighted) for each variable
     # -------------------------------------------------------------------------
 
-    sum_jwls = 0.0
+    sum_wls = 0.0
     sum_mle = 0.0
     sum_chi = 0.0
 
@@ -587,7 +583,7 @@ def _uncert_metrics(
 
         # Weighted residual (y_true - y_pred)/sigma
         resid = (y_true_arr - y_pred_arr) / sigma_arr
-        sum_jwls += np.sum(resid**2)
+        sum_wls += np.sum(resid**2)
 
         # Weighted MLE
         for i in range(len(y_true_arr)):
@@ -616,7 +612,7 @@ def _uncert_metrics(
 
         R2_responses[var] = r2_var
 
-    JWLS = sum_jwls
+    WLS = sum_wls
     MLE = sum_mle
     Chi = sum_chi
 
@@ -689,13 +685,13 @@ def _uncert_metrics(
         ti_input_m,
         tv_output_m,
         ti_output_m,
-        JWLS,
+        WLS,
         obs,
         MSE,
         R2_responses
     )
 
-def _report(result, mutation, theta_parameters, modelling_settings, logging):
+def _report(result, mutation, theta_parameters, models, logging):
     """
     Report the uncertainty and parameter estimation results.
 
@@ -707,7 +703,7 @@ def _report(result, mutation, theta_parameters, modelling_settings, logging):
         Dictionary indicating which parameters are to be optimized for each solver.
     theta_parameters : dict
         Dictionary of theta parameters for each solver.
-    modelling_settings : dict
+    models : dict
         User-provided dictionary containing the modelling settings.
     logging : bool
         Flag to indicate whether to log the results.
@@ -742,7 +738,7 @@ def _report(result, mutation, theta_parameters, modelling_settings, logging):
             print(f"LS objective function value for {solver}: {solver_results['LS']}")
 
         # Update modelling settings with V_matrix for the solver
-        modelling_settings['V_matrix'][solver] = solver_results['V_matrix']
+        models['V_matrix'][solver] = solver_results['V_matrix']
 
         # Map CI, t-values, and CI ratios to their original parameter positions
         CI_mapped = {pos: solver_results['CI'][i] for i, pos in enumerate(original_positions)}
@@ -766,7 +762,7 @@ def _report(result, mutation, theta_parameters, modelling_settings, logging):
         if 'R2_responses' in solver_results:
             r2_responses = solver_results['R2_responses']
             if logging:
-                print(f"R² values for responses in solver {solver}:")
+                print(f"R2 values for responses in solver {solver}:")
                 for var, r2_value in r2_responses.items():
                     print(f"  {var}: {r2_value:.4f}")
 
@@ -777,7 +773,7 @@ def _report(result, mutation, theta_parameters, modelling_settings, logging):
 
     return scaled_params, solver_parameters, solver_cov_matrices, solver_confidence_intervals, result
 
-def _perform_fdm_mesh_dependency_test(theta, thetac, solver, model_structure, modelling_settings, run_solver, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
+def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
     """
     Perform FDM mesh dependency test to determine a suitable epsilon for sensitivity analysis.
 
@@ -785,8 +781,8 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, model_structure, mo
     theta (list): Initial parameter estimates.
     thetac (list): Scaling factors for parameters.
     solver (str): Solver name.
-    model_structure (dict): Model structure.
-    modelling_settings (dict): Modelling settings.
+    system (dict): Model structure.
+    models (dict): Modelling settings.
     run_solver (function): Simulator function to run the model.
     tv_iphi_vars (list): List of time-variant input variables.
     ti_iphi_vars (list): List of time-invariant input variables.
@@ -805,7 +801,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, model_structure, mo
         try:
             result = _uncert_metrics(
                 theta, data, [solver], theta, thetac, eps, [True] * len(theta),
-                ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, run_solver, model_structure, modelling_settings
+                ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models
             )
             V_matrix = result[5]  # Adjust index based on the correct position of V_matrix in the returned tuple
             determinant_changes.append(np.linalg.det(V_matrix))

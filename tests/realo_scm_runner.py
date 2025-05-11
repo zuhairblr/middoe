@@ -5,12 +5,12 @@ import time
 import os
 from middoe.log_utils import run_mbdoe_md, run_mbdoe_pp, write_excel, read_excel, save_rounds, save_to_jac, \
     data_appender
-from middoe.krnl_expera import Expera
-from middoe.sc_sensa import Sensa
-from middoe.iden_parmest import Parmest
-from middoe.iden_uncert import Uncert
-from middoe.sc_estima import Estima
-from middoe.krnl_simula import Simula
+from middoe.krnl_expera import expera
+from middoe.sc_sensa import sensa
+from middoe.iden_parmest import parmest
+from middoe.iden_uncert import uncert
+from middoe.sc_estima import estima
+from middoe.krnl_simula import simula
 from middoe.iden_valida import validation
 import pandas as pd
 
@@ -151,12 +151,12 @@ def main():
         Parameters:
         framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
         logic_settings (dict): User provided - Logic settings for the MBDOE process, including thresholds and maximum runs.
-        model_structure (dict): User provided - Structure of the model, including variables and their properties.
+        system (dict): User provided - Structure of the model, including variables and their properties.
         design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
-        modelling_settings (dict): User provided - Settings related to the modelling process, including theta parameters.
-        simulator_settings (dict): User provided - Settings for the simulator, including standard deviation and model name.
-        estimation_settings (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
-        GSA_settings (dict): User provided - Settings for the Global Sensitivity Analysis (GSA), including whether to perform sensitivity analysis.
+        models (dict): User provided - Settings related to the modelling process, including theta parameters.
+        insilicos (dict): User provided - Settings for the simulator, including standard deviation and model name.
+        iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
+        gsa (dict): User provided - Settings for the Global Sensitivity Analysis (GSA), including whether to perform sensitivity analysis.
 
         Returns:
         None
@@ -175,16 +175,16 @@ def main():
 
         if GSA_settings['perform_sensitivity']:
             sobol_results={}
-            sobol_results['sobol_analysis_results'], sobol_results['sobol_problem']= Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
+            sobol_results['sobol_analysis_results'], sobol_results['sobol_problem']= sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
 
         data_storage = run_initial_round(framework_settings, model_structure, modelling_settings, simulator_settings, estimation_settings, round_data, design_decisions,data_storage)
 
         # if not winner_solver_found:
         #
-        #     winner_solver_found, winner_solver = run_md_rounds(framework_settings, model_structure, modelling_settings, simulator_settings, estimation_settings, logic_settings, design_settings,  logic_settings['parallel_sessions'], round_data, design_decisions, data_storage)
+        #     winner_solver_found, winner_solver = run_md_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, design_settings,  logic_settings['parallel_sessions'], round_data, design_decisions, data_storage)
         # terminate_loop = False
         # if winner_solver_found:
-        #     terminate_loop = run_pp_rounds(framework_settings, model_structure, modelling_settings, simulator_settings, estimation_settings, logic_settings, design_settings,
+        #     terminate_loop = run_pp_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, design_settings,
         #                                    logic_settings['parallel_sessions'], winner_solver, round_data,
         #                                    design_decisions, data_storage)
         #
@@ -196,7 +196,7 @@ def main():
         # print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')
         # Call cross-validation at the end
-        R2_prd, R2_val, parameters = validation(data_storage, model_structure, modelling_settings, estimation_settings, Simula, round_data, framework_settings)
+        R2_prd, R2_val, parameters = validation(data_storage, model_structure, modelling_settings, estimation_settings, simula, round_data, framework_settings)
 
 
         base_path = framework_settings['path']
@@ -229,10 +229,10 @@ def main():
 
         Parameters:
         framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
-        model_structure (dict): User provided - Structure of the model, including variables and their properties.
-        modelling_settings (dict): User provided - Settings related to the modelling process, including theta parameters.
-        simulator_settings (dict): User provided - Settings for the simulator, including standard deviation and model name.
-        estimation_settings (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
+        system (dict): User provided - Structure of the model, including variables and their properties.
+        models (dict): User provided - Settings related to the modelling process, including theta parameters.
+        insilicos (dict): User provided - Settings for the simulator, including standard deviation and model name.
+        iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
         round_data (dict): collection of saved data from each round of the experiment.
         design_decisions (dict): Design decisions for the experiment, to be performed, insilico or in bench.
         data_storage (dict): Storage for the experimental data observations
@@ -258,29 +258,29 @@ def main():
             # Store the sheet data in the data_storage dictionary using the sheet name as the key
             data_storage[sheet_name] = current_sheet_data
 
-            resultpr = Parmest(
+            resultpr = parmest(
                 model_structure,
                 modelling_settings,
                 estimation_settings,
                 data_storage,
-                Simula
+                simula
             )
 
-            resultun, theta_parameters, solver_parameters, scaled_params, obs = Uncert(
+            resultun, theta_parameters, solver_parameters, scaled_params, obs = uncert(
                 data_storage,
                 resultpr,
                 model_structure,
                 modelling_settings,
                 estimation_settings,
-                Simula
+                simula
             )
 
             # if j in [3]:
             #     ranking, k_optimal_value, rCC_values, J_k_values = Estima(
             #         resultun,
-            #         model_structure,
-            #         modelling_settings,
-            #         estimation_settings,
+            #         system,
+            #         models,
+            #         iden_opt,
             #         j,
             #         framework_settings,
             #         data_storage,

@@ -1,18 +1,18 @@
 import numpy as np
 import scipy.linalg as la
-from middoe.iden_parmest import Parmest
-from middoe.iden_uncert import Uncert
+from middoe.iden_parmest import parmest
+from middoe.iden_uncert import uncert
 from middoe.iden_utils import plot_rCC_vs_k  # Import the plotting function
 
-def Estima(result, model_structure, modelling_settings, estimation_settings, round, framework_settings, data, run_solver):
+def estima(result, system, models, iden_opt, round, framework_settings, data):
     """
     Perform estimability analysis to rank parameters and determine the optimal number of parameters to estimate.
 
     Parameters:
     result (dict): The result from the last identification (estimation - uncertainty analysis).
-    model_structure (dict): User provided - The model structure information.
-    modelling_settings (dict): User provided - The settings for the modelling process.
-    estimation_settings (dict): User provided - The settings for the estimation process.
+    system (dict): User provided - The model structure information.
+    models (dict): User provided - The settings for the modelling process.
+    iden_opt (dict): User provided - The settings for the estimation process.
     round (int): The current round of the design - conduction and identification procedure.
     framework_settings (dict): User provided - The settings for the framework.
     data (dict): prior information for estimability analysis (observations, inputs, etc.).
@@ -25,7 +25,7 @@ def Estima(result, model_structure, modelling_settings, estimation_settings, rou
     k_optimal_values = {}
     rCC_values = {}
     J_k_values = {}
-    estimation_settings['logging']= False
+    iden_opt['logging']= False
     print (f"Estimability analysis for round {round} is running")
     for solver, res in result.items():
         Z = res['LSA']
@@ -35,8 +35,8 @@ def Estima(result, model_structure, modelling_settings, estimation_settings, rou
         print(f"Parameter ranking from most estimable to least estimable for {solver} in round {round}: {ranking_known}")
 
         k_optimal, rCC, J_k = parameter_selection(
-            n_parameters, ranking_known, model_structure, modelling_settings,
-            estimation_settings, solver, round, framework_settings, data, run_solver
+            n_parameters, ranking_known, system, models,
+            iden_opt, solver, round, framework_settings, data
         )
         print(f"Optimal number of parameters to estimate for {solver}: {k_optimal}")
 
@@ -44,7 +44,7 @@ def Estima(result, model_structure, modelling_settings, estimation_settings, rou
         k_optimal_values[solver] = k_optimal
         rCC_values[solver] = rCC
         J_k_values[solver] = J_k
-    estimation_settings['logging']= True
+    iden_opt['logging']= True
 
     return rankings, k_optimal_values, rCC_values, J_k_values
 
@@ -78,16 +78,16 @@ def parameter_ranking(Z):
         if len(ranking) >= n_parameters:
             return ranking
 
-def parameter_selection(n_parameters, ranking_known, model_structure, modelling_settings, estimation_settings, solvera, round, framework_settings, data, run_solver):
+def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, solvera, round, framework_settings, data):
     """
     Perform MSE-based selection to determine the optimal number of parameters to estimate.
 
     Parameters:
     n_parameters (int): The total number of parameters.
     ranking_known (list): The list of parameter indices ranked by estimability.
-    model_structure (dict): User provided - The model structure information.
-    modelling_settings (dict): User provided - The settings for the modelling process.
-    estimation_settings (dict): User provided - The settings for the estimation process.
+    system (dict): User provided - The model structure information.
+    models (dict): User provided - The settings for the modelling process.
+    iden_opt (dict): User provided - The settings for the estimation process.
     solvera (str): The name of the model(s).
     round (int): The current round of the design - conduction and identification procedure.
     framework_settings (dict): User provided -  The settings for the framework.
@@ -99,54 +99,47 @@ def parameter_selection(n_parameters, ranking_known, model_structure, modelling_
     """
     rCC_values = []
     J_k_values = []
-    original_mutation = modelling_settings['mutation'][solvera].copy()
-    modelling_settings['mutation'][solvera] = [True] * len(modelling_settings['theta_parameters'][solvera])
+    original_mutation = models['mutation'][solvera].copy()
+    models['mutation'][solvera] = [True] * len(models['theta_parameters'][solvera])
 
-    results_all_params = Parmest(
-        model_structure,
-        modelling_settings,
-        estimation_settings,
-        data,
-        run_solver, case= 'freeze'
-    )
+    results_all_params = parmest(
+        system,
+        models,
+        iden_opt,
+        data,case= 'freeze')
 
-    result, _, _, _, n_samples  = Uncert(
+    result, _, _, _, n_samples  = uncert(
         data,
         results_all_params,
-        model_structure,
-        modelling_settings,
-        estimation_settings,
-        run_solver
+        system,
+        models,
+        iden_opt,
     )
 
-    vmax=modelling_settings['V_matrix'][solvera]
-    J_theta = result[solvera]['JWLS']
+    vmax=models['V_matrix'][solvera]
+    J_theta = result[solvera]['WLS']
 
     for k in range(1, n_parameters):
         selected_mask = [False] * len(ranking_known)
         for i in range(k):
             selected_mask[ranking_known[i]] = True
 
-        modelling_settings['mutation'][solvera] = selected_mask
+        models['mutation'][solvera] = selected_mask
 
-        results_k_params = Parmest(
-            model_structure,
-            modelling_settings,
-            estimation_settings,
-            data,
-            run_solver, case= 'freeze'
-        )
+        results_k_params = parmest(
+            system,
+            models,
+            iden_opt,
+            data, case= 'freeze')
         # print(f"Results for {k} parameters: {results_k_params[solvera]['optimization_result'].fun}")
-        resultk, _, _, _, n_samples = Uncert(
+        resultk, _, _, _, n_samples = uncert(
             data,
             results_k_params,
-            model_structure,
-            modelling_settings,
-            estimation_settings,
-            run_solver
-        )
+            system,
+            models,
+            iden_opt,)
 
-        J_k = resultk[solvera]['JWLS']
+        J_k = resultk[solvera]['WLS']
 
         rC = (J_k - J_theta) / ((n_parameters - k))
         rCKub = max(rC-1, (2 * rC) / (n_parameters - k + 2))
@@ -158,12 +151,12 @@ def parameter_selection(n_parameters, ranking_known, model_structure, modelling_
     x_values = list(range(1, len(rCC_values) + 1))
     k_optimal = np.argmin(rCC_values) + 1
 
-    modelling_settings['mutation'][solvera] = original_mutation
+    models['mutation'][solvera] = original_mutation
     plot_rCC_vs_k(x_values, rCC_values, round, framework_settings, solvera)
 
     selected_mask = [True] * len(ranking_known)
-    modelling_settings['mutation'][solvera] = selected_mask
-    modelling_settings['V_matrix'][solvera] = vmax
+    models['mutation'][solvera] = selected_mask
+    models['V_matrix'][solvera] = vmax
 
     return k_optimal, rCC_values, J_k_values
 

@@ -11,7 +11,7 @@ from pygpas.special_variables import ExecutionOutcome
 from pygpas.special_variables.names import TIME, EXECUTION_OUTCOME
 
 
-def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, model_structure, modelling_settings):
+def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, system, models):
     """
     Simulate the system dynamics using the provided parameters and model.
 
@@ -21,7 +21,6 @@ def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         Time points for the simulation.
     swps : dict of str: list
         Dictionary containing time and level vectors for piecewise interpolation.
-        Keys are variable names ending with 't' or 'l' that define time and level vectors.
     uphi : dict of str: float
         Time-invariant variables scaled by their maxima.
     uphisc : dict of str: float
@@ -43,9 +42,9 @@ def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         Initial or constant values for time-variant variables when using the 'none' method.
     model_name : str
         The name of the model function to be used for simulation.
-    model_structure : dict
+    system : dict
         Defines model structure, including variables, attributes, and initial conditions.
-    modelling_settings : dict
+    models : dict
         Settings for the modelling process, including external functions.
 
     Returns
@@ -55,24 +54,31 @@ def Simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         ti_ophi (dict): Time-invariant outputs (currently empty)
         phit (dict): Scaled piecewise interpolated data {var_name: ndarray}
     """
-    # Ensure 'ext_func' key is present in modelling_settings
-    if 'ext_func' not in modelling_settings:
-        raise KeyError("'ext_func' key is missing in modelling_settings")
+    import importlib
+    import importlib.util
+    import os
 
-    # Check if model_name is in modelling_settings['ext_func']
-    if model_name in modelling_settings['ext_func']:
-        model = modelling_settings['ext_func'][model_name]
+    # Determine model source
+    if model_name in models.get('ext_func', {}):
+        model = models['ext_func'][model_name]
     else:
-        # Attempt to import the model from kernel_models if not found in ext_func
         try:
             krnl_models = importlib.import_module('middoe.krnl_models')
             model = getattr(krnl_models, model_name)
         except (ImportError, AttributeError):
-            raise KeyError(f"Model function '{model_name}' not found in 'ext_func' or 'kernel_models'")
+            try:
+                # Try to load from external file path (sci_file mode)
+                script_path = models['exfiles']['connector'][model_name]
+                spec = importlib.util.spec_from_file_location("external_model", script_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                model = getattr(module, 'solve_model')
+            except Exception as e:
+                raise KeyError(f"Model function '{model_name}' not found in 'ext_func', 'kernel_models', or external file. Error: {e}")
 
     tv_ophi, ti_ophi, phit = _backscal(
         t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac,
-        cvp, uphit, model, model_structure, modelling_settings, model_name
+        cvp, uphit, model, system, models, model_name
     )
     return tv_ophi, ti_ophi, phit
 
@@ -139,7 +145,7 @@ def _Piecewiser(t, swps, cvp, phit):
     return result
 
 
-def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, model_structure, modelling_settings, model_name):
+def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, system, models, model_name):
     """
     Solve the ODE system defined by the model using solve_ivp.
 
@@ -167,9 +173,9 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
         Initial or constant values for time-variant variables when using 'none'.
     model : callable
         The model function to be integrated.
-    model_structure : dict
+    system : dict
         Defines the structure of the model, including variable attributes.
-    modelling_settings : dict
+    models : dict
         Additional modelling settings.
 
     Returns
@@ -191,8 +197,8 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 
     # Construct initial conditions
     y0 = []
-    for var in model_structure['tv_ophi'].keys():
-        var_attrs = model_structure['tv_ophi'][var]
+    for var in system['tvo'].keys():
+        var_attrs = system['tvo'][var]
         initial_val = var_attrs['initials']
         if initial_val == 'variable':
             # Use time-invariant variable with '_0' suffix
@@ -205,13 +211,13 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
     t_scaled = (np.array(t) * utsc).tolist()
 
     # Select the solver and perform the integration
-    tv_ophi, ti_ophi, phit = solver_selector(model, t_scaled, y0, phi, phit, theta, modelling_settings, model_name, model_structure)
+    tv_ophi, ti_ophi, phit = solver_selector(model, t_scaled, y0, phi, phit, theta, models, model_name, system)
 
 
 
     return tv_ophi, ti_ophi, phit
 
-# def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_name, model_structure):
+# def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
 #     """
 #      Select the solver for the ODE system and perform the integration.
 #
@@ -229,11 +235,11 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #          Time-variant variables (scaled).
 #      theta : list of float
 #          Model parameters (scaled).
-#      modelling_settings : dict
+#      models : dict
 #          Settings for simulation selection and file paths.
 #      model_name : str
 #          Identifier for the model being simulated.
-#      model_structure : dict
+#      system : dict
 #          Contains keys like 'tv_ophi' and 'ti_ophi' describing expected outputs.
 #
 #      Returns
@@ -244,7 +250,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #          phit (dict): Interpolated input profiles (unchanged)
 #      """
 #
-#     if modelling_settings['sim'][model_name] == 'sci':
+#     if models['sim'][model_name] == 'sci':
 #         # Solve the ODE system
 #         result = solve_ivp(
 #             model,
@@ -259,12 +265,12 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #         tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
 #         ti_ophi = {}  # Currently empty, add logic if needed
 #
-#     # elif modelling_settings['sim'][model_name] == 'gp':
+#     # elif models['sim'][model_name] == 'gp':
 #     #     start_time = time.time()
 #     #     # Use the pygpas framework for simulation
 #     #     with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
-#     #             client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
-#     #                         modelling_settings['gpmodels']['credentials'][model_name])
+#     #             client.open(str(models['gpmodels']['connector'][model_name]),
+#     #                         models['gpmodels']['credentials'][model_name])
 #     #             for key, value in phi.items():
 #     #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
 #     #             for key, value in phit.items():
@@ -281,12 +287,12 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #     #             #     raise RuntimeError(f"Simulation failed for model '{model_name}'")
 #     #             # tv_ophi = {
 #     #             #     key: result.values[key]
-#     #             #     for key in model_structure.get('tv_ophi', {})
+#     #             #     for key in system.get('tv_ophi', {})
 #     #             #     if key in result.values
 #     #             # }
 #     #             tv_ophi = {
 #     #                 key: client.get_value(key)
-#     #                 for key in model_structure.get('tv_ophi', {})
+#     #                 for key in system.get('tv_ophi', {})
 #     #             }
 #     #             # print(f"theta: {theta}")
 #     #             # print(f"tv: {tv_ophi}")
@@ -294,15 +300,15 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #     #             # ti_ophi = {
 #     #             #     key: result.values[key].tolist() if hasattr(result.trajectories[key], 'tolist') else
 #     #             #     result.trajectories[key]
-#     #             #     for key in model_structure.get('ti_ophi', {})
+#     #             #     for key in system.get('ti_ophi', {})
 #     #             #     if key in result.trajectories
 #     #             # }
 #     #             ti_ophi = {
 #     #                 key: client.get_value(key)
-#     #                 for key in model_structure.get('ti_ophi', {})
+#     #                 for key in system.get('ti_ophi', {})
 #     #             }
 #
-#     elif modelling_settings['sim'][model_name] == 'gp':
+#     elif models['sim'][model_name] == 'gp':
 #         import time
 #         max_retries = 10  # You can increase or decrease this
 #         retry_count = 0
@@ -311,8 +317,8 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #             try:
 #                 ports = random.randint(10000, 90000)
 #                 with StartedConnected(port= str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
-#                     client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
-#                                 modelling_settings['gpmodels']['credentials'][model_name])
+#                     client.open(str(models['gpmodels']['connector'][model_name]),
+#                                 models['gpmodels']['credentials'][model_name])
 #                     for key, value in phi.items():
 #                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
 #                     for key, value in phit.items():
@@ -322,11 +328,11 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #                     evaluate(client)
 #                     tv_ophi = {
 #                         key: client.get_value(key)
-#                         for key in model_structure.get('tv_ophi', {})
+#                         for key in system.get('tv_ophi', {})
 #                     }
 #                     ti_ophi = {
 #                         key: client.get_value(key)
-#                         for key in model_structure.get('ti_ophi', {})
+#                         for key in system.get('ti_ophi', {})
 #                     }
 #                     success = True  # Success!
 #             except Exception as e:
@@ -343,26 +349,33 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #     return tv_ophi, ti_ophi, phit
 
 
-def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_name, model_structure):
+def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     """
-    Select the solver for the ODE system and perform the integration.
+    General ODE simulator handler supporting:
+    - 'sci'      : Python-defined model and solve_ivp used directly
+    - 'sci_file' : External Python file containing solve_model(t, y0, phi, phit, theta)
+    - 'gp'       : gPROMS/gPAS model via StartedConnected client
 
     Returns
     -------
-    tuple
-        tv_ophi (dict): Time-variant outputs
-        ti_ophi (dict): Time-invariant outputs
-        phit (dict): Interpolated input profiles (unchanged)
+    tv_ophi : dict
+    ti_ophi : dict
+    phit    : dict (unchanged)
     """
     import time
-    if modelling_settings['sim'][model_name] == 'sci':
-        max_retries = 10
-        retry_count = 0
-        success = False
-        tv_ophi, ti_ophi = {}, {}
+    import random
+    import importlib.util
 
+    max_retries = 10
+    retry_count = 0
+    success = False
+    tv_ophi, ti_ophi = {}, {}
+    sim_mode = models['sim'][model_name]
+
+    if sim_mode == 'sci':
         while not success and retry_count < max_retries:
             try:
+                from scipy.integrate import solve_ivp
                 result = solve_ivp(
                     model,
                     [min(t), max(t)],
@@ -374,31 +387,47 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
                     atol=1e-10,
                 )
                 if not result.success:
-                    raise RuntimeError(f"SciPy solver failed with message: {result.message}")
-                tv_ophi = {f'y{i + 1}': result.y[i] for i in range(len(result.y))}
-                ti_ophi = {}  # Extend if needed
+                    raise RuntimeError(f"SciPy solver failed: {result.message}")
+                tv_ophi = {f'y{i+1}': result.y[i] for i in range(result.y.shape[0])}
+                ti_ophi = {}
                 success = True
             except Exception as e:
                 retry_count += 1
                 print(f"SciPy simulation attempt {retry_count} for model '{model_name}' failed: {e}")
                 time.sleep(0.5)
 
-        if not success:
-            print(f"All {max_retries} SciPy simulation attempts failed for model '{model_name}'")
+    elif sim_mode == 'sci_file':
+        while not success and retry_count < max_retries:
+            try:
+                # Load external solver dynamically
+                script_path = models['exfiles']['connector'][model_name]  # path to external .py file
 
-    elif modelling_settings['sim'][model_name] == 'gp':
-        import time
-        max_retries = 10
-        retry_count = 0
-        success = False
-        tv_ophi, ti_ophi = {}, {}
+                spec = importlib.util.spec_from_file_location("external_model", script_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                external_solver_func = getattr(module, 'solve_model')
+                external_result = external_solver_func(t, y0, phi, phit, theta)
+
+                tv_ophi = external_result.get('tv_ophi', {})
+                ti_ophi = external_result.get('ti_ophi', {})
+                success = True
+            except Exception as e:
+                retry_count += 1
+                print(f"SciPy file-based simulation attempt {retry_count} for model '{model_name}' failed: {e}")
+                time.sleep(0.5)
+
+        if not success:
+            print(f"All {max_retries} SciPy file-based simulation attempts failed for model '{model_name}'")
+
+    elif sim_mode == 'gp':
 
         while not success and retry_count < max_retries:
             try:
                 ports = random.randint(10000, 90000)
                 with StartedConnected(port=str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
-                    client.open(str(modelling_settings['gpmodels']['connector'][model_name]),
-                                modelling_settings['gpmodels']['credentials'][model_name])
+                    client.open(str(models['exfiles']['connector'][model_name]),
+                                models['exfiles']['credentials'][model_name])
                     for key, value in phi.items():
                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
                     for key, value in phit.items():
@@ -408,11 +437,11 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
                     evaluate(client)
                     tv_ophi = {
                         key: client.get_value(key)
-                        for key in model_structure.get('tv_ophi', {})
+                        for key in system.get('tvo', {})
                     }
                     ti_ophi = {
                         key: client.get_value(key)
-                        for key in model_structure.get('ti_ophi', {})
+                        for key in system.get('tio', {})
                     }
                     success = True
             except Exception as e:
@@ -424,6 +453,6 @@ def solver_selector(model, t, y0, phi, phit, theta, modelling_settings, model_na
             print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'")
 
     else:
-        raise ValueError(f"Unsupported simulation method for model '{model_name}'")
+        raise ValueError(f"Unsupported simulation method '{sim_mode}' for model '{model_name}'")
 
     return tv_ophi, ti_ophi, phit

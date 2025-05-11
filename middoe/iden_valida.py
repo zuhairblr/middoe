@@ -1,7 +1,7 @@
 import os
 from middoe.iden_utils import validation_R2, validation_params, Plotting_Results
-from middoe.iden_parmest import Parmest
-from middoe.iden_uncert import Uncert
+from middoe.iden_parmest import parmest
+from middoe.iden_uncert import uncert
 
 
 def validation(data_storage, model_structure, modelling_settings, estimation_settings, Simula, round_data, framework_settings):
@@ -10,9 +10,9 @@ def validation(data_storage, model_structure, modelling_settings, estimation_set
 
     Parameters:
     data_storage (dict): Experimental data observations.
-    model_structure (dict): Structure of the model, including variables and their properties.
-    modelling_settings (dict): Settings related to the modelling process, including theta parameters.
-    estimation_settings (dict): Settings for the estimation process, including active solvers and plotting options.
+    system (dict): Structure of the model, including variables and their properties.
+    models (dict): Settings related to the modelling process, including theta parameters.
+    iden_opt (dict): Settings for the estimation process, including active solvers and plotting options.
     Simula (module): The simulation module used for the experiments.
 
     Returns:
@@ -35,7 +35,7 @@ def validation(data_storage, model_structure, modelling_settings, estimation_set
         print(f"Running validation fold {i + 1}/{n_sheets}...")
         print(f"Validation sheet: {validation_sheet}")
 
-        resultpr = Parmest(
+        resultpr = parmest(
             model_structure,
             modelling_settings,
             estimation_settings,
@@ -43,7 +43,7 @@ def validation(data_storage, model_structure, modelling_settings, estimation_set
             Simula,
         )
 
-        resultun_pred, theta_parameters_pred, solver_parameters_pred, scaled_params_pred, obs_pred = Uncert(
+        resultun_pred, theta_parameters_pred, solver_parameters_pred, scaled_params_pred, obs_pred = uncert(
             training_data,
             resultpr,
             model_structure,
@@ -52,7 +52,7 @@ def validation(data_storage, model_structure, modelling_settings, estimation_set
             Simula
         )
 
-        resultun_val, theta_parameters_val, _, _, obs_val = Uncert(
+        resultun_val, theta_parameters_val, _, _, obs_val = uncert(
             validation_data,
             resultpr,
             model_structure,

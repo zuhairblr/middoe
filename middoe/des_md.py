@@ -4,7 +4,7 @@ import os
 from middoe.des_utils import _slicer, _segmenter, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
 from collections import defaultdict
 import numpy as np
-from middoe.krnl_simula import Simula
+from middoe.krnl_simula import simula
 
 def MD(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
     """
@@ -461,7 +461,7 @@ def _runner(
         tsc = tf  # pass to solver if the solver does time-scaling internally
 
         # 4a) Run solver unperturbed
-        tv_ophi[solver_name], ti_ophi[solver_name], phit_interp = Simula(
+        tv_ophi[solver_name], ti_ophi[solver_name], phit_interp = simula(
             t_values,
             swps_data,
             ti_iphi_data,
@@ -493,7 +493,7 @@ def _runner(
             modified_theta[para_idx] += eps
 
             # Re-run solver with perturbed parameter
-            tv_mod, ti_mod, _ = Simula(
+            tv_mod, ti_mod, _ = simula(
                 t_values,
                 swps_data,
                 ti_iphi_data,

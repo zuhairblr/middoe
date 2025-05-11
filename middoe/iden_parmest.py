@@ -1,16 +1,20 @@
 from scipy.optimize import minimize
+from middoe.krnl_simula import simula
 import numpy as np
 from scipy.optimize import differential_evolution
 from middoe.iden_utils import _initialize_dictionaries
+import time
+import warnings
+warnings.filterwarnings("ignore", message="Values in x were outside bounds during a minimize step, clipping to bounds")
 
-def Parmest(model_structure, modelling_settings, estimation_settings, data, run_solver, case=None):
+def parmest(system, models, iden_opt, data, case=None):
     """
     Main function to perform parameter estimation.
 
     Parameters:
-    model_structure (dict): User provided - Dictionary containing the model structure.
-    modelling_settings (dict): User provided - Dictionary containing the modelling settings.
-    estimation_settings (dict): User provided - Dictionary containing the estimation settings.
+    system (dict): User provided - Dictionary containing the model structure.
+    models (dict): User provided - Dictionary containing the modelling settings.
+    iden_opt (dict): User provided - Dictionary containing the estimation settings.
     data (dict): Dictionary containing the data for optimization, from experiments.
     run_solver (function): Model simulator function.
 
@@ -19,31 +23,31 @@ def Parmest(model_structure, modelling_settings, estimation_settings, data, run_
     """
 
     # Unpack design settings
-    _initialize_dictionaries(modelling_settings, estimation_settings)
+    _initialize_dictionaries(models, iden_opt)
 
-    active_solvers = modelling_settings['active_solvers']
-    theta_parameters = modelling_settings['theta_parameters']
-    bound_max = modelling_settings['bound_max']
-    bound_min = modelling_settings['bound_min']
-    mutation = modelling_settings['mutation']
-    method = estimation_settings['method']
-    objf = estimation_settings['objf']
+    active_solvers = models['active_solvers']
+    theta_parameters = models['theta_parameters']
+    bound_max = models['bound_max']
+    bound_min = models['bound_min']
+    mutation = models['mutation']
+    method = iden_opt['method']
+    objf = iden_opt['objf']
 
 
     if case is None:
-        # Check if 'normalized_parameters' exists in modelling_settings
-        if 'normalized_parameters' in modelling_settings:
-            x0_dict = modelling_settings['normalized_parameters']
+        # Check if 'normalized_parameters' exists in models
+        if 'normalized_parameters' in models:
+            x0_dict = models['normalized_parameters']
         else:
-            x0_dict = estimation_settings['x0']
+            x0_dict = iden_opt['x0']
     elif case == 'freeze':
-        x0_dict = estimation_settings['x0']
-    logging= estimation_settings['logging']
+        x0_dict = iden_opt['x0']
+    logging= iden_opt['logging']
 
     # Call runner function
     results = _runner(
         active_solvers, theta_parameters, bound_max, bound_min, mutation,
-        objf, x0_dict, method, data, model_structure, run_solver, modelling_settings
+        objf, x0_dict, method, data, system, models
     )
 
     # Report results
@@ -58,9 +62,8 @@ def _objective(
     x0,
     thetac,
     thetas,
-    model_structure,
-    run_solver,
-    modelling_settings,
+    system,
+    models,
     **kwargs
 ):
     """
@@ -80,12 +83,12 @@ def _objective(
         List of parameter scalars.
     thetas : list
         List indicating which parameters are to be optimized.
-    model_structure : dict
+    system : dict
         Dictionary that describes the structure of the model
         (variables, measured or not, uncertainties, etc.).
     run_solver : function
         Model simulator function.
-    modelling_settings : dict
+    models : dict
         Settings for running the model.
     **kwargs : dict
         Additional keyword arguments.
@@ -133,18 +136,18 @@ def _objective(
     var_measurements = {}
 
     # -------------------------------------------------------------------------
-    # Extract time-variant and time-invariant measured variables from model_structure
+    # Extract time-variant and time-invariant measured variables from system
     # -------------------------------------------------------------------------
     # By default, we consider only measured (get('measured', True) == True).
-    tv_iphi_vars = list(model_structure['tv_iphi'].keys())
-    ti_iphi_vars = list(model_structure['ti_iphi'].keys())
+    tv_iphi_vars = list(system['tvi'].keys())
+    ti_iphi_vars = list(system['tii'].keys())
     tv_ophi_vars = [
-        var for var in model_structure['tv_ophi'].keys()
-        if model_structure['tv_ophi'][var].get('measured', True)
+        var for var in system['tvo'].keys()
+        if system['tvo'][var].get('measured', True)
     ]
     ti_ophi_vars = [
-        var for var in model_structure['ti_ophi'].keys()
-        if model_structure['ti_ophi'][var].get('measured', True)
+        var for var in system['tio'].keys()
+        if system['tio'][var].get('measured', True)
     ]
 
     # -------------------------------------------------------------------------
@@ -156,16 +159,16 @@ def _objective(
     # -------------------------------------------------------------------------
     std_dev = {}
     # TV outputs
-    for var in model_structure['tv_ophi'].keys():
-        if model_structure['tv_ophi'][var].get('measured', True):
-            sigma = model_structure['tv_ophi'][var].get('unc', None)
+    for var in system['tvo'].keys():
+        if system['tvo'][var].get('measured', True):
+            sigma = system['tvo'][var].get('unc', None)
             if sigma is None or np.isnan(sigma):
                 sigma = 1.0
             std_dev[var] = sigma
     # TI outputs
-    for var in model_structure['ti_ophi'].keys():
-        if model_structure['ti_ophi'][var].get('measured', True):
-            sigma = model_structure['ti_ophi'][var].get('unc', None)
+    for var in system['tio'].keys():
+        if system['tio'][var].get('measured', True):
+            sigma = system['tio'][var].get('unc', None)
             if sigma is None or np.isnan(sigma):
                 sigma = 1.0
             std_dev[var] = sigma
@@ -231,7 +234,7 @@ def _objective(
 
         # Construct cvp for tv_iphi variables (piecewise control or similar).
         cvp = {}
-        for var in model_structure['tv_iphi'].keys():
+        for var in system['tvi'].keys():
             cvp_col = f"CVP:{var}"
             if cvp_col not in sheet_data:
                 raise ValueError(f"Missing '{cvp_col}' column in sheet: {sheet_name}")
@@ -249,7 +252,7 @@ def _objective(
             t_valuese = np.unique(t_valuese)  # ensure unique & sorted
 
             # Run solver
-            tv_ophi_sim, ti_ophi_sim, phit_interp = run_solver(
+            tv_ophi_sim, ti_ophi_sim, phit_interp = simula(
                 t_valuese,
                 swps_data,
                 ti_iphi_data,
@@ -261,8 +264,8 @@ def _objective(
                 cvp,
                 tv_iphi_data,
                 solver_name,
-                model_structure,
-                modelling_settings
+                system,
+                models
             )
 
             # Filter solver outputs at the measurement times for each tv_ophi_vars
@@ -436,7 +439,7 @@ def _objective(
 
     # JWLS = Σ residual^2 where residual = (y_true - y_pred) / sigma
     all_residuals_w = np.array(all_residuals_w)
-    JWLS = np.sum(all_residuals_w**2)
+    WLS = np.sum(all_residuals_w**2)
 
     # Weighted MLE (already accumulated in sum_mle)
     MLE = sum_mle
@@ -451,15 +454,14 @@ def _objective(
         'LS' : LS,        # classical R² on scaled data across all variables
         'MLE': MLE,       # negative log-likelihood with known sigmas
         'Chi': Chi,       # as originally defined
-        'JWLS': JWLS,     # weighted LS with known sigmas
+        'WLS': WLS,     # weighted LS with known sigmas
         'R2_responses': r2_responses  # dict of per-variable R²
     }
 
     return data, metrics
 
-import time
 
-def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings):
+def _objective_function(theta, data, solver, x0, thetac, objf, thetas, system, models):
     """
     Wrapper function for the objective function to be used in optimization.
 
@@ -482,7 +484,7 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_str
     start_time = time.time()  # Start timer
     # Call the objective function
     optimized_data, metrics = _objective(
-        theta, data, [solver], x0, thetac, thetas, model_structure, run_solver, modelling_settings
+        theta, data, [solver], x0, thetac, thetas, system, models
     )
     end_time = time.time()  # End timer
     elapsed_time = end_time - start_time
@@ -490,7 +492,7 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_str
 
 
     # Extract the metrics needed for the optimization
-    LS, MLE, Chi, JWLS = metrics['LS'], metrics['MLE'], metrics['Chi'], metrics['JWLS']
+    LS, MLE, Chi, WLS = metrics['LS'], metrics['MLE'], metrics['Chi'], metrics['WLS']
 
     # Determine which objective function to minimize
     if objf == 'LS':
@@ -499,13 +501,13 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, model_str
         return -MLE
     elif objf == 'Chi':
         return -Chi
-    elif objf == 'JWLS':
-        return JWLS
+    elif objf == 'WLS':
+        return WLS
     else:
         raise ValueError(f"Unknown objective function: {objf}")
 
 
-def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, model_structure, run_solver, modelling_settings):
+def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, system, models):
     """
     Runner function to perform optimization using different solvers.
 
@@ -546,10 +548,10 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
             result = minimize(
                 _objective_function,
                 initial_x0,
-                args=(data, solver, initial_x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system, models),
                 method='SLSQP',
                 bounds=bounds,
-                options={'maxiter': 100000, 'disp': False},
+                options={'maxiter': 10000000, 'disp': False},
                 tol=1e-6
             )
 
@@ -557,7 +559,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
             result = minimize(
                 _objective_function,
                 initial_x0,
-                args=(data, solver, initial_x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system,  models),
                 method='Nelder-Mead',
                 options={'maxiter': 100000, 'disp': False, 'fatol': 1e-6}
             )
@@ -567,7 +569,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
             result = differential_evolution(
                 _objective_function,
                 bounds=bounds,
-                args=(data, solver, initial_x0, thetac, objf, thetas, model_structure, run_solver, modelling_settings),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system, models),
                 maxiter=10000,
                 popsize=18,
                 tol=1e-6,

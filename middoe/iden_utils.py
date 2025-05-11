@@ -264,21 +264,21 @@ class Plotting_Results:
     mutation_settings (dict): Settings related to mutation in the modelling process.
     modelling_folder (str): Folder name for storing modelling results.
     """
-    def __init__(self, modelling_settings, framework_settings):
+    def __init__(self, models, framework_settings):
         """
         Initialize the Plotting_Results class with modelling and framework settings.
 
         Parameters:
-        modelling_settings (dict): Settings related to the modelling process.
+        models (dict): Settings related to the modelling process.
         framework_settings (dict): Settings related to the framework, including paths and case information.
         """
         # Store key settings as instance variables
         self.path = framework_settings['path']
         self.case = framework_settings['case']
-        self.mutation_settings = modelling_settings['mutation']
+        self.mutation_settings = models['mutation']
         self.modelling_folder = 'modelling'
 
-    def fit_plot(self, data, result, round, model_structure):
+    def fit_plot(self, data, result, round, system):
         """
         Generate and save the model fitting to experimental data plot for the given data and results.
 
@@ -377,7 +377,7 @@ class Plotting_Results:
 
             # controls
             doe_vars = {key: np.array(sheet_data[key], dtype=float)
-                        for key in sheet_data.keys() if key in model_structure['tv_iphi']}
+                        for key in sheet_data.keys() if key in system['tvi']}
 
             doe_t = np.array(sheet_data['X:all'], dtype=float)
 
@@ -1607,16 +1607,16 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
     Initialize dictionaries for modelling settings and estimation settings.
 
     Parameters:
-    modelling_settings (dict): Dictionary containing modelling settings, including 'theta_parameters', 'bound_min', and 'bound_max'.
-    estimation_settings (dict): Dictionary containing estimation settings.
+    models (dict): Dictionary containing modelling settings, including 'theta_parameters', 'bound_min', and 'bound_max'.
+    iden_opt (dict): Dictionary containing estimation settings.
 
     Returns:
     None
 
     Raises:
-    KeyError: If required keys are missing in modelling_settings or estimation_settings.
+    KeyError: If required keys are missing in models or iden_opt.
     """
-    # Check if keys are missing in modelling_settings and estimation_settings
+    # Check if keys are missing in models and iden_opt
     keys_to_check = ['original_positions', 'masked_positions']
     if any(key not in modelling_settings for key in keys_to_check) or 'x0' not in estimation_settings:
         # Generate x0_dict with random initialization within bounds
@@ -1674,7 +1674,7 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
         if key not in mutation_dict:
             mutation_dict[key] = [True] * length
 
-    # Update modelling_settings with the new V_matrix and mutation dictionaries
+    # Update models with the new V_matrix and mutation dictionaries
     modelling_settings['V_matrix'] = v_matrix_dict
     modelling_settings['mutation'] = mutation_dict
 
@@ -1820,8 +1820,8 @@ def save_sobol_results_to_excel(results2, folder_path, file_name="sobol_results.
     - file_name: Name of the Excel file (default: 'sobol_results.xlsx').
     """
     # Ensure results2 is not None and contains the required key
-    if not results2 or not isinstance(results2, dict) or 'sobol_analysis_results' not in results2:
-        print("Error: 'results2' is not valid or 'sobol_analysis_results' is missing. No file will be created.")
+    if not results2 or not isinstance(results2, dict) or 'analysis' not in results2:
+        print("Error: sobol results are not available, No file will be created")
         return
 
     # Ensure the folder path exists
@@ -1832,7 +1832,7 @@ def save_sobol_results_to_excel(results2, folder_path, file_name="sobol_results.
     file_path = os.path.join(folder_path, file_name)
 
     # Get the main dictionary containing the Sobol analysis results
-    sobol_analysis = results2['sobol_analysis_results']
+    sobol_analysis = results2['analysis']
 
     # Create a writer object for the Excel file
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:

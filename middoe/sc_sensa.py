@@ -4,53 +4,50 @@ import pandas as pd
 import scipy as sp
 from concurrent.futures import ProcessPoolExecutor
 import os
-from middoe.krnl_simula import Simula
+from middoe.krnl_simula import simula
 from middoe.iden_utils import plot_sobol_results
 
-def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings):
+def sensa(gsa, models, system, framework_settings):
     """
     Perform Sobol sensitivity analysis for the given settings and model structure.
 
     Parameters:
-    GSA_settings (dict): Dictionary containing the settings for the global sensitivity analysis.
-    modelling_settings (dict): Dictionary containing the settings for the modelling process.
-    model_structure (dict): Dictionary containing the structure of the model.
+    gsa (dict): Dictionary containing the settings for the global sensitivity analysis.
+    models (dict): Dictionary containing the settings for the modelling process.
+    system (dict): Dictionary containing the structure of the model.
     framework_settings (dict): Dictionary containing the settings for the framework.
 
     Returns:
     tuple: A tuple containing the Sobol analysis results and the Sobol problem definition.
     """
-    phi_nom = GSA_settings['phi_nom']  # Nominal values for time-invariant variables
-    phit_nom = GSA_settings['phit_nom']  # Nominal values for time-variant variables
-    var_damping = GSA_settings['var_damping']
-    par_damping = GSA_settings['par_damping']
-    var_damping_factor = GSA_settings['var_damping_factor']
-    par_damping_factor = GSA_settings['par_damping_factor']
-    sampling = GSA_settings['sampling']
-    var_sensitivity = GSA_settings['var_sensitivity']
-    par_sensitivity = GSA_settings['par_sensitivity']
-    active_solvers = modelling_settings['active_solvers']
-    theta_parameters = modelling_settings['theta_parameters']
-    thetamaxd= modelling_settings['bound_max']
-    thetamind= modelling_settings['bound_min']
+    phi_nom = gsa['phi_nom']  # Nominal values for time-invariant variables
+    phit_nom = gsa['phit_nom']  # Nominal values for time-variant variables
+    sampling = gsa['sampling']
+    var_sensitivity = gsa['var_sensitivity']
+    par_sensitivity = gsa['par_sensitivity']
+    active_solvers = models['active_solvers']
+    theta_parameters = models['theta_parameters']
+    thetamaxd= models['bound_max']
+    thetamind= models['bound_min']
     cvp_initial = {
-        var: model_structure['tv_iphi'][var]['initial_cvp']
-        for var in model_structure['tv_iphi'].keys()
+        var: system['tvi'][var]['initial_cvp']
+        for var in system['tvi'].keys()
     }
-    # piecewise_func = model_structure['tv_iphi']['initial_piecewise_func'][0]
-    power = GSA_settings['power']
+    # piecewise_func = system['tv_iphi']['initial_piecewise_func'][0]
+    parallel_value = gsa.get('parallel', False)
 
     # Retrieve time information from model structure and ensure it's an integer
-    time_field = model_structure['t_s'][1]
+    time_field = system['t_s'][1]
     t = list(np.linspace(0, 1, 305))  # Ensure `t` is a list of floats
-    # t = {key: list(np.linspace(0, 1, 305)) for key in model_structure['tv_iphi'].keys()}
+    # t = {key: list(np.linspace(0, 1, 305)) for key in system['tv_iphi'].keys()}
     tsc = int(time_field)  # Ensure `tsc` is an integer
     sobol_problem = {}
     sobol_analysis_results = {}
     sobol_analysis_results_excluded = {}
 
-    if GSA_settings.get('parallel', False):
+    if isinstance(parallel_value, float):
         # MULTI-CORE EXECUTION
+        power = parallel_value  # e.g., 0.7 means use 70% of CPU cores
         total_cpus = os.cpu_count()
         num_workers = int(np.floor(total_cpus * power))  # Use 70% of available CPUs
 
@@ -63,33 +60,32 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
                 thetamin = [float(min_val) * float(theta_val) for min_val, theta_val in zip(thetamind[solver], theta)]
 
                 # Construct scaling factors
-                phisc = {key: 1.0 for key in model_structure['ti_iphi'].keys()}  # Time-invariant input scaling factors
-                phitsc = {key: 1.0 for key in model_structure['tv_iphi'].keys()}  # Time-variant input scaling factors
+                phisc = {key: 1.0 for key in system['tii'].keys()}  # Time-invariant input scaling factors
+                phitsc = {key: 1.0 for key in system['tvi'].keys()}  # Time-variant input scaling factors
                 thetac = [1.0 for _ in theta]  # Parameter scaling factors
 
                 # Prepare variable bounds
-                if GSA_settings.get('var_damping', False):
-                    var_damping_factor = GSA_settings['var_damping_factor']
+                if isinstance(gsa.get('var_damping'), float):
                     phi_bounds = [
-                        (GSA_settings['phi_nom'][i] / var_damping_factor,
-                         GSA_settings['phi_nom'][i] * var_damping_factor)
-                        for i in range(len(GSA_settings['phi_nom']))
+                        (gsa['phi_nom'][i] / gsa['var_damping'],
+                         gsa['phi_nom'][i] * gsa['var_damping'])
+                        for i in range(len(gsa['phi_nom']))
                     ]
                     phit_bounds = [
-                        (GSA_settings['phit_nom'][i] / var_damping_factor,
-                         GSA_settings['phit_nom'][i] * var_damping_factor)
-                        for i in range(len(GSA_settings['phit_nom']))
+                        (gsa['phit_nom'][i] / gsa['var_damping'],
+                         gsa['phit_nom'][i] * gsa['var_damping'])
+                        for i in range(len(gsa['phit_nom']))
                     ]
                 else:
                     phi_bounds = [
-                        (var_attrs['min'], var_attrs['max']) for var_attrs in model_structure['ti_iphi'].values()
+                        (var_attrs['min'], var_attrs['max']) for var_attrs in system['tii'].values()
                     ]
                     phit_bounds = [
-                        (var_attrs['min'], var_attrs['max']) for var_attrs in model_structure['tv_iphi'].values()
+                        (var_attrs['min'], var_attrs['max']) for var_attrs in system['tvi'].values()
                     ]
 
-                if par_damping:
-                    param_bounds = [(theta[i] / par_damping_factor, theta[i] * par_damping_factor) for i in range(len(theta))]
+                if isinstance(gsa.get('par_damping'), float):
+                    param_bounds = [(theta[i] / gsa['par_damping'], theta[i] * gsa['par_damping']) for i in range(len(theta))]
                 else:
                     param_bounds = list(zip(thetamin, thetamax))
 
@@ -103,9 +99,9 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
 
                 if var_sensitivity:
                     sobol_problem[solver]['num_vars'] += len(phi_nom) + len(phit_nom)
-                    # sobol_problem[solver]['names'].extend(model_structure['ti_iphi']['var'] + model_structure['tv_iphi']['var'])
+                    # sobol_problem[solver]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
                     sobol_problem[solver]['names'].extend(
-                        list(model_structure['ti_iphi'].keys()) + list(model_structure['tv_iphi'].keys()))
+                        list(system['tii'].keys()) + list(system['tvi'].keys()))
 
                     sobol_problem[solver]['bounds'].extend(phi_bounds)
                     sobol_problem[solver]['bounds'].extend(phit_bounds)
@@ -117,7 +113,7 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
                 sobol_sample_chunks = [sobol_samples[i:i + chunk_size] for i in range(0, len(sobol_samples), chunk_size)]
 
                 # Submit tasks for each chunk of sobol_samples for parallel processing
-                futures = [executor.submit(_process_sample_chunk, chunk, solver, Simula, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, model_structure, var_sensitivity, par_sensitivity, modelling_settings) for chunk in sobol_sample_chunks]
+                futures = [executor.submit(_process_sample_chunk, chunk, solver, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, system, var_sensitivity, par_sensitivity, models) for chunk in sobol_sample_chunks]
 
                 # Collect results from all chunks
                 results = []
@@ -134,29 +130,29 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
             thetamax = [float(val) * theta[i] for i, val in enumerate(thetamax[solver])]
             thetamin = [float(val) * theta[i] for i, val in enumerate(thetamin[solver])]
 
-            phisc = {key: 1.0 for key in model_structure['ti_iphi'].keys()}  # Time-invariant input scaling factors
-            phitsc = {key: 1.0 for key in model_structure['tv_iphi'].keys()}  # Time-variant input scaling factors
+            phisc = {key: 1.0 for key in system['tii'].keys()}  # Time-invariant input scaling factors
+            phitsc = {key: 1.0 for key in system['tvi'].keys()}  # Time-variant input scaling factors
             thetac = [1.0 for _ in theta]  # Parameter scaling factors
 
-            if var_damping:
+            if isinstance(gsa.get('var_damping'), float):
                 phi_bounds = [
-                    (phi_nom[i] / var_damping_factor, phi_nom[i] * var_damping_factor)
-                    for i, _ in enumerate(model_structure['ti_iphi'].keys())
+                    (phi_nom[i] / gsa['var_damping'], phi_nom[i] * gsa['var_damping'])
+                    for i, _ in enumerate(system['tii'].keys())
                 ]
                 phit_bounds = [
-                    (phit_nom[i] / var_damping_factor, phit_nom[i] * var_damping_factor)
-                    for i, _ in enumerate(model_structure['tv_iphi'].keys())
+                    (phit_nom[i] / gsa['var_damping'], phit_nom[i] * gsa['var_damping'])
+                    for i, _ in enumerate(system['tvi'].keys())
                 ]
             else:
                 phi_bounds = [
-                    (attrs['min'], attrs['max']) for attrs in model_structure['ti_iphi'].values()
+                    (attrs['min'], attrs['max']) for attrs in system['tii'].values()
                 ]
                 phit_bounds = [
-                    (attrs['min'], attrs['max']) for attrs in model_structure['tv_iphi'].values()
+                    (attrs['min'], attrs['max']) for attrs in system['tvi'].values()
                 ]
 
-            if par_damping:
-                param_bounds = [(theta[i] / par_damping_factor, theta[i] * par_damping_factor) for i in range(len(theta))]
+            if isinstance(gsa.get('par_damping'), float):
+                param_bounds = [(theta[i] / gsa['par_damping'], theta[i] * gsa['par_damping']) for i in range(len(theta))]
             else:
                 param_bounds = list(zip(thetamin, thetamax))
 
@@ -169,9 +165,9 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
 
             if var_sensitivity:
                 sobol_problem[solver]['num_vars'] += len(phi_nom) + len(phit_nom)
-                # sobol_problem[solver]['names'].extend(model_structure['ti_iphi']['var'] + model_structure['tv_iphi']['var'])
+                # sobol_problem[solver]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
                 sobol_problem[solver]['names'].extend(
-                    list(model_structure['ti_iphi'].keys()) + list(model_structure['tv_iphi'].keys()))
+                    list(system['tii'].keys()) + list(system['tvi'].keys()))
 
                 sobol_problem[solver]['bounds'].extend(phi_bounds)
                 sobol_problem[solver]['bounds'].extend(phit_bounds)
@@ -179,11 +175,17 @@ def Sensa(GSA_settings, modelling_settings, model_structure, framework_settings)
             sobol_samples = sample(sobol_problem[solver], N=sampling)
 
             # Process samples in single-core mode (no parallel processing)
-            results = _process_sample_chunk(sobol_samples, solver, Simula, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, model_structure, var_sensitivity, par_sensitivity, modelling_settings)
+            results = _process_sample_chunk(sobol_samples, solver, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, system, var_sensitivity, par_sensitivity, models)
 
             sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver], framework_settings)
 
-    return sobol_analysis_results_excluded, sobol_problem
+    # Construct return dictionary
+    sobol_output = {
+        'analysis': sobol_analysis_results_excluded,
+        'problem': sobol_problem
+    }
+
+    return sobol_output
 
 
 def _sobol_analysis(
@@ -537,7 +539,7 @@ def sample(settings, N, calc_second_order=True, scramble=True, skip_values=0, se
     return _rescale_parameters(sample_matrix, settings)
 
 
-def _process_sample_chunk(sobol_sample_chunk, solver, simulate, t, phisc, phitsc, theta, thetac, piecewise_func, tsc, sobol_problem, phi_nom, phit_nom, model_structure, var_sensitivity, par_sensitivity, modelling_settings):
+def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, thetac, piecewise_func, tsc, sobol_problem, phi_nom, phit_nom, system, var_sensitivity, par_sensitivity, models):
     """
     Process a chunk of Sobol samples for sensitivity analysis.
 
@@ -555,7 +557,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, simulate, t, phisc, phitsc
     sobol_problem (dict): Dictionary containing the Sobol problem definition.
     phi_nom (list): List of nominal values for time-invariant variables.
     phit_nom (list): List of nominal values for time-variant variables.
-    model_structure (dict): Dictionary containing the model structure.
+    system (dict): Dictionary containing the model structure.
     var_sensitivity (bool): Whether to perform variable sensitivity analysis.
     par_sensitivity (bool): Whether to perform parameter sensitivity analysis.
 
@@ -567,26 +569,26 @@ def _process_sample_chunk(sobol_sample_chunk, solver, simulate, t, phisc, phitsc
     for params in sobol_sample_chunk:
         if par_sensitivity and not var_sensitivity:
             # For parameter sensitivity only
-            phi = {key: value for key, value in zip(model_structure['ti_iphi'].keys(), phi_nom)}
-            phit = {key: value for key, value in zip(model_structure['tv_iphi'].keys(), phit_nom)}
+            phi = {key: value for key, value in zip(system['tii'].keys(), phi_nom)}
+            phit = {key: value for key, value in zip(system['tvi'].keys(), phit_nom)}
             params_split = params[:len(theta)]
         elif var_sensitivity and not par_sensitivity:
             # For variable sensitivity only
             params_split = theta  # Use nominal theta
             var_split = params
-            phi = {key: value for key, value in zip(model_structure['ti_iphi'].keys(), var_split[:len(phi_nom)])}
-            phit = {key: value for key, value in zip(model_structure['tv_iphi'].keys(), var_split[len(phi_nom):])}
+            phi = {key: value for key, value in zip(system['tii'].keys(), var_split[:len(phi_nom)])}
+            phit = {key: value for key, value in zip(system['tvi'].keys(), var_split[len(phi_nom):])}
         else:
             # For both parameter and variable sensitivity
             params_split = params[:len(theta)]
             var_split = params[len(theta):]
-            phi = {key: value for key, value in zip(model_structure['ti_iphi'].keys(), var_split[:len(phi_nom)])}
-            phit = {key: value for key, value in zip(model_structure['tv_iphi'].keys(), var_split[len(phi_nom):])}
+            phi = {key: value for key, value in zip(system['tii'].keys(), var_split[:len(phi_nom)])}
+            phit = {key: value for key, value in zip(system['tvi'].keys(), var_split[len(phi_nom):])}
 
         # Ensure phit values are floats
         phit = {key: float(value) for key, value in phit.items()}
 
-        tv_ophi, ti_ophi, phit_interp = simulate(t, {}, phisc, phi, phit, tsc, params_split, thetac, piecewise_func, phitsc, solver, model_structure, modelling_settings)
+        tv_ophi, ti_ophi, phit_interp = simula(t, {}, phisc, phi, phit, tsc, params_split, thetac, piecewise_func, phitsc, solver, system, models)
 
         results.append(tv_ophi)
 

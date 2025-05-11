@@ -600,7 +600,7 @@ def thetadic16():
     return theta16, theta16maxs, theta16mins
 
 
-def f16(t, y, phi, phit, theta, te):
+def f19(t, y, phi, phit, theta, te):
     # Extract relevant variables
     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
     y1 = y  # Carbonation Efficiency (y1)

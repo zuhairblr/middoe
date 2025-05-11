@@ -1,9 +1,9 @@
-from middoe.krnl_simula import Simula
+from middoe.krnl_simula import simula
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
-def Expera(framework_settings, model_structure, modelling_settings, simulator_settings, design_decisions, j, swps=None):
+def expera(framework_settings, system, models, insilicos, design_decisions, j, swps=None):
     """
     Run an in-silico experiment, produce simulation results, and prepare them for reporting.
 
@@ -23,15 +23,15 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
             'case': 'experiment_01'
         }
 
-    model_structure : dict
+    system : dict
         Structure of the model, including variables and their properties.
         It contains keys like 'tv_iphi', 'tv_ophi', 'ti_iphi', 'ti_ophi',
         and 'independant_variables' each with 'var' and 'attributes' sub-dicts.
 
-    modelling_settings : dict
+    models : dict
         User-defined settings related to the modelling process, including 'theta_parameters'.
 
-    simulator_settings : dict
+    insilicos : dict
         User-defined settings for the simulator, including:
         - 'insilico_model': str, name of the model function to be simulated.
         - 'classic-des': dict, containing default or "classic" design values.
@@ -56,17 +56,17 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
             The combined results of the in-silico experiment.
     """
     # Extract scaling constant for independent variables
-    tsc = model_structure['t_s'][1]
+    tsc = system['t_s'][1]
 
 
     # Construct piecewise functions for initial and DOE cases
     cvp_initial = {
-        var: model_structure['tv_iphi'][var]['initial_cvp']
-        for var in model_structure['tv_iphi'].keys()
+        var: system['tvi'][var]['initial_cvp']
+        for var in system['tvi'].keys()
     }
     cvp_doe = {
-        var: model_structure['tv_iphi'][var]['design_cvp']
-        for var in model_structure['tv_iphi'].keys()
+        var: system['tvi'][var]['design_cvp']
+        for var in system['tvi'].keys()
     }
 
     base_path = framework_settings['path']
@@ -77,31 +77,31 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
     excel_path = str(output_path / "insilico_experiments.xlsx")
 
     # Retrieve the model name and related simulation parameters
-    model_name = simulator_settings.get('insilico_model')
-    classic_des = simulator_settings['classic-des']
-    theta_parameters = modelling_settings['theta_parameters']
+    model_name = insilicos.get('true_model')
+    classic_des = insilicos['classic-des']
+    theta_parameters = models['theta_parameters']
 
     # Standard deviations for measured tv_ophi variables
     std_dev = {
-        var: model_structure['tv_ophi'][var]['unc']
-        for var in model_structure['tv_ophi'].keys()
-        if model_structure['tv_ophi'][var].get('measured', True)
+        var: system['tvo'][var]['unc']
+        for var in system['tvo'].keys()
+        if system['tvo'][var].get('measured', True)
     }
 
     # If no design decisions are provided, run the "initial" case
     if not design_decisions:
         # Time values for each measured variable
         # Step 1: Create tlin
-        dt_real = model_structure['t_r']
+        dt_real = system['t_r']
         nodes = int(round(tsc / dt_real)) + 1
         tlin = np.linspace(0, 1, nodes)
 
         # Step 2: Generate t_values, snapping each to the closest value in tlin
         t_values = {
             var: [float(tlin[np.argmin(np.abs(tlin - t))]) for t in
-                  np.linspace(0, 1, model_structure['tv_ophi'][var]['sp'])]
-            for var in model_structure['tv_ophi']
-            if model_structure['tv_ophi'][var].get('measured', True)
+                  np.linspace(0, 1, system['tvo'][var]['sp'])]
+            for var in system['tvo']
+            if system['tvo'][var].get('measured', True)
         }
 
         # Flatten all time points
@@ -111,7 +111,7 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
         t_acc_unique = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
         # Construct variables and parameters for the "initial" case
-        phi, phit, phisc, phitsc = _construct_var(model_structure, classic_des, j)
+        phi, phit, phisc, phitsc = _construct_var(system, classic_des, j)
         theta, thetac = _construct_par(model_name, theta_parameters)
 
         if swps is None:
@@ -120,8 +120,8 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
         case = 'initial'
         df_combined = _inssimulator(
             t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac,
-            cvp_initial, std_dev, t_acc_unique, case, Simula, model_name,
-            model_structure, modelling_settings
+            cvp_initial, std_dev, t_acc_unique, case, model_name,
+            system, models
         )
 
     else:
@@ -134,7 +134,7 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
         case = 'doe'
 
         # Construct scaling and parameters
-        _, _, phisc, phitsc = _construct_var(model_structure, classic_des, j)
+        _, _, phisc, phitsc = _construct_var(system, classic_des, j)
         theta, thetac = _construct_par(model_name, theta_parameters)
 
         phi = design_decisions['phi']
@@ -144,11 +144,11 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
         # Scale phi and phit
         phi_scaled = {
             var: np.array(phi[var]) / phisc[var]
-            for var in phi if var in model_structure['ti_iphi'].keys()
+            for var in phi if var in system['tii'].keys()
         }
         phit_scaled = {
             var: np.array(phit[var])
-            for var in phit if var in model_structure['tv_iphi'].keys()
+            for var in phit if var in system['tvi'].keys()
         }
 
         # Scale swps
@@ -167,20 +167,18 @@ def Expera(framework_settings, model_structure, modelling_settings, simulator_se
 
         df_combined = _inssimulator(
             t_values, swps_scaled, swpsu, phi_scaled, phisc, phit_scaled, phitsc, tsc, theta, thetac,
-            cvp_doe, std_dev, t_acc_unique, case, Simula, model_name,
-            model_structure, modelling_settings
-        )
+            cvp_doe, std_dev, t_acc_unique, case, model_name, system, models)
 
     return excel_path, df_combined
 
 
-def _construct_var(model_structure, classic_des, j):
+def _construct_var(system, classic_des, j):
     """
     Construct and scale variable dictionaries for the simulation.
 
     Parameters
     ----------
-    model_structure : dict
+    system : dict
         Dictionary describing the model structure.
     classic_des : dict
         Dictionary containing "classic" design values for variables.
@@ -206,15 +204,15 @@ def _construct_var(model_structure, classic_des, j):
     phi = {}
 
     # Time-variant input variables (tv_iphi)
-    for var in model_structure['tv_iphi'].keys():
-        max_val = model_structure['tv_iphi'][var]['max']
+    for var in system['tvi'].keys():
+        max_val = system['tvi'][var]['max']
         classic_value = classic_des.get(str(j), {}).get(var, max_val)
         phitsc[var] = max_val
         phit[var] = classic_value / max_val
 
     # Time-invariant input variables (ti_iphi)
-    for var in model_structure['ti_iphi'].keys():
-        max_val = model_structure['ti_iphi'][var]['max']
+    for var in system['tii'].keys():
+        max_val = system['tii'][var]['max']
         classic_value = classic_des.get(str(j), {}).get(var, max_val)
         phisc[var] = max_val
         phi[var] = classic_value / max_val
@@ -256,7 +254,7 @@ def _construct_par(model_name, theta_parameters):
 
 
 def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac, cvp, std_dev,
-                  t_valuesc, case, Simula, model_name, model_structure, modelling_settings):
+                  t_valuesc, case, model_name, system, models):
     """
     Conduct the in-silico experiments by setting up the simulation environment,
     running the simulations, adding noise, and saving the results.
@@ -298,9 +296,9 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         The simulation function used to generate tv_ophi, ti_ophi, phit_interp.
     model_name : str
         The name of the model being simulated.
-    model_structure : dict
+    system : dict
         Defines the structure of the model, including variable attributes.
-    modelling_settings : dict
+    models : dict
         Additional modelling settings.
 
     Returns
@@ -311,22 +309,22 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
 
     # Run the model to get tv_ophi, ti_ophi, phit_interp
     if case == 'initial':
-        tv_ophi, ti_ophi, phit_interp = Simula(
+        tv_ophi, ti_ophi, phit_interp = simula(
             t_valuesc, {}, phi, phisc, phitsc, tsc, theta, thetac,
-            cvp, phit, model_name, model_structure, modelling_settings
+            cvp, phit, model_name, system, models
         )
     elif case == 'doe':
-        tv_ophi, ti_ophi, phit_interp = Simula(
+        tv_ophi, ti_ophi, phit_interp = simula(
             t_valuesc, swps, phi, phisc, phitsc, tsc, theta, thetac,
-            cvp, phit, model_name, model_structure, modelling_settings
+            cvp, phit, model_name, system, models
         )
     else:
         raise ValueError(f"Unsupported case: {case}")
 
-    # Identify measured variables from model_structure
+    # Identify measured variables from system
     measured_vars = [
-        var for var in model_structure['tv_ophi'].keys()
-        if model_structure['tv_ophi'][var].get('measured', True)
+        var for var in system['tvo'].keys()
+        if system['tvo'][var].get('measured', True)
     ]
 
     # Prepare lists of independent and dependent variables

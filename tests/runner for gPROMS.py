@@ -96,6 +96,251 @@ def f17(t, y, phi, phit, theta, te):
     # Return the derivatives as a list
     return [dy1_dt, dy2_dt]
 
+
+def f19(t, y, phi, phit, theta, te):
+    """
+    Differential equations for gas-solid reaction kinetics.
+
+    Parameters:
+    - t: Time (seconds)
+    - y: [y1, y2] where
+        y1: Fraction of unoccupied surface (dimensionless, 0 ≤ y1 ≤ 1)
+        y2: Conversion (dimensionless, 0 ≤ y2 ≤ 1)
+    - phi: Time-invariant variables (dictionary containing):
+        S0: Initial surface area per unit volume (m²/m³)
+        epsilon_0: Initial porosity (dimensionless, 0 ≤ epsilon_0 ≤ 1)
+        Z: Ratio of product/reactant molar volumes (dimensionless)
+    - phit: Time-variant variables (dictionary containing):
+        C: Gas concentration (mol/m³)
+        T: Temperature (Kelvin)
+    - theta: Parameters [ks0, Ea_ks, Ds0, Ea_Ds, Dp0, Ea_Dp] where:
+        ks0: Pre-exponential factor for ks (m⁴/mol/s)
+        Ea_ks: Activation energy for ks (J/mol)
+        Ds0: Pre-exponential factor for Ds (m²/s)
+        Ea_Ds: Activation energy for Ds (J/mol)
+        Dp0: Pre-exponential factor for Dp (m²/s)
+        Ea_Dp: Activation energy for Dp (J/mol)
+    - te: Time points corresponding to profiles of phit variables (seconds)
+
+    Returns:
+    - [dy1_dt, dy2_dt]: Derivatives of y1 and y2 where:
+        dy1_dt: Rate of change of fraction of unoccupied surface (s⁻¹)
+        dy2_dt: Rate of change of conversion (s⁻¹)
+    """
+    # Unpack current state variables
+    y1, y2 = y  # y1: fraction of unoccupied surface, y2: conversion
+
+    # Interpolate time-variant inputs
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    C = np.interp(t, te_array, phit['C'])  # Gas concentration (mol/m³)
+    T = np.interp(t, te_array, phit['T'])  # Temperature (Kelvin)
+
+    # Extract time-invariant variables
+    S0 = phi['S0']  # Initial surface area per unit volume (m²/m³)
+    epsilon_0 = phi['epsilon_0']  # Initial porosity (dimensionless)
+    # Z = phi['Z']  # Ratio of product/reactant molar volumes (dimensionless)
+    Z = 2.18
+    # VBM = phi['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
+    VBM= 1.69e-5
+
+    # Extract parameters from theta
+    ks0 = theta[0]  # Pre-exponential factor for ks (m⁴/mol/s)
+    Ea_ks = theta[1]  # Activation energy for ks (J/mol)
+    Ds0 = theta[2]  # Pre-exponential factor for Ds (m²/s)
+    Ea_Ds = theta[3]  # Activation energy for Ds (J/mol)
+    Dp0 = theta[4]  # Pre-exponential factor for Dp (m²/s)
+    Ea_Dp = theta[5]  # Activation energy for Dp (J/mol)
+
+    # Constants
+    R = 8.314  # Universal gas constant (J/(mol*K))
+
+    # Arrhenius equations for reaction rates
+    ks = ks0 * np.exp(-Ea_ks / (R * T))  # Chemical reaction rate constant (m⁴/mol/s)
+    Ds = Ds0 * np.exp(-Ea_Ds / (R * T))  # Surface diffusion coefficient (m²/s)
+    Dp = Dp0 * np.exp(-Ea_Dp / (R * T))  # Product layer diffusion coefficient (m²/s)
+
+    # Equilibrium concentration Ce (mol/m³, function of temperature)
+    Ce = (1.826e6 / (R * T)) * np.exp(-19680 / T)
+
+    # Geometric model functions
+    jS_X = (1 - y2) ** (2 / 3)  # Reaction surface area function (dimensionless)
+    gD_X = (1 - y2) ** (2 / 3) / (((1 + Z / (1 - y1) - 1) * y2) ** (2 / 3))  # Geometric function (dimensionless)
+    pD_d_X = (3 * (1 - y2) ** (1 / 3)) / ((1 + (Z / (1 - y1) - 1) * y2) ** (1 / 3)) - (1 - y2) ** (1 / 3) * ((1 + ((Z / (1 - y1) - 1) * y2)) ** (1 / 3) - (1 - y2) ** (1 / 3))
+    Ks= ks*Z/Ds # ratio of chemical reaction rate to the Surface diffusion coefficient
+
+    # Differential equations
+    # Rate of change of fraction of unoccupied surface (y1, s⁻¹)
+    dy1_dt = -(ks * Z / Ds) * (C - Ce) * y1 / (1 + Ks * (C - Ce))
+
+    # Rate of change of conversion (y2, s⁻¹)
+    beta = (ks* (1 - epsilon_0)) / (Dp * S0 * VBM)  # Coupling term for product layer diffusion (dimensionless)
+    dy2_dt = (ks * S0 / (1 - epsilon_0)) * jS_X * (C - Ce) * ((y1 / (1 + ks * (C - Ce))) + ((1 - y1) / (gD_X + beta * (C - Ce) * pD_d_X )))
+
+    # Return the derivatives as a list
+    return [dy1_dt, dy2_dt]
+
+
+
+# def f20(t, y, phi, phit, theta, te):
+#     """
+#     Carbonation model: Returns d(conversion)/dt, d(concentration)/dt, d(holdup)/dt.
+#
+#     y[0] = carbonation_conversion (0–1)
+#     y[1] = concentration_CO2 (kg/m³)
+#     y[2] = solid_holdup_CaO (kg)
+#
+#     Returns:
+#     [d(conversion)/dt, d(concentration)/dt, d(holdup)/dt]
+#     """
+#
+#     # Unpack states
+#     carbonation_conversion, concentration_CO2, solid_holdup_CaO = y
+#
+#     # Interpolate profiles
+#     te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+#     reactor_temperature = np.interp(t, te_array, phit['T'])
+#     partial_pressure = np.interp(t, te_array, phit['P'])
+#
+#     # Clamp states
+#     carbonation_conversion = np.clip(carbonation_conversion, 0.0, 1.0)
+#     concentration_CO2 = max(concentration_CO2, 0.0)
+#     solid_holdup_CaO = max(solid_holdup_CaO, 1e-12)
+#
+#     # Unpack phi
+#     particle_size = phi['aps'] * 1e-6  # μm to m
+#     slurry_density = phi['slr']        # kg solid / L liquid
+#
+#
+#
+#     # Constants
+#     gas_constant = 8.314
+#     true_density = 2400
+#     porosity = 0.0
+#     density_liquid = 1.0  # kg/L
+#     liquid_phase_volume = 3.5  # L
+#     ref_temperature = 298.15
+#     MW_CaO = 56.08
+#     MW_CO2 = 44.01
+#     solid_mass_fraction_CaO = 0.1265
+#
+#     # Kinetics parameters
+#     pre_exp_factor, activ_energy, decay_constant, kla = theta
+#
+#     # Derived
+#     solid_density = true_density * (1 - porosity)
+#     solid_phase_volume = slurry_density * liquid_phase_volume / solid_density  # m³
+#     particle_volumetric_surface = 6e6 / (phi['aps'])  # m²/m³
+#
+#     # Solid holdup at t=0
+#     solid_holdup_CaO_0 = solid_mass_fraction_CaO * slurry_density * liquid_phase_volume  # kg
+#
+#     # --- Kinetics ---
+#     diffusion_coefficient = pre_exp_factor * np.exp(-activ_energy / (gas_constant * reactor_temperature))
+#     effective_diffusivity = diffusion_coefficient * np.exp(-decay_constant * t)
+#     effective_diffusivity = max(effective_diffusivity, 1e-12)
+#
+#     product_layer_thickness = particle_size * (1 - (1 - carbonation_conversion) ** 0.5) / 2
+#     product_layer_thickness = max(product_layer_thickness, 1e-12)
+#
+#     product_layer_coef = effective_diffusivity / product_layer_thickness
+#     product_layer_coef = max(product_layer_coef, 1e-12)
+#
+#     product_layer_resistance = 1 / (product_layer_coef * 1e-6 * particle_volumetric_surface)
+#     carbonation_constant = 1 / product_layer_resistance if not np.isinf(product_layer_resistance) else 0.0
+#
+#     carbonation_kinetics = carbonation_constant * concentration_CO2
+#
+#     if concentration_CO2 <= 1e-6:
+#         carbonation_kinetics = 0.0
+#
+#     # Reaction rates
+#     reaction_rate_CaO = carbonation_kinetics * (MW_CaO / MW_CO2) * (-1.0)
+#     reaction_rate_CO2 = carbonation_kinetics * (MW_CO2 / MW_CO2) * (-1.0)
+#
+#     # --- Material balances ---
+#
+#     # d(solid holdup)/dt
+#     d_solid_holdup_CaO_dt = reaction_rate_CaO * solid_phase_volume  # kg/s
+#
+#     # d(conversion)/dt
+#     d_conversion_dt = -d_solid_holdup_CaO_dt / solid_holdup_CaO_0
+#
+#     # Gas-liquid mass transfer
+#     henry_constant_CO2 = 35 * MW_CO2 * np.exp(2400 * (1 / reactor_temperature - 1 / ref_temperature))
+#     equilibrium_concentration_CO2 = partial_pressure * henry_constant_CO2
+#
+#     gas_liquid_dissolution_CO2 = kla * (equilibrium_concentration_CO2 - concentration_CO2)
+#
+#     # d(concentration)/dt
+#     d_concentration_CO2_dt = (gas_liquid_dissolution_CO2 + reaction_rate_CO2 * solid_phase_volume) / liquid_phase_volume  # kg/m³/s
+#
+#     return [d_conversion_dt, d_concentration_CO2_dt, d_solid_holdup_CaO_dt]
+
+def f20(t, y, phi, phit, theta, te):
+    """
+    Carbonation model (reduced): Returns d(conversion)/dt and d(CO2 concentration)/dt.
+
+    y[0] = carbonation_conversion (0–1)
+    y[1] = concentration_CO2 (kg/m³)
+    """
+
+    # Unpack states
+    carbonation_conversion, concentration_CO2 = y
+
+    # Interpolate profiles
+    te_array = np.array(te) if not isinstance(te, np.ndarray) else te
+    T = np.interp(t, te_array, phit['T'])
+    P_CO2 = np.interp(t, te_array, phit['P'])
+
+    # Clamp states
+    carbonation_conversion = np.clip(carbonation_conversion, 0.0, 1.0)
+    concentration_CO2 = max(concentration_CO2, 0.0)
+
+    # Parameters
+    particle_size = phi['aps']
+    slurry_density = phi['slr']
+
+    # Constants
+    R = 8.314
+    ref_T = 298.15
+    liquid_phase_volume = 3.5  # L
+    true_density = 2400
+    porosity = 0.0
+    solid_density = true_density * (1 - porosity)
+    particle_vol_surf = 6e6 / particle_size
+    MW_liquid_CO2 = 44.01
+    MW_solid_CaO = 56.08
+
+    # Kinetics parameters
+    pre_exp_factor, activ_energy, decay_constant, kla = theta
+
+    # Resistances and kinetics
+    product_layer_thickness = max(particle_size * (1 - (1 - carbonation_conversion)**0.5) / 2, 1e-12)
+    diff_coeff = pre_exp_factor * np.exp(-activ_energy / (R * T))
+    eff_diff = diff_coeff * np.exp(-decay_constant * t)
+    product_layer_coef = eff_diff / product_layer_thickness
+    product_layer_resistance = 1 / (product_layer_coef * 1e-6 * particle_vol_surf)
+    carbonation_constant = 1 / product_layer_resistance
+    carbonation_kinetics = carbonation_constant * concentration_CO2
+
+    # Reaction rate for CaO
+    r_CaO = carbonation_kinetics * (MW_solid_CaO / MW_liquid_CO2) * -1  # stoichiometry -1
+
+    # Conversion dynamics
+    CaO0 = 0.1010 * slurry_density * liquid_phase_volume
+    dCdt = -r_CaO * slurry_density * liquid_phase_volume / solid_density / CaO0
+
+    # CO2 dissolution
+    H_CO2 = 35 * MW_liquid_CO2 * np.exp(2400 * ((1 / T) - (1 / ref_T)))
+    eq_CO2 = P_CO2 * H_CO2
+    dissolution_CO2 = kla * (eq_CO2 - concentration_CO2)
+
+    # CO2 concentration dynamics
+    dCO2dt = dissolution_CO2 + r_CaO
+
+    return [dCdt, dCO2dt]
+
+
 def main():
 
     def thetadic17():
@@ -110,7 +355,17 @@ def main():
 
         return theta17, theta17maxs, theta17mins
 
+    theta19 = [1000, 22000, 4e-4, 0.006]
+    theta19min = [10, 18000, 1e-4, 0.0008]
+    theta19max = [2000, 30000, 1e-3, 0.008]
+    theta19maxs = [max_val / theta for max_val, theta in zip(theta19max, theta19)]
+    theta19mins = [min_val / theta for min_val, theta in zip(theta19min, theta19)]
 
+    theta20 = [1000, 22000, 4e-4, 0.006]
+    theta20min = [10, 18000, 1e-4, 0.0008]
+    theta20max = [2000, 30000, 1e-3, 0.008]
+    theta20maxs = [max_val / theta for max_val, theta in zip(theta20max, theta20)]
+    theta20mins = [min_val / theta for min_val, theta in zip(theta20min, theta20)]
 
     #reading parameters from embedded models
     theta05, theta05max, theta05min = thetadic05()
@@ -133,62 +388,76 @@ def main():
                 # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
                 'constraints': 'dec',  # Constraint type: relative state of signal levels in CVPs
                 # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
-                'max': 373.15,  # Maximum allowable signal level, design space upper bound
-                'min': 293.15,  # Minimum allowable signal level, design space lower bound
+                'max': 358.15,  # Maximum allowable signal level, design space upper bound
+                'min': 298.15,  # Minimum allowable signal level, design space lower bound
                 'initial_cvp': 'none',  # Initial CVP method (none - no predefined profile)
-                'design_cvp': 'CPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
-                'offsetl': 10,  # minimum allowed perturbation of signal (ratio)
-                'offsett': 600  # minimum allowed perturbation of time (ratio)
+                'design_cvp': 'LPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
+                'offsetl': 5,  # minimum allowed perturbation of signal (ratio)
+                'offsett': 300  # minimum allowed perturbation of time (ratio)
             },
             'P': {  # Pressure (bar)
                 'swp': 5,
                 'constraints': 'rel',
-                'max': 5,
-                'min': 1,
+                'max': 0.18,
+                'min': 0.05,
                 'initial_cvp': 'none',
                 'design_cvp': 'CPF',
-                'offsetl': 0.5,
-                'offsett': 600
+                'offsetl': 0.1,
+                'offsett': 300
             }
         },
         'tv_ophi': {  # Time-variant output variables (responses, measured or unmeasured)
             'y1': {  # response variable, here carbonation efficiency
                 'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
                 'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 10,  # the amound of samples per each batch (run)
-                'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
-                'offsett': 600,  # minimum allowed perturbation of sampling times (ratio)
+                'sp': 5,  # the amound of samples per each batch (run)
+                'unc': 0.05,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
+                'matching': '1'  # Matching criterion for model prediction and data alignment
+            },
+            'y2': {  # response variable, here carbonation efficiency
+                'initials': 0.001,
+                # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
+                'measured': True,
+                # Flag indicating if this variable is directly measurable, if False, it is a virtual output
+                'sp': 5,  # the amound of samples per each batch (run)
+                'unc': 0.05,
+                # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
+                'matching': '1'  # Matching criterion for model prediction and data alignment
+            },
+            'y3': {  # response variable, here carbonation efficiency
+                'initials': 0.001,
+                # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
+                'measured': False,
+                # Flag indicating if this variable is directly measurable, if False, it is a virtual output
+                'sp': 5,  # the amound of samples per each batch (run)
+                'unc': 0.05,
+                # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for model prediction and data alignment
             }
         },
         'ti_iphi': {  # Time-invariant input variables (phi)
-            'rho': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
-                'max': 4000,  # Maximum allowable signal level, design space upper bound
-                'min': 2300  # Minimum allowable signal level, design space upper bound
+            'slr': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
+                'max': 0.2,  # Maximum allowable signal level, design space upper bound
+                'min': 0.05  # Minimum allowable signal level, design space upper bound
             },
-            'cac': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
-                'max': 54.5,  # Maximum allowable signal level, design space upper bound
-                'min': 10  # Minimum allowable signal level, design space upper bound
-            },
-            'aps': {  # 3rd symbolic time-invariant control, Average particle size (m)
-                'max': 1e-4,  # Maximum allowable signal level, design space upper bound
-                'min': 1e-5  # Minimum allowable signal level, design space upper bound
-            },
-            'mld': {  # 4th symbolic time-invariant control, Molar density of reaction product (mol/m³)
-                'max': 40000,  # Maximum allowable signal level, design space upper bound
-                'min': 30000  # Minimum allowable signal level, design space upper bound
+            'aps': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
+                'max': 500,  # Maximum allowable signal level, design space upper bound
+                'min': 150  # Minimum allowable signal level, design space upper bound
             },
         },
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
-        't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_s': [150, 7200],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
+        't_r': 15,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
+            'ppopt_method': 'L', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
             'mdopt_method': 'L' # optimization method for MBDoE-MD, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
         },
         'criteria': {
@@ -198,18 +467,18 @@ def main():
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 100, # maximum number of PP runs
-            'tolpp': 1e-2, # tolerance for PP optimization
+            'maxpp': 1, # maximum number of PP runs
+            'tolpp': 1e-1, # tolerance for PP optimization
         }
     }
 
     modelling_settings = { # Settings related to the rival models and their parameters
-        'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
-        'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
-        'sim': {'f11': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
-        'gpmodels': {
-            'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model7.zip'},            # for now only for gPAS readable files, it is the path to zip file
+        'ext_func': {'f17': f17, 'f20': f20}, # External functions (models) to be used in the experiment from global space
+        'active_solvers': ['f20'], # Active solvers (rival models) to be used in the experiment
+        'sim': {'f20': 'sci'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
+        'exfiles': {
+            'credentials': {'f19': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
+            'connector': {'f19': 'C:/Users/Tadmin/Desktop/f11/model12.zip'},            # for now only for gPAS readable files, it is the path to zip file
         },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
@@ -223,7 +492,9 @@ def main():
             'f14': theta14,
             'f15': theta15,
             'f16': theta16,
-            'f17': theta17
+            'f17': theta17,
+            'f19': theta19,
+            'f20': theta20
         },
         'bound_max': { # Maximum bounds for theta parameters (based on normalized to 1)
             'f05': theta05max,
@@ -237,7 +508,9 @@ def main():
             'f14': theta14max,
             'f15': theta15max,
             'f16': theta16max,
-            'f17': theta17max
+            'f17': theta17max,
+            'f19': theta19maxs,
+            'f20': theta20maxs
         },
         'bound_min': { # Minimum bounds for theta parameters (based on normalized to 1)
             'f05': theta05min,
@@ -251,7 +524,9 @@ def main():
             'f14': theta14min,
             'f15': theta15min,
             'f16': theta16min,
-            'f17': theta17min
+            'f17': theta17min,
+            'f19': theta19mins,
+            'f20': theta20mins
         },
     }
 
@@ -276,11 +551,11 @@ def main():
 
     # scms
     simulator_settings = { # Settings for the insilico data generation
-        'insilico_model': 'f11', # selected true model (with nominal values)
+        'insilico_model': 'f20', # selected true model (with nominal values)
         'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
-            '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
-            '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
-            # '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
+            '1': {'T': 308.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
+            '2': {'T': 338.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
+            # '3': {'T': 338.15, 'P': 0.17, 'aps': 350, 'slr': 0.1},
             # '4': {'T': 353.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
         }
     }
@@ -308,7 +583,7 @@ def main():
 
     framework_settings = { # Framework settings for saving the results
         'path': 'C:\\datasim', # path to save the results
-        'case': 8 # case number as the name of subfolder to be created and getting used for restoring
+        'case': 14 # case number as the name of subfolder to be created and getting used for restoring
     }
 
     def run_framework(framework_settings, logic_settings, model_structure, design_settings, modelling_settings,

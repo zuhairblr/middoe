@@ -110,7 +110,11 @@ def main():
 
         return theta17, theta17maxs, theta17mins
 
-
+    theta19 = [1000, 22000, 4e-4, 0.006]
+    theta19min = [10, 18000, 1e-4, 0.0008]
+    theta19max = [2000, 30000, 1e-3, 0.008]
+    theta19maxs = [max_val / theta for max_val, theta in zip(theta19max, theta19)]
+    theta19mins = [min_val / theta for min_val, theta in zip(theta19min, theta19)]
 
     #reading parameters from embedded models
     theta05, theta05max, theta05min = thetadic05()
@@ -128,61 +132,50 @@ def main():
 
     model_structure = {
         'tv_iphi': {  # Time-variant input variables (model input: phit), each key is a symbol nad key in phit as well
-            'T': {  # Temperature (K)
-                'swp': 5,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
-                # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
-                'constraints': 'dec',  # Constraint type: relative state of signal levels in CVPs
-                # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
-                'max': 373.15,  # Maximum allowable signal level, design space upper bound
-                'min': 293.15,  # Minimum allowable signal level, design space lower bound
-                'initial_cvp': 'none',  # Initial CVP method (none - no predefined profile)
-                'design_cvp': 'CPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
-                'offsetl': 10,  # minimum allowed perturbation of signal (ratio)
-                'offsett': 600  # minimum allowed perturbation of time (ratio)
-            },
-            'P': {  # Pressure (bar)
-                'swp': 5,
-                'constraints': 'rel',
-                'max': 5,
-                'min': 1,
-                'initial_cvp': 'none',
-                'design_cvp': 'CPF',
-                'offsetl': 0.5,
-                'offsett': 600
-            }
         },
         'tv_ophi': {  # Time-variant output variables (responses, measured or unmeasured)
             'y1': {  # response variable, here carbonation efficiency
                 'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
                 'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 10,  # the amound of samples per each batch (run)
-                'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
-                'offsett': 600,  # minimum allowed perturbation of sampling times (ratio)
+                'sp': 5,  # the amound of samples per each batch (run)
+                'unc': 0.05,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 120,  # minimum allowed perturbation of sampling times (ratio)
+                'matching': '1'  # Matching criterion for model prediction and data alignment
+            },
+            'y2': {  # response variable, here carbonation efficiency
+                'initials': 0.001,
+                # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
+                'measured': True,
+                # Flag indicating if this variable is directly measurable, if False, it is a virtual output
+                'sp': 5,  # the amound of samples per each batch (run)
+                'unc': 0.05,
+                # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'offsett': 120,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for model prediction and data alignment
             }
         },
         'ti_iphi': {  # Time-invariant input variables (phi)
-            'rho': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
-                'max': 4000,  # Maximum allowable signal level, design space upper bound
-                'min': 2300  # Minimum allowable signal level, design space upper bound
+            'slr': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
+                'max': 0.2,  # Maximum allowable signal level, design space upper bound
+                'min': 0.05  # Minimum allowable signal level, design space upper bound
             },
-            'cac': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
-                'max': 54.5,  # Maximum allowable signal level, design space upper bound
-                'min': 10  # Minimum allowable signal level, design space upper bound
+            'aps': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
+                'max': 500,  # Maximum allowable signal level, design space upper bound
+                'min': 100  # Minimum allowable signal level, design space upper bound
             },
-            'aps': {  # 3rd symbolic time-invariant control, Average particle size (m)
-                'max': 1e-4,  # Maximum allowable signal level, design space upper bound
-                'min': 1e-5  # Minimum allowable signal level, design space upper bound
+            'P': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
+                'max': 1.5,  # Maximum allowable signal level, design space upper bound
+                'min': 0.1  # Minimum allowable signal level, design space upper bound
             },
-            'mld': {  # 4th symbolic time-invariant control, Molar density of reaction product (mol/m³)
-                'max': 40000,  # Maximum allowable signal level, design space upper bound
-                'min': 30000  # Minimum allowable signal level, design space upper bound
+            'T': {  # 2nd symbolic time-invariant control, Fraction of active CaO in mineral wt%
+                'max': 353.15,  # Maximum allowable signal level, design space upper bound
+                'min': 293.15  # Minimum allowable signal level, design space upper bound
             },
         },
         'ti_ophi': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
-        't_s': [600, 10800],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
-        't_r': 108,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
+        't_s': [144, 7200],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from design)
+        't_r': 72,  # Time resolution (10 s), minimum time steps for the simulation/design/controls
     }
 
     design_settings = { # Design settings for the experiment
@@ -198,18 +191,18 @@ def main():
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 100, # maximum number of PP runs
-            'tolpp': 1e-2, # tolerance for PP optimization
+            'maxpp': 30, # maximum number of PP runs
+            'tolpp': 2, # tolerance for PP optimization
         }
     }
 
     modelling_settings = { # Settings related to the rival models and their parameters
         'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
-        'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
-        'sim': {'f11': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
+        'active_solvers': ['f19'], # Active solvers (rival models) to be used in the experiment
+        'sim': {'f19': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'gpmodels': {
-            'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f11': 'C:/Users/Tadmin/Desktop/f11/model7.zip'},            # for now only for gPAS readable files, it is the path to zip file
+            'credentials': {'f19': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
+            'connector': {'f19': 'C:/Users/Tadmin/Desktop/f11/model10.zip'},            # for now only for gPAS readable files, it is the path to zip file
         },
         'theta_parameters': { # Theta parameters for each model
             'f05': theta05,
@@ -223,7 +216,8 @@ def main():
             'f14': theta14,
             'f15': theta15,
             'f16': theta16,
-            'f17': theta17
+            'f17': theta17,
+            'f19': theta19
         },
         'bound_max': { # Maximum bounds for theta parameters (based on normalized to 1)
             'f05': theta05max,
@@ -237,7 +231,8 @@ def main():
             'f14': theta14max,
             'f15': theta15max,
             'f16': theta16max,
-            'f17': theta17max
+            'f17': theta17max,
+            'f19': theta19maxs
         },
         'bound_min': { # Minimum bounds for theta parameters (based on normalized to 1)
             'f05': theta05min,
@@ -251,7 +246,8 @@ def main():
             'f14': theta14min,
             'f15': theta15min,
             'f16': theta16min,
-            'f17': theta17min
+            'f17': theta17min,
+            'f19': theta19mins
         },
     }
 
@@ -276,11 +272,11 @@ def main():
 
     # scms
     simulator_settings = { # Settings for the insilico data generation
-        'insilico_model': 'f11', # selected true model (with nominal values)
+        'insilico_model': 'f19', # selected true model (with nominal values)
         'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
-            '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
-            '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
-            # '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
+            '1': {'T': 308.15, 'P': 0.17, 'aps': 200, 'slr': 0.1},
+            '2': {'T': 338.15, 'P': 0.17, 'aps': 200, 'slr': 0.1},
+            '3': {'T': 338.15, 'P': 0.17, 'aps': 350, 'slr': 0.1},
             # '4': {'T': 353.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
         }
     }
@@ -303,12 +299,12 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a model to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a model to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 1 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 16 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
         'path': 'C:\\datasim', # path to save the results
-        'case': 8 # case number as the name of subfolder to be created and getting used for restoring
+        'case': 10 # case number as the name of subfolder to be created and getting used for restoring
     }
 
     def run_framework(framework_settings, logic_settings, model_structure, design_settings, modelling_settings,
