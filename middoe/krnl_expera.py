@@ -2,8 +2,9 @@ from middoe.krnl_simula import simula
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import os
 
-def expera(framework_settings, system, models, insilicos, design_decisions, j, swps=None):
+def expera(system, models, insilicos, design_decisions, expr, swps=None):
     """
     Run an in-silico experiment, produce simulation results, and prepare them for reporting.
 
@@ -15,14 +16,6 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
 
     Parameters
     ----------
-    framework_settings : dict
-        Settings related to the framework, including paths and case information.
-        Example structure:
-        {
-            'path': '/absolute/path/to/project',
-            'case': 'experiment_01'
-        }
-
     system : dict
         Structure of the model, including variables and their properties.
         It contains keys like 'tv_iphi', 'tv_ophi', 'ti_iphi', 'ti_ophi',
@@ -38,9 +31,9 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
         - 'nd2': int, number of points for time discretization.
 
     design_decisions : dict
-        Design decisions for the experiment. May contain keys like 'St', 'phi', 'phit', 't_values'.
+        Design decisions for the experiment. May contain keys like 'St', 'tii', 'tvi', 't_values'.
 
-    j : int
+    expr : int
         Index for the current experiment.
 
     swps : dict, optional
@@ -69,12 +62,10 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
         for var in system['tvi'].keys()
     }
 
-    base_path = framework_settings['path']
-    modelling_folder = str(framework_settings['case'])
-    output_path = Path(base_path) / modelling_folder
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    excel_path = str(output_path / "insilico_experiments.xlsx")
+    # base_path = framework_settings['path']
+    # modelling_folder = str(framework_settings['case'])
+    # output_path = Path(base_path) / modelling_folder
+    # output_path.mkdir(parents=True, exist_ok=True)
 
     # Retrieve the model name and related simulation parameters
     model_name = insilicos.get('true_model')
@@ -111,7 +102,7 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
         t_acc_unique = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
         # Construct variables and parameters for the "initial" case
-        phi, phit, phisc, phitsc = _construct_var(system, classic_des, j)
+        phi, phit, phisc, phitsc = _construct_var(system, classic_des, expr)
         theta, thetac = _construct_par(model_name, theta_parameters)
 
         if swps is None:
@@ -134,14 +125,14 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
         case = 'doe'
 
         # Construct scaling and parameters
-        _, _, phisc, phitsc = _construct_var(system, classic_des, j)
+        _, _, phisc, phitsc = _construct_var(system, classic_des, expr)
         theta, thetac = _construct_par(model_name, theta_parameters)
 
-        phi = design_decisions['phi']
-        phit = design_decisions['phit']
+        phi = design_decisions['tii']
+        phit = design_decisions['tvi']
         swpsu = swps if swps is not None else {}
 
-        # Scale phi and phit
+        # Scale tii and tvi
         phi_scaled = {
             var: np.array(phi[var]) / phisc[var]
             for var in phi if var in system['tii'].keys()
@@ -169,7 +160,27 @@ def expera(framework_settings, system, models, insilicos, design_decisions, j, s
             t_values, swps_scaled, swpsu, phi_scaled, phisc, phit_scaled, phitsc, tsc, theta, thetac,
             cvp_doe, std_dev, t_acc_unique, case, model_name, system, models)
 
-    return excel_path, df_combined
+    # Define Excel path for in-silico data
+    excel_path = Path.cwd() / 'indata.xlsx'
+
+    experiment_number = str(expr)  # Ensure experiment_number is a string
+    # Check if the file already exists
+    if os.path.isfile(excel_path):
+        # Open the file in append mode if it exists
+        with pd.ExcelWriter(excel_path, mode='a', engine='openpyxl') as writer:
+            existing_sheets = writer.book.sheetnames
+            if experiment_number in existing_sheets:
+                # Append to the existing sheet
+                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
+            else:
+                # Create a new sheet
+                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
+    else:
+        # If the file does not exist, create it and write the data
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
+
+    return df_combined
 
 
 def _construct_var(system, classic_des, j):
@@ -188,10 +199,10 @@ def _construct_var(system, classic_des, j):
     Returns
     -------
     tuple
-        (phi, phit, phisc, phitsc):
-        - phi : dict
+        (tii, tvi, phisc, phitsc):
+        - tii : dict
             Time-invariant variable values scaled by their maxima.
-        - phit : dict
+        - tvi : dict
             Time-variant variable values scaled by their maxima.
         - phisc : dict
             Scaling factors (max values) for time-invariant variables.
@@ -261,7 +272,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
 
     Returns one combined DataFrame with sections:
     - var_t, var_noisy for each tv_ophi variable (each with its own length).
-    - t_global, phi(s), phit(s)/phit_interp(s), ti_ophi (aligned with t_valuesc).
+    - t_global, tii(s), tvi(s)/phit_interp(s), ti_ophi (aligned with t_valuesc).
     - piecewise_func in a separate section.
     - swpsu in another separate section.
 
@@ -362,7 +373,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         df_var = pd.DataFrame(var_results, columns=[f"MES_X:{dep_var}", f"MES_Y:{dep_var}"])
         var_dfs.append(df_var)
 
-    # 2. Global DataFrame (t_global, phi, phit/phit_interp, ti_ophi)
+    # 2. Global DataFrame (t_global, tii, tvi/phit_interp, ti_ophi)
     phi_order = list(phi.keys())
     ti_ophi_order = list(ti_ophi.keys())
     if case == 'classic':
@@ -380,11 +391,11 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
     for i, t_global in enumerate(t_valuesc):
         row = [t_global * tsc]
 
-        # phi
+        # tii
         phi_vals = [phi[v] * phisc[v] for v in phi_order]
         row.extend(phi_vals)
 
-        # phit or phit_interp
+        # tvi or phit_interp
         if case == 'classic':
             phit_vals = [phit[v] * phitsc[v] for v in phit_order]
         else:

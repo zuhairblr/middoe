@@ -110,8 +110,8 @@ def MD(design_settings, model_structure, modelling_settings, core_number, framew
     )
 
     design_decisions = {
-        'phi': phi,
-        'phit': phit,
+        'tii': phi,
+        'tvi': phit,
         'swps': swps,
         'St': St,
         't_values': t_vals

@@ -1,5 +1,5 @@
-import os
-
+from multiprocessing import Pool
+import copy
 from middoe.des_utils import _segmenter, _slicer, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
 from middoe.krnl_simula import simula
 from collections import defaultdict
@@ -10,11 +10,44 @@ from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize as pymoo_minimize
-# import casadi as ca
-# from casadi import MX, vertcat, nlpsol
 
 
-def run_pp(design_settings, model_structure, modelling_settings, core_number, framework_settings, round):
+from multiprocessing import Pool
+
+def mbdoe_pp(des_opt, system, models, round, num_parallel_runs=1):
+    """
+    Run MBDOE-PP in either parallel or single-core mode.
+
+    Parameters:
+    - des_opt (dict): Design settings
+    - system (dict): System/model structure
+    - models (dict): Modelling settings
+    - round (int): Round number
+    - num_parallel_runs (int): Number of cores for parallel run. If 1, runs single-core.
+
+    Returns:
+    - design_decisions (dict), pp_obj (float), swps (dict)
+    """
+    method = des_opt['optimization_methods']['ppopt_method']
+
+    if method in ['L', 'G_P'] and num_parallel_runs > 1:
+
+        with Pool(num_parallel_runs) as pool:
+            results_list = pool.starmap(
+                _run_pp,
+                [(copy.deepcopy(des_opt), copy.deepcopy(system), copy.deepcopy(models), core_num, round)
+                 for core_num in range(num_parallel_runs)]
+            )
+        best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
+
+    else:
+        best_design_decisions, best_pp_obj, best_swps = _run_pp(
+            des_opt, system, models, core_number=0, round=round
+        )
+
+    return best_design_decisions, best_pp_obj, best_swps
+
+def _run_pp(des_opt, system, models, core_number, round):
     """
     Perform Model-Based Design of Experiments for Parameter Precision (MBDOE-PP).
 
@@ -59,16 +92,14 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
 
     Parameters
     ----------
-    design_settings : dict
+    des_opt : dict
         Dictionary specifying design criteria, optimisation settings, and iteration limits.
-    model_structure : dict
+    system : dict
         Model structure including time domain, input/output definitions, and constraints.
-    modelling_settings : dict
+    models : dict
         Estimation settings including active solvers, parameter values, and mutation masks.
     core_number : int
         Core index used to differentiate parallel optimisation jobs.
-    framework_settings : dict
-        Dictionary containing file paths and case ID for saving results.
     round : int
         Current round number in the MBDOE-PE iterative design framework.
 
@@ -76,8 +107,8 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     -------
     design_decisions : dict
         Dictionary containing:
-        - 'phi': Time-invariant input levels.
-        - 'phit': Time-variant input profiles.
+        - 'tii': Time-invariant input levels.
+        - 'tvi': Time-variant input profiles.
         - 'swps': Switching points (levels and times) for CVP inputs.
         - 'St': Sampling time schedule.
         - 'pp_obj': Precision criterion value.
@@ -102,58 +133,58 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     """
 
     # --------------------------- EXTRACT DATA --------------------------- #
-    tf = model_structure['t_s'][1]
-    ti = model_structure['t_s'][0]
+    tf = system['t_s'][1]
+    ti = system['t_s'][0]
 
     # Time-variant inputs
-    tv_iphi_vars = list(model_structure['tv_iphi'].keys())
-    tv_iphi_max = [model_structure['tv_iphi'][var]['max'] for var in tv_iphi_vars]
-    tv_iphi_min = [model_structure['tv_iphi'][var]['min'] for var in tv_iphi_vars]
-    tv_iphi_seg = [model_structure['tv_iphi'][var]['swp'] for var in tv_iphi_vars]
-    tv_iphi_const = [model_structure['tv_iphi'][var]['constraints'] for var in tv_iphi_vars]
-    tv_iphi_offsett = [model_structure['tv_iphi'][var]['offsett']/tf for var in tv_iphi_vars]
+    tv_iphi_vars = list(system['tvi'].keys())
+    tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
+    tv_iphi_min = [system['tvi'][var]['min'] for var in tv_iphi_vars]
+    tv_iphi_seg = [system['tvi'][var]['swp'] for var in tv_iphi_vars]
+    tv_iphi_const = [system['tvi'][var]['constraints'] for var in tv_iphi_vars]
+    tv_iphi_offsett = [system['tvi'][var]['offsett'] / tf for var in tv_iphi_vars]
     tv_iphi_offsetl = [
-        model_structure['tv_iphi'][var]['offsetl'] / model_structure['tv_iphi'][var]['max']
+        system['tvi'][var]['offsetl'] / system['tvi'][var]['max']
         for var in tv_iphi_vars
     ]
-    tv_iphi_cvp = {var: model_structure['tv_iphi'][var]['design_cvp'] for var in tv_iphi_vars}
+    tv_iphi_cvp = {var: system['tvi'][var]['design_cvp'] for var in tv_iphi_vars}
 
     # Time-invariant inputs
-    ti_iphi_vars = list(model_structure['ti_iphi'].keys())
-    ti_iphi_max = [model_structure['ti_iphi'][var]['max'] for var in ti_iphi_vars]
-    ti_iphi_min = [model_structure['ti_iphi'][var]['min'] for var in ti_iphi_vars]
+    ti_iphi_vars = list(system['tii'].keys())
+    ti_iphi_max = [system['tii'][var]['max'] for var in ti_iphi_vars]
+    ti_iphi_min = [system['tii'][var]['min'] for var in ti_iphi_vars]
 
     # Time-variant outputs
     tv_ophi_vars = [
-        var for var in model_structure['tv_ophi'].keys()
-        if model_structure['tv_ophi'][var].get('measured', True)
+        var for var in system['tvo'].keys()
+        if system['tvo'][var].get('measured', True)
     ]
-    tv_ophi_seg = [model_structure['tv_ophi'][var]['sp'] for var in tv_ophi_vars]
-    tv_ophi_offsett_ophi = [model_structure['tv_ophi'][var]['offsett']/tf for var in tv_ophi_vars]
-    tv_ophi_matching = [model_structure['tv_ophi'][var]['matching'] for var in tv_ophi_vars]
+    tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
+    tv_ophi_offsett_ophi = [system['tvo'][var]['offsett'] / tf for var in tv_ophi_vars]
+    tv_ophi_matching = [system['tvo'][var]['matching'] for var in tv_ophi_vars]
 
     # Time-invariant outputs
     ti_ophi_vars = [
-        var for var in model_structure['ti_ophi'].keys()
-        if model_structure['ti_ophi'][var].get('measured', True)
+        var for var in system['tio'].keys()
+        if system['tio'][var].get('measured', True)
     ]
 
     # Solver and optimization settings
-    active_solvers = modelling_settings['active_solvers']
-    estimations = modelling_settings['normalized_parameters']
-    ref_thetas = modelling_settings['theta_parameters']
+    active_solvers = models['active_solvers']
+    estimations = models['normalized_parameters']
+    ref_thetas = models['theta_parameters']
     theta_parameters = _par_update(ref_thetas, estimations)
 
     # Criterion, iteration, and penalty settings
-    design_criteria = design_settings['criteria']['MBDOE_PP_criterion']
-    maxpp = design_settings['iteration_settings']['maxpp']
-    tolpp = design_settings['iteration_settings']['tolpp']
-    eps = design_settings['eps']
-    mutation = modelling_settings['mutation']
-    V_matrix = modelling_settings['V_matrix']
+    design_criteria = des_opt['criteria']['MBDOE_PP_criterion']
+    maxpp = des_opt['iteration_settings']['maxpp']
+    tolpp = des_opt['iteration_settings']['tolpp']
+    eps = des_opt['eps']
+    mutation = models['mutation']
+    V_matrix = models['V_matrix']
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
-    method_key = design_settings['optimization_methods']['ppopt_method']
+    method_key = des_opt['optimization_methods']['ppopt_method']
     if method_key == 'L':
         result, index_dict = _optimize_l(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -165,22 +196,9 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
             active_solvers, theta_parameters,
             eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
-            model_structure, modelling_settings
+            system, models
         )
 
-    # elif method_key == 'G_C':
-    #     result, index_dict = _optimize_g_c(
-    #         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-    #         tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-    #         ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-    #         tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-    #         ti_ophi_vars,
-    #         tf, ti,
-    #         active_solvers, theta_parameters,
-    #         eps, maxpp, tolpp,
-    #         mutation, V_matrix, design_criteria,
-    #         system, models
-    #     )
     elif method_key == 'G_P':
         result, index_dict = _optimize_g_p(
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -192,7 +210,7 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
             active_solvers, theta_parameters,
             eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
-            model_structure, modelling_settings
+            system, models
         )
 
     elif method_key == 'GL':
@@ -206,7 +224,7 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
             active_solvers, theta_parameters,
             eps, maxpp, tolpp,
             mutation, V_matrix, design_criteria,
-            model_structure, modelling_settings
+            system, models
         )
     else:
         raise ValueError(f"Unknown method '{method_key}' for mdopt_method in PP().")
@@ -227,15 +245,11 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
         tv_iphi_cvp,
         tf, eps, mutation, V_matrix, design_criteria,
         index_dict,
-        model_structure,
-        modelling_settings
+        system,
+        models
     )
 
     # --------------------------- REPORT & SAVE --------------------------- #
-    base_path = framework_settings['path']
-    modelling_folder = str(framework_settings['case'])
-    filename = os.path.join(base_path, modelling_folder)
-    os.makedirs(filename, exist_ok=True)
 
     # You may have a specialized reporter or reuse the same `_reporter`
     phi, phit, swps, St = _reporter(
@@ -246,7 +260,6 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
         tv_iphi_vars, tv_iphi_max,
         ti_iphi_vars, ti_iphi_max,
         tf,
-        filename,
         design_criteria,
         round,
         core_number
@@ -254,8 +267,8 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
 
     # ------------------------- RETURN FINAL DATA ------------------------- #
     design_decisions = {
-        'phi': phi,
-        'phit': phit,
+        'tii': phi,
+        'tvi': phit,
         'swps': swps,
         'St': St,
         'pp_obj': pp_obj,
@@ -263,7 +276,6 @@ def run_pp(design_settings, model_structure, modelling_settings, core_number, fr
     }
 
     return design_decisions, pp_obj, swps
-
 
 def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
                 tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -274,7 +286,7 @@ def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
                 active_solvers, theta_parameters,
                 eps, maxpp, tolpp,
                 mutation, V_matrix, design_criteria,
-                model_structure, modelling_settings):
+                system, models):
     """
     Local optimization for MBDOE_PP using trust-constr (analogous to _optimizel in des-md).
     Returns (result, index_dict).
@@ -318,8 +330,8 @@ def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
             tv_iphi_cvp,
             tf, eps, mutation, V_matrix, design_criteria,
             index_dict,
-            model_structure,
-            modelling_settings
+            system,
+            models
         )
 
     # 5) trust-constr solve
@@ -345,7 +357,6 @@ def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_con
 
     return result, index_dict
 
-
 def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
                  tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
                  ti_iphi_vars, ti_iphi_max, ti_iphi_min,
@@ -355,7 +366,7 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
                  active_solvers, theta_parameters,
                  eps, maxpp, tolpp,
                  mutation, V_matrix, design_criteria,
-                 model_structure, modelling_settings):
+                 system, models):
 
     # 1) Build var_groups (parallel to des-md)
     var_groups = build_var_groups(
@@ -402,8 +413,8 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
         tf=tf, eps=eps, mutation=mutation,
         V_matrix=V_matrix, design_criteria=design_criteria,
         index_dict=index_dict,
-        model_structure=model_structure,
-        modelling_settings=modelling_settings
+        system=system,
+        models=models
     )
 
     # 5) Build penalized objective for DE (just like des-md):
@@ -473,8 +484,6 @@ def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_co
 
     return result, index_dict
 
-
-
 def _optimize_g_p(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -485,7 +494,7 @@ def _optimize_g_p(
     active_solvers, theta_parameters,
     eps, maxpp, tolpp,
     mutation, V_matrix, design_criteria,
-    model_structure, modelling_settings
+    system, models
 ):
     bounds = []
     x0 = []
@@ -583,8 +592,8 @@ def _optimize_g_p(
         tf=tf, eps=eps, mutation=mutation,
         V_matrix=V_matrix, design_criteria=design_criteria,
         index_dict=index_dict,
-        model_structure=model_structure,
-        modelling_settings=modelling_settings
+        system=system,
+        models=models
     )
 
     # Constraint-aware DE problem
@@ -622,7 +631,7 @@ def _optimize_g_p(
     problem = DEProblem()
 
     algo = DE(
-        pop_size=50,
+        pop_size=10,
         sampling=LHS(),
         variant='DE/rand/1/bin',
         CR=0.7
@@ -640,166 +649,6 @@ def _optimize_g_p(
     return res_de, index_dict
 
 
-
-# def _optimize_g_c(
-#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-#     ti_ophi_vars,
-#     tf, ti,
-#     active_solvers, theta_parameters,
-#     eps, maxpp, tolpp,
-#     mutation, V_matrix, design_criteria,
-#     system, models
-# ):
-#     # 1) Build bounds, x0, index_dict (same as original)
-#     bounds, x0 = [], []
-#     index_dict = {'ti': {}, 'swps': {}, 'st': {}}
-#
-#     # Time-invariant inputs
-#     for i, (name, mn, mx) in enumerate(zip(
-#             ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-#         lo, hi = mn/mx, 1.0
-#         bounds.append((lo, hi)); x0.append((lo+hi)/2)
-#         index_dict['ti'][name] = [i]
-#
-#     # Time-variant levels ('l')
-#     start = len(x0)
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg, lo = tv_iphi_seg[i], tv_iphi_min[i]/tv_iphi_max[i]
-#         idxs = list(range(start, start+seg-1))
-#         index_dict['swps'][f"{name}l"] = idxs
-#         for _ in idxs:
-#             bounds.append((lo, 1.0)); x0.append((lo+1)/2)
-#         start += seg-1
-#
-#     # Time-variant transition times ('t')
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]; lo, hi = ti/tf, 1 - ti/tf
-#         idxs = list(range(start, start+seg-2))
-#         index_dict['swps'][f"{name}t"] = idxs
-#         for _ in idxs:
-#             bounds.append((lo, hi)); x0.append((lo+hi)/2)
-#         start += seg-2
-#
-#     # Sampling times for tv_ophi_vars ('st')
-#     for i, name in enumerate(tv_ophi_vars):
-#         seg = tv_ophi_seg[i]; lo, hi = ti/tf, 1 - ti/tf
-#         idxs = list(range(start, start+seg-2))
-#         index_dict['st'][name] = idxs
-#         for _ in idxs:
-#             bounds.append((lo, hi)); x0.append((lo+hi)/2)
-#         start += seg-2
-#
-#     lower = np.array([b[0] for b in bounds])
-#     upper = np.array([b[1] for b in bounds])
-#     x0 = np.array(x0)
-#     n_var = len(bounds)
-#
-#     # 2) Build CasADi symbol and wrap objective
-#     x = ca.MX.sym('x', n_var)
-#     local_obj = partial(
-#         _pp_objective_function,
-#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-#         tv_iphi_cvp=tv_iphi_cvp,
-#         active_solvers=active_solvers,
-#         theta_parameters=theta_parameters,
-#         tf=tf, eps=eps, mutation=mutation,
-#         V_matrix=V_matrix, design_criteria=design_criteria,
-#         index_dict=index_dict,
-#         system=system,
-#         models=models
-#     )
-#
-#     # 3) Define Callback subclass for objective (finite differences)
-#     class PPCallback(ca.Callback):
-#         def __init__(self, name, nx, opts):
-#             ca.Callback.__init__(self)
-#             self.nx = nx
-#             self.fun = local_obj
-#             self.construct(name, opts)
-#
-#         def get_n_in(self):     return 1
-#         def get_n_out(self):    return 1
-#
-#         def get_sparsity_in(self, idx):
-#             return ca.Sparsity.dense(self.nx, 1)
-#
-#         def get_sparsity_out(self, idx):
-#             return ca.Sparsity.dense(1, 1)
-#
-#         def eval(self, args):
-#             # args[0] is an MXDense; convert to numpy
-#             x_val = np.array(args[0]).flatten()
-#             return [float(self.fun(x_val))]
-#
-#     # Persist the callback so it's not garbage-collected
-#     pp_cb = PPCallback('pp_cb', n_var, opts={'enable_fd': True})
-#
-#     # 4) Build inequality constraints g(x) <= 0
-#     constraint_index_list = []
-#     for i, name in enumerate(tv_iphi_vars):
-#         if tv_iphi_const[i] != 'rel':
-#             idxs = index_dict['swps'][f"{name}l"]
-#             for j in range(len(idxs)-1):
-#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j+1]))
-#     for i, name in enumerate(tv_iphi_vars):
-#         idxs = index_dict['swps'][f"{name}t"]
-#         for j in range(len(idxs)-1):
-#             constraint_index_list.append(('t', i, idxs[j], idxs[j+1]))
-#     for i, name in enumerate(tv_ophi_vars):
-#         idxs = index_dict['st'][name]
-#         for j in range(len(idxs)-1):
-#             constraint_index_list.append(('st', i, idxs[j], idxs[j+1]))
-#
-#     g_list = []
-#     for kind, i, i1, i2 in constraint_index_list:
-#         if kind == 'lvl':
-#             diff = x[i2] - x[i1] if tv_iphi_const[i]=='inc' else x[i1] - x[i2]
-#             g_list.append(tv_iphi_offsetl[i] - diff)
-#         elif kind == 't':
-#             g_list.append(tv_iphi_offsett[i] - (x[i2] - x[i1]))
-#         else:  # 'st'
-#             g_list.append(tv_ophi_offsett_ophi[i] - (x[i2] - x[i1]))
-#     g_concat = ca.vertcat(*g_list) if g_list else ca.vertcat()
-#
-#     # 5) Assemble NLP and solver (no iteration_callback here)
-#     f_expr = pp_cb(x)
-#     nlp = {'x': x, 'f': f_expr, 'g': g_concat}
-#     # Define solver options
-#     opts = {
-#         'ipopt': {
-#             'max_iter': 10,
-#             'tol': 1e-1,
-#             'print_level': 0,
-#             'linear_solver': 'mumps',
-#             'mu_strategy': 'adaptive',
-#             'hessian_approximation': 'exact',
-#             'nlp_scaling_method': 'gradient-based'
-#         }
-#     }
-#     solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
-#
-#     # 6) Define bounds and solve
-#     lbx, ubx = lower, upper
-#     if g_list:
-#         lbg = -ca.inf * np.ones(g_concat.size1())
-#         ubg = np.zeros(g_concat.size1())
-#     else:
-#         lbg, ubg = [], []
-#
-#     sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
-#
-#     # 7) Extract and return solution
-#     x_opt = np.array(sol['x']).flatten()
-#     return x_opt, index_dict
-
-
-
-
 def _pp_objective_function(
     x,
     tv_iphi_vars, tv_iphi_max,
@@ -809,8 +658,8 @@ def _pp_objective_function(
     tv_iphi_cvp,
     tf, eps, mutation, V_matrix, design_criteria,
     index_dict,
-    model_structure,
-    modelling_settings
+    system,
+    models
 ):
     """
     Similar to md_objective_function but for PP. We want to maximize the PP-criterion
@@ -826,8 +675,8 @@ def _pp_objective_function(
             tv_iphi_cvp,
             tf, eps, mutation, V_matrix, design_criteria,
             index_dict,
-            model_structure,
-            modelling_settings
+            system,
+            models
         )
         if np.isnan(pp_obj):
             return 1e6
@@ -835,7 +684,6 @@ def _pp_objective_function(
     except Exception as e:
         print(f"Exception in pp_objective_function: {e}")
         return 1e6
-
 
 def _runner(
     x,
@@ -854,8 +702,8 @@ def _runner(
     V_matrix,
     MBDOE_PP_criterion,
     index_dict,
-    model_structure,
-    modelling_settings
+    system,
+    models
 ):
     """
     Run the simulation and compute the parameter precision criterion for the MBDOE_PP problem.
@@ -896,9 +744,9 @@ def _runner(
         Criterion for the design (e.g., 'D', 'A', 'E', 'ME').
     index_dict : dict
         Dictionary of index mappings for design variables.
-    model_structure : dict
+    system : dict
         Model structure dictionary.
-    modelling_settings : dict
+    models : dict
         Additional solver settings.
 
     Returns
@@ -916,12 +764,14 @@ def _runner(
         - phit_interp (dict): Interpolated piecewise data (last solver run).
     """
     # Convert x to list if not already
+    if x is None:
+        raise ValueError("MBDoE optimiser kernel was unsuccessful, increase iteration to avoid constraint violations.")
     x = x.tolist() if not isinstance(x, list) else x
 
     # ---------------------------------------------------------------------
     # 1) Extract design parameters via _slicer
     # ---------------------------------------------------------------------
-    dt_real = model_structure['t_r']
+    dt_real = system['t_r']
     nodes = int(round(tf / dt_real)) + 1
     tlin = np.linspace(0, 1, nodes)
     ti, swps, St = _slicer(x, index_dict, tlin)
@@ -992,8 +842,8 @@ def _runner(
             theta, thetac,
             tv_iphi_cvp, {},  # pass empty dict or relevant data
             solver_name,
-            model_structure,
-            modelling_settings
+            system,
+            models
         )
         tv_ophi[solver_name] = tv_out      # e.g. {var -> array} for time-variant
         ti_ophi[solver_name] = ti_out      # e.g. {var -> scalar} for time-invariant
@@ -1037,8 +887,8 @@ def _runner(
                 modified_theta, thetac,
                 tv_iphi_cvp, {},  # pass empty dict or relevant data
                 solver_name,
-                model_structure,
-                modelling_settings
+                system,
+                models
             )
 
             # Store these "modified" results

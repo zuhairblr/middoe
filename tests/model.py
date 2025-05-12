@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 
-def solve_model(t, y0, phi, phit, theta):
+def solve_model(t, y0, tii, tvi, theta):
     """
     Solve carbonation model based on CaO holdup and CO₂ concentration.
     Returns only carbonation_conversion and CO₂ concentration.
@@ -78,27 +78,27 @@ def solve_model(t, y0, phi, phit, theta):
 
         return list(d_solid) + list(d_liquid)
 
-    y0_full = list(solid_mass_frac_0 * phi['slr'] * 3.5) + list(liquid_mass_frac_0 * 1 * 3.5)
+    y0_full = list(solid_mass_frac_0 * tii['slr'] * 3.5) + list(liquid_mass_frac_0 * 1 * 3.5)
     result = solve_ivp(
         fun=f20_model,
         t_span=(t[0], t[-1]),
         y0=y0_full,
-        args=(phi, phit, theta, t),
+        args=(tii, tvi, theta, t),
         t_eval=t,
         method='Radau',
         rtol=1e-6,
         atol=1e-9
     )
 
-    CaO0 = solid_mass_frac_0[-1] * phi['slr'] * 3.5
+    CaO0 = solid_mass_frac_0[-1] * tii['slr'] * 3.5
     CaO = result.y[4, :]
     carbonation_conversion = (CaO0 - CaO) / CaO0
     concentration_CO2 = result.y[6, :] / 3.5
 
     return {
-        'tv_ophi': {
+        'tvo': {
             'y1': carbonation_conversion.tolist(),
             'y2': concentration_CO2.tolist()
         },
-        'ti_ophi': {}
+        'tio': {}
     }

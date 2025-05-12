@@ -1,9 +1,11 @@
 import os
 from middoe.iden_utils import Plotting_FinalResults, Plot_estimability, save_sobol_results_to_excel
 from middoe.log_utils import load_from_jac
+from pathlib import Path
 
 # Usage
-file_path = 'C:\\datasim\\14\\results.jac'  # Replace with your actual file path
+file_path = Path.cwd() / 'iden_results.jac'
+
 file_path2 = 'C:\\datasim\\14\\results2.jac'  # Replace with your actual file path
 
 # Load the results

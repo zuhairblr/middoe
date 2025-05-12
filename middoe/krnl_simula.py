@@ -9,6 +9,9 @@ from pygpas.evaluate import evaluate, evaluate_trajectories
 from pygpas.server import StartedConnected
 from pygpas.special_variables import ExecutionOutcome
 from pygpas.special_variables.names import TIME, EXECUTION_OUTCOME
+import time
+import random
+import importlib.util
 
 
 def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, system, models):
@@ -52,7 +55,7 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
     tuple
         tv_ophi (dict): Time-varying outputs {var_name: ndarray}
         ti_ophi (dict): Time-invariant outputs (currently empty)
-        phit (dict): Scaled piecewise interpolated data {var_name: ndarray}
+        tvi (dict): Scaled piecewise interpolated data {var_name: ndarray}
     """
     import importlib
     import importlib.util
@@ -97,7 +100,7 @@ def _Piecewiser(t, swps, cvp, phit):
         Dictionary of methods for each variable. Keys are variable names, values are:
         - 'CPF': Constant piecewise function (previous step interpolation)
         - 'LPF': Linear piecewise function
-        - 'none': No interpolation, use phit values as constants.
+        - 'none': No interpolation, use tvi values as constants.
     phit : dict of str: float or list
         Initial or constant values for each variable when using the 'none' method.
 
@@ -129,9 +132,9 @@ def _Piecewiser(t, swps, cvp, phit):
                 raise KeyError(f"Missing keys for LPF method: '{time_key}' or '{level_key}'")
 
         elif method == 'none':
-            # For 'none', we do not rely on swps. Instead, we use the constant value from phit.
+            # For 'none', we do not rely on swps. Instead, we use the constant value from tvi.
             if var not in phit:
-                raise KeyError(f"No initial value provided in phit for variable '{var}' under 'none' method.")
+                raise KeyError(f"No initial value provided in tvi for variable '{var}' under 'none' method.")
             value = phit[var]
             if isinstance(value, (list, np.ndarray)):
                 result[var] = np.full_like(t, value[0])
@@ -183,7 +186,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
     tuple
         tv_ophi (dict): {variable_name: ndarray of solution values over time}
         ti_ophi (dict): {time_invariant_output_name: value} (currently empty)
-        phit (dict): {variable_name: ndarray of interpolated input values}
+        tvi (dict): {variable_name: ndarray of interpolated input values}
     """
     # Scale time-invariant variables by their max values
     phi = {k: v * uphisc[k] for k, v in uphi.items() if k in uphisc}
@@ -217,7 +220,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 
     return tv_ophi, ti_ophi, phit
 
-# def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
+# def solver_selector(model, t, y0, tii, tvi, theta, models, model_name, system):
 #     """
 #      Select the solver for the ODE system and perform the integration.
 #
@@ -229,9 +232,9 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #          Time points for the simulation.
 #      y0 : list of float
 #          Initial conditions for the ODE system.
-#      phi : dict
+#      tii : dict
 #          Time-invariant variables (scaled).
-#      phit : dict
+#      tvi : dict
 #          Time-variant variables (scaled).
 #      theta : list of float
 #          Model parameters (scaled).
@@ -247,7 +250,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #      tuple
 #          tv_ophi (dict): Time-variant outputs
 #          ti_ophi (dict): Time-invariant outputs
-#          phit (dict): Interpolated input profiles (unchanged)
+#          tvi (dict): Interpolated input profiles (unchanged)
 #      """
 #
 #     if models['sim'][model_name] == 'sci':
@@ -258,7 +261,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #             y0,
 #             method='LSODA',
 #             t_eval=t,
-#             args=(phi, phit, theta, t)
+#             args=(tii, tvi, theta, t)
 #         )
 #
 #         # Extract time-varying outputs
@@ -271,9 +274,9 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #     #     with StartedConnected(stdout=DEVNULL, stderr=DEVNULL) as client:
 #     #             client.open(str(models['gpmodels']['connector'][model_name]),
 #     #                         models['gpmodels']['credentials'][model_name])
-#     #             for key, value in phi.items():
+#     #             for key, value in tii.items():
 #     #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
-#     #             for key, value in phit.items():
+#     #             for key, value in tvi.items():
 #     #                 client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
 #     #
 #     #             client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
@@ -319,9 +322,9 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #                 with StartedConnected(port= str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
 #                     client.open(str(models['gpmodels']['connector'][model_name]),
 #                                 models['gpmodels']['credentials'][model_name])
-#                     for key, value in phi.items():
+#                     for key, value in tii.items():
 #                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
-#                     for key, value in phit.items():
+#                     for key, value in tvi.items():
 #                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
 #                     client.set_input_value('theta', theta.tolist() if hasattr(theta, 'tolist') else theta)
 #                     client.set_input_value('y0', y0.tolist() if hasattr(y0, 'tolist') else y0)
@@ -346,25 +349,23 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 #     else:
 #         raise ValueError(f"Unsupported simulation method for model '{model_name}'")
 #
-#     return tv_ophi, ti_ophi, phit
+#     return tv_ophi, ti_ophi, tvi
 
 
 def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     """
     General ODE simulator handler supporting:
     - 'sci'      : Python-defined model and solve_ivp used directly
-    - 'sci_file' : External Python file containing solve_model(t, y0, phi, phit, theta)
+    - 'sci_file' : External Python file containing solve_model(t, y0, tii, tvi, theta)
     - 'gp'       : gPROMS/gPAS model via StartedConnected client
 
     Returns
     -------
     tv_ophi : dict
     ti_ophi : dict
-    phit    : dict (unchanged)
+    tvi    : dict (unchanged)
     """
-    import time
-    import random
-    import importlib.util
+
 
     max_retries = 10
     retry_count = 0
@@ -409,8 +410,8 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
                 external_solver_func = getattr(module, 'solve_model')
                 external_result = external_solver_func(t, y0, phi, phit, theta)
 
-                tv_ophi = external_result.get('tv_ophi', {})
-                ti_ophi = external_result.get('ti_ophi', {})
+                tv_ophi = external_result.get('tvo', {})
+                ti_ophi = external_result.get('tio', {})
                 success = True
             except Exception as e:
                 retry_count += 1

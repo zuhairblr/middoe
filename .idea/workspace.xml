@@ -4,27 +4,26 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="gproms coupling 5">
-      <change afterPath="$PROJECT_DIR$/tests/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/runner for gPROMS.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/runner gproms 2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/runner new.py" afterDir="false" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/iden_valida.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_valida.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_models.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/sc_sensa.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_sensa.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/insilico_scm_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/insilico_scm_runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/intp.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/intp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/realo_scm_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/realo_scm_runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/runner for gPROMS.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/runner for gPROMS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/runner gproms 2.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/runner gproms 2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/runner new.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/runner new.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +54,7 @@
   }
 }</component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="DEPENDENCY_CHECKER_PROBLEMS_TAB" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
@@ -71,12 +70,12 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.insilico_scm_runner.executor": "Run",
-    "Python.intp.executor": "Run",
+    "Python.intp.executor": "Debug",
     "Python.krnl_models.executor": "Run",
     "Python.pyy.executor": "Run",
     "Python.runner for gPROMS.executor": "Run",
     "Python.runner gproms 2.executor": "Run",
-    "Python.runner new.executor": "Debug",
+    "Python.runner new.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
     "node.js.detected.package.eslint": "true",
@@ -130,7 +129,7 @@
       <workItem from="1746085401447" duration="35967000" />
       <workItem from="1746361561880" duration="68785000" />
       <workItem from="1746970444892" duration="203000" />
-      <workItem from="1746970666451" duration="14793000" />
+      <workItem from="1746970666451" duration="40942000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -140,7 +139,15 @@
       <option name="project" value="LOCAL" />
       <updated>1745608933896</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="final polishing">
+      <option name="closed" value="true" />
+      <created>1746986524821</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1746986524821</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -162,15 +169,16 @@
     <MESSAGE value="gproms coupling 2" />
     <MESSAGE value="gproms coupling 3" />
     <MESSAGE value="gproms coupling 4" />
-    <option name="LAST_COMMIT_MESSAGE" value="gproms coupling 4" />
+    <MESSAGE value="final polishing" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/tests/runner new.py</url>
-          <line>550</line>
-          <option name="timeStamp" value="2" />
+          <url>file://$PROJECT_DIR$/tests/intp.py</url>
+          <line>11</line>
+          <option name="timeStamp" value="6" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -187,7 +195,7 @@
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$gpastester.coverage" NAME="gpastester Coverage Results" MODIFIED="1745402187879" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$ui_insilico_scm_normal.coverage" NAME="ui_insilico_scm_normal Coverage Results" MODIFIED="1741606489292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1746986224342" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1746183211701" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1747065773956" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1747063268581" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
   </component>
 </project>

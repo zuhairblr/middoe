@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import LinearConstraint
@@ -19,7 +19,7 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
     ti_iphi_min (list): List of minimum design space values for time-invariant input variables.
     tv_ophi_seg (list): List of segment counts for time-variant output variables (segmenting responses by sampling).
     tf (float): Final time value.
-    ti (float): Sampling constraint (minimum time interval since batch start to allow sampling).
+    ti (float): Sampling constraint (minimum time interval since round start to allow sampling).
     offsett (float): Minimum time interval between two consecutive switching times in a piecewise function for time-variant inputs.
     offsetl (float): Minimum level difference between two consecutive switching levels in a piecewise function for time-variant inputs.
 
@@ -153,9 +153,9 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
         #     max_bound = np.array([b[1] for b in st_bounds])
         #
         #     current_min = min_bound[0]
-        #     for j in range(num_st):
-        #         feasible_min = max(current_min + offsett / tf, min_bound[j])
-        #         feasible_max = max_bound[j]
+        #     for round in range(num_st):
+        #         feasible_min = max(current_min + offsett / tf, min_bound[round])
+        #         feasible_max = max_bound[round]
         #         if feasible_min > feasible_max:
         #             # Adjust feasible_min if it exceeds feasible_max
         #             feasible_min = feasible_max
@@ -322,13 +322,13 @@ def _slicer(x, index_dict, tlin):
 def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi,
               tv_iphi_vars, tv_iphi_max,
               ti_iphi_vars, ti_iphi_max,
-              tf, filename, design_criteria, round, core_number):
+              tf, design_criteria, round, core_number):
     """
     Report the design results by scaling variables, plotting designs, and saving the plots.
     """
 
     ########################################################################
-    # 1) Scale the time-invariant input variables (phi)
+    # 1) Scale the time-invariant input variables (tii)
     ########################################################################
     for var in ti_iphi_vars:
         if var in phi:
@@ -336,11 +336,11 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
             phi[var] = np.array(phi[var]) * max_val
 
     ########################################################################
-    # 2) Scale the time-variant input variables (phit)
+    # 2) Scale the time-variant input variables (tvi)
     ########################################################################
     def convert_or_scale_phit(data):
         """
-        Recursively process phit variables:
+        Recursively process tvi variables:
         - If data is a dict, recursively convert its elements.
         - If data is array-like, convert to NumPy array.
         """
@@ -380,17 +380,17 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
     # 6) Plot results using the `_plot_designs` function
     ########################################################################
     _plot_designs(phi, phit, swps, St, performance_metric_value, t,
-                  tv_ophi, ti_ophi, filename, design_criteria, round, core_number)
+                  tv_ophi, ti_ophi, design_criteria, round, core_number)
 
     ########################################################################
-    # 7) Convert `phi` and `phit` back to lists for returning
+    # 7) Convert `tii` and `tvi` back to lists for returning
     ########################################################################
     for var in phi:
         phi[var] = phi[var].tolist()
 
     def convert_phit_to_list(data):
         """
-        Recursively convert NumPy arrays in phit back to lists.
+        Recursively convert NumPy arrays in tvi back to lists.
         """
         if isinstance(data, dict):
             return {k: convert_phit_to_list(v) for k, v in data.items()}
@@ -404,7 +404,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 
     return phi, phit, swps, St
 
-# def _plot_designs(phi, phit, swps, St, performance_metric, t,
+# def _plot_designs(tii, tvi, swps, St, performance_metric, t,
 #                   tv_ophi, ti_ophi, filename, design_criteria, round, core_number):
 #     """
 #     Plot MBDoE (model-based design of experiments) results with multiple y-axes
@@ -421,7 +421,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 #
 #     # Create subplots
 #     fig, axs = plt.subplots(2, 1, figsize=(12, 12))
-#     phi_text = ', '.join([f'{var}: {val:.5e}' for var, val in phi.items()])
+#     phi_text = ', '.join([f'{var}: {val:.5e}' for var, val in tii.items()])
 #     performance_metric_text = (
 #         f'Round {round} - {performance_metric_name} of {design_criteria}: '
 #         f'{performance_metric:.20e}'
@@ -496,14 +496,14 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 #         ax1.legend(handles_1, labels_1, loc='upper right')
 #     ax1.grid(True)
 #
-#     # Subplot 2: Time-variant input variables (phit)
+#     # Subplot 2: Time-variant input variables (tvi)
 #     ax2 = axs[1]
 #     ax2.set_title("Time-invariant input variables")
 #     ax2.set_xlabel('Time (s)')
 #
 #     ax_list_2 = [ax2]  # List to manage multiple y-axes
 #
-#     for model_idx, (design_name, maybe_array_or_dict) in enumerate(phit.items()):
+#     for model_idx, (design_name, maybe_array_or_dict) in enumerate(tvi.items()):
 #         for var_idx, (var_name, numeric_value) in enumerate(maybe_array_or_dict.items()):
 #             color = colors[var_idx % len(colors)]
 #             linestyle = linestyles[model_idx % len(linestyles)]
@@ -531,15 +531,15 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 #             if var_name.endswith('t'):  # Only consider 'var+t' keys
 #                 base_var_name = var_name[:-1]  # Remove the trailing 't'
 #
-#                 # Find the corresponding color from the nested phit structure
+#                 # Find the corresponding color from the nested tvi structure
 #                 color = None
-#                 for model_name, variables in phit.items():
+#                 for model_name, variables in tvi.items():
 #                     if base_var_name in variables:
 #                         color = colors[list(variables.keys()).index(base_var_name) % len(colors)]
 #                         break
 #
 #                 if color is None:
-#                     print(f"Warning: Variable '{base_var_name}' in swps not found in phit.")
+#                     print(f"Warning: Variable '{base_var_name}' in swps not found in tvi.")
 #                     continue
 #
 #                 # Plot the switching times with annotations
@@ -573,7 +573,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 #     plt.close()
 
 def _plot_designs(phi, phit, swps, St, performance_metric, t,
-                  tv_ophi, ti_ophi, filename, design_criteria, round, core_number):
+                  tv_ophi, ti_ophi, design_criteria, round, core_number):
     """
     Plot MBDoE (model-based design of experiments) results with multiple y-axes
     for time-variant outputs and inputs, including color-coded switching and sampling times.
@@ -687,15 +687,15 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     # ax1.grid(True)
 
     # ----------------------------------------------------------------------
-    # SUBPLOT 2: "Time-invariant input" or "phit"
+    # SUBPLOT 2: "Time-invariant input" or "tvi"
     # ----------------------------------------------------------------------
     ax2 = axs[1]
-    ax2.set_title("Time-invariant input variables (phit)")
+    ax2.set_title("Time-invariant input variables (tvi)")
     ax2.set_xlabel('Time (s)')
 
     ax_list_2 = [ax2]
 
-    # for model_idx, (design_name, maybe_array_or_dict) in enumerate(phit.items()):
+    # for model_idx, (design_name, maybe_array_or_dict) in enumerate(tvi.items()):
     #     # If 'maybe_array_or_dict' is just an array, then we have no .items().
     #     # We'll interpret that as a single variable named design_name
     #     if isinstance(maybe_array_or_dict, np.ndarray):
@@ -736,7 +736,7 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
             if not var_name.endswith('t'):
                 continue
             base_var_name = var_name[:-1]  # Remove trailing 't'
-            # Find a color from phit if possible
+            # Find a color from tvi if possible
             color = 'k'
             if isinstance(phit, dict):
                 # For each design, check if base_var_name is in its dictionary
@@ -770,11 +770,13 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     plt.tight_layout()
 
     # Save the figure
-    base_path = filename
-    modelling_folder = 'design'
-    full_path = os.path.join(base_path, modelling_folder)
-    os.makedirs(full_path, exist_ok=True)
-    final_filename = os.path.join(full_path, f'{round} (round) by {core_number} core.png')
+    # Create the 'design' subfolder in the current project directory if it doesn't exist
+    design_folder = Path.cwd() / 'design'
+    design_folder.mkdir(parents=True, exist_ok=True)
+
+    # Build the filename
+    final_filename = design_folder / f"{round} (round) by {core_number} core.png"
+
     plt.savefig(final_filename, dpi=300)
     plt.close()
 

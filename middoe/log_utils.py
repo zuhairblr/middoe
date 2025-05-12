@@ -7,6 +7,7 @@ from middoe.iden_utils import Plotting_Results
 from middoe.des_md import MD
 from middoe.des_pp import run_pp
 import importlib
+from pathlib import Path
 
 def fun_globalizer(func_name):
     """
@@ -23,7 +24,7 @@ def run_mbdoe_md(design_settings, model_structure, modelling_settings, core_num,
     Run the MBDOE_MD (Model Based Design of Experiments for Model Discrimination).
 
     Parameters:
-    design_settings (dict): User provided - Design settings for the MBDOE.
+    des_opt (dict): User provided - Design settings for the MBDOE.
     system (dict): User provided - The model structure information.
     models (dict): User provided - The settings for the modelling process.
     core_num (int): Number of cores to use.
@@ -39,74 +40,38 @@ def run_mbdoe_md(design_settings, model_structure, modelling_settings, core_num,
     design_decisions, sum_squared_differences, swps = MD(design_settings_copy, model_structure_copy, modelling_settings_copy, core_num, framework_settings, round)
     return design_decisions, sum_squared_differences, swps
 
-def run_mbdoe_pp(design_settings, model_structure, modelling_settings, core_num, framework_settings, round):
+def read_excel(data_type):
     """
-    Run the MBDOE_PP (Model Based Design of Experiments for Parameter Precision).
+    Read data from 'indata.xlsx' or 'exdata.xlsx' in the current working directory.
 
     Parameters:
-    design_settings (dict): User provided - Design settings for the MBDOE.
-    system (dict): User provided - The model structure information.
-    models (dict): User provided - The settings for the modelling process.
-    core_num (int): Number of cores to use.
-    framework_settings (dict): User provided - Framework settings.
-    round (int): The current round of the design - conduction and identification procedure.
-
-    Returns:
-    tuple: Design decisions, parameter precision objective function value, and switching points.
-    """
-    design_settings_copy = copy.deepcopy(design_settings)
-    model_structure_copy = copy.deepcopy(model_structure)
-    modelling_settings_copy = copy.deepcopy(modelling_settings)
-    design_decisions, pp_obj, swps = run_pp(design_settings_copy, model_structure_copy, modelling_settings_copy, core_num, framework_settings, round)
-    return design_decisions, pp_obj, swps
-
-
-def write_excel(df_combined, experiment_number, excel_path):
-    """
-    Write the combined DataFrame to an Excel file.
-
-    Parameters:
-    df_combined (DataFrame): Combined DataFrame to write.
-    experiment_number (int or str): Experiment number to use as the sheet name.
-    excel_path (str): Path to the Excel file.
-    """
-    experiment_number = str(experiment_number)  # Ensure experiment_number is a string
-    # Check if the file already exists
-    if os.path.isfile(excel_path):
-        # Open the file in append mode if it exists
-        with pd.ExcelWriter(excel_path, mode='a', engine='openpyxl') as writer:
-            existing_sheets = writer.book.sheetnames
-            if experiment_number in existing_sheets:
-                # Append to the existing sheet
-                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
-            else:
-                # Create a new sheet
-                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
-    else:
-        # If the file does not exist, create it and write the data
-        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-            df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
-
-
-def read_excel(file_path):
-    """
-    Read data from an Excel file.
-
-    Parameters:
-    file_path (str): Path to the Excel file.
+    data_type (str): Must be either 'indata' or 'exdata'.
 
     Returns:
     dict: Data read from the Excel file, with sheet names as keys.
+
+    Raises:
+    ValueError: If data_type is not 'indata' or 'exdata'.
+    FileNotFoundError: If the expected file does not exist.
     """
+    if data_type not in ['indata', 'exdata']:
+        raise ValueError("data_type must be either 'indata' or 'exdata'")
+
+    file_path = Path.cwd() / f"{data_type}.xlsx"
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"{file_path.name} not found in the current directory.")
+
+    print(f"[INFO] Reading from {file_path.name}")
     data = pd.read_excel(file_path, sheet_name=None)
     return data
 
-def save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, result, theta_parameters, design_type, round_data, models, scaled_params, estimation_settings, solver_parameters, framework_settings, obs, case, data_storage, system):
+def save_rounds(round, result, theta_parameters, design_type, round_data, models, scaled_params, iden_opt, solver_parameters, obs, data_storage, system, ranking= None, k_optimal_value= None, rCC_values= None, J_k_values= None):
     """
     Save data for each round of model identification, and append to prior.
 
     Parameters:
-    j (int): Round number, the current round of the design - conduction and identification procedure.
+    round (int): Round number, the current round of the design - conduction and identification procedure.
     ranking (list): Ranking of parameters, from estimability analysis.
     k_optimal_value (float): Optimal number of parameters to be estimated, from estimability analysis.
     rCC_values (list): Corrected critical ratios for models.
@@ -128,7 +93,7 @@ def save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, result, the
     Returns:
     dict: Reference t-value for each model-round observation.
     """
-    round_key = f'Round {j}'
+    round_key = f'Round {round}'
     dof = {solver: obs - len(theta_parameters[solver]) for solver in models['active_solvers']}
     trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['active_solvers']}
     round_data[round_key] = {
@@ -143,8 +108,7 @@ def save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, result, the
         'theta_parameters': theta_parameters,
         'scaled_params': scaled_params,
         'result': result,
-        'iden_opt': estimation_settings,
-        'framework_settings': framework_settings,
+        'iden_opt': iden_opt,
         'system': system
     }
 
@@ -159,7 +123,7 @@ def save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, result, the
         else:
             round_data[round_key]['original_positions'][solver] = []  # Or handle as needed
 
-    if j == 1:
+    if round == 1:
         add_norm_par(models)
     else:
         for solver in models['active_solvers']:
@@ -180,29 +144,37 @@ def save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, result, the
 
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['active_solvers']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['active_solvers']}
-    plotting1 = Plotting_Results(models, framework_settings)  # Instantiate Plotting class
-    if estimation_settings['con_plot'] == True:
-        plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals, j)
-    if estimation_settings['fit_plot'] == True:
-        plotting1.fit_plot(data_storage, result, j, system)
+    plotting1 = Plotting_Results(models, round)  # Instantiate Plotting class
+    if iden_opt['con_plot'] == True:
+        plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals)
+    if iden_opt['fit_plot'] == True:
+        plotting1.fit_plot(data_storage, result, system)
 
     return trv
 
 
-def save_to_jac(results, filename):
+def save_to_jac(results, purpose):
     """
-    Save results (produced from round data saved or screening-sensitivity analysis) to a .jac file.
+    Save results to a .jac file in the project directory using a fixed name.
 
     Parameters:
-    results (dict): Results to save.
-    filename (str): Path to the .jac file.
+    results (dict): The results to save.
+    purpose (str): Either 'iden' or 'sensa' to determine the file name.
     """
     try:
-        with open(filename, 'wb') as file:
+        if purpose == "iden":
+            file_path = Path.cwd() / "iden_results.jac"
+        elif purpose == "sensa":
+            file_path = Path.cwd() / "sensa_results.jac"
+        else:
+            raise ValueError("Purpose must be 'iden' or 'sensa'")
+
+        with open(file_path, 'wb') as file:
             pickle.dump(results, file, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"Results successfully saved to {filename}")
+
+        print(f"[INFO] Results saved to: {file_path}")
     except Exception as e:
-        print(f"An error occurred while saving the results: {e}")
+        print(f"[ERROR] Failed to save results: {e}")
 
 def load_from_jac(filename):
     """

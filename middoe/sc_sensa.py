@@ -7,7 +7,7 @@ import os
 from middoe.krnl_simula import simula
 from middoe.iden_utils import plot_sobol_results
 
-def sensa(gsa, models, system, framework_settings):
+def sensa(gsa, models, system):
     """
     Perform Sobol sensitivity analysis for the given settings and model structure.
 
@@ -120,7 +120,7 @@ def sensa(gsa, models, system, framework_settings):
                 for future in futures:
                     results.extend(future.result())
 
-                sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver], framework_settings)
+                sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver])
 
     else:
         # SINGLE-CORE EXECUTION
@@ -177,7 +177,7 @@ def sensa(gsa, models, system, framework_settings):
             # Process samples in single-core mode (no parallel processing)
             results = _process_sample_chunk(sobol_samples, solver, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, system, var_sensitivity, par_sensitivity, models)
 
-            sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver], framework_settings)
+            sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver])
 
     # Construct return dictionary
     sobol_output = {
@@ -585,7 +585,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, t
             phi = {key: value for key, value in zip(system['tii'].keys(), var_split[:len(phi_nom)])}
             phit = {key: value for key, value in zip(system['tvi'].keys(), var_split[len(phi_nom):])}
 
-        # Ensure phit values are floats
+        # Ensure tvi values are floats
         phit = {key: float(value) for key, value in phit.items()}
 
         tv_ophi, ti_ophi, phit_interp = simula(t, {}, phisc, phi, phit, tsc, params_split, thetac, piecewise_func, phitsc, solver, system, models)
@@ -595,7 +595,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, t
     return results
 
 
-def _process_results(solver, results, t, sobol_problem_solver, framework_settings):
+def _process_results(solver, results, t, sobol_problem_solver):
     """
     Process the results of Sobol sensitivity analysis.
 
@@ -619,6 +619,6 @@ def _process_results(solver, results, t, sobol_problem_solver, framework_setting
         t_excluded = t[1:]
         sobol_analysis_results_excluded[solver] = sobol_analysis_results[solver][1:]
 
-        plot_sobol_results(t_excluded, sobol_analysis_results_excluded[solver], sobol_problem_solver, solver, response_key, framework_settings)
+        plot_sobol_results(t_excluded, sobol_analysis_results_excluded[solver], sobol_problem_solver, solver, response_key)
 
     return sobol_analysis_results, sobol_analysis_results_excluded

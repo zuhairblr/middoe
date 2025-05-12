@@ -23,11 +23,11 @@ def f17(t, y, phi, phit, theta, te):
     - y: [y1, y2] where
         y1: Fraction of unoccupied surface (dimensionless, 0 ≤ y1 ≤ 1)
         y2: Conversion (dimensionless, 0 ≤ y2 ≤ 1)
-    - phi: Time-invariant variables (dictionary containing):
+    - tii: Time-invariant variables (dictionary containing):
         S0: Initial surface area per unit volume (m²/m³)
         epsilon_0: Initial porosity (dimensionless, 0 ≤ epsilon_0 ≤ 1)
         Z: Ratio of product/reactant molar volumes (dimensionless)
-    - phit: Time-variant variables (dictionary containing):
+    - tvi: Time-variant variables (dictionary containing):
         C: Gas concentration (mol/m³)
         T: Temperature (Kelvin)
     - theta: Parameters [ks0, Ea_ks, Ds0, Ea_Ds, Dp0, Ea_Dp] where:
@@ -37,7 +37,7 @@ def f17(t, y, phi, phit, theta, te):
         Ea_Ds: Activation energy for Ds (J/mol)
         Dp0: Pre-exponential factor for Dp (m²/s)
         Ea_Dp: Activation energy for Dp (J/mol)
-    - te: Time points corresponding to profiles of phit variables (seconds)
+    - te: Time points corresponding to profiles of tvi variables (seconds)
 
     Returns:
     - [dy1_dt, dy2_dt]: Derivatives of y1 and y2 where:
@@ -55,9 +55,9 @@ def f17(t, y, phi, phit, theta, te):
     # Extract time-invariant variables
     S0 = phi['S0']  # Initial surface area per unit volume (m²/m³)
     epsilon_0 = phi['epsilon_0']  # Initial porosity (dimensionless)
-    # Z = phi['Z']  # Ratio of product/reactant molar volumes (dimensionless)
+    # Z = tii['Z']  # Ratio of product/reactant molar volumes (dimensionless)
     Z = 2.18
-    # VBM = phi['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
+    # VBM = tii['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
     VBM= 1.69e-5
 
     # Extract parameters from theta
@@ -127,7 +127,7 @@ def main():
     theta17, theta17max, theta17min = thetadic17()
 
     model_structure = {
-        'tv_iphi': {  # Time-variant input variables (model input: phit), each key is a symbol nad key in phit as well
+        'tv_iphi': {  # Time-variant input variables (model input: tvi), each key is a symbol nad key in tvi as well
             'T': {  # Temperature (K)
                 'swp': 5,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
                 # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
@@ -155,13 +155,13 @@ def main():
             'y1': {  # response variable, here carbonation efficiency
                 'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a design decision (time-invariant input variable)
                 'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 10,  # the amound of samples per each batch (run)
+                'sp': 10,  # the amound of samples per each round (run)
                 'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 600,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for model prediction and data alignment
             }
         },
-        'ti_iphi': {  # Time-invariant input variables (phi)
+        'ti_iphi': {  # Time-invariant input variables (tii)
             'rho': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
                 'max': 4000,  # Maximum allowable signal level, design space upper bound
                 'min': 2300  # Minimum allowable signal level, design space upper bound
@@ -277,7 +277,7 @@ def main():
     # scms
     simulator_settings = { # Settings for the insilico data generation
         'insilico_model': 'f11', # selected true model (with nominal values)
-        'classic-des': { # classic design settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
+        'classic-des': { # classic design settings, sheet name is the round run name, each sheet contains the data for the round, iso space.
             '1': {'T': 293.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
             '2': {'T': 313.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000}
             # '3': {'T': 333.15, 'P': 1, 'rho': 3191, 'cac': 44.93, 'aps': 5.5e-5, 'mld': 36000},
@@ -320,7 +320,7 @@ def main():
         framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
         logic_settings (dict): User provided - Logic settings for the MBDOE process, including thresholds and maximum runs.
         system (dict): User provided - Structure of the model, including variables and their properties.
-        design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
+        des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
         models (dict): User provided - Settings related to the modelling process, including theta parameters.
         insilicos (dict): User provided - Settings for the simulator, including standard deviation and model name.
         iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
@@ -459,13 +459,13 @@ def main():
             )
 
             # # Perform estimability analysis only in the first two rounds
-            # if j in [1, 2]:
+            # if round in [1, 2]:
             #     ranking, k_optimal_value, rCC_values, J_k_values = Estima(
             #         resultun,
             #         system,
             #         models,
             #         iden_opt,
-            #         j,
+            #         round,
             #         framework_settings,
             #         data_storage,
             #         Simula
@@ -495,7 +495,7 @@ def main():
         - insilicos: Defines simulation settings for generating data.
         - iden_opt: Settings for parameter estimation, solvers, and confidence checks.
         - logic_settings: Control settings for MD and PP runs, maximum iteration limits, etc.
-        - design_settings: Design-specific settings for MD/PP methods and constraints.
+        - des_opt: Design-specific settings for MD/PP methods and constraints.
         - num_parallel_runs: Number of parallel processes for computational efficiency.
         - round_data: Stores results for each experimental round.
         - design_decisions: Tracks design decisions for experiments.
@@ -590,7 +590,7 @@ def main():
         insilicos (dict): User provided - Settings for the simulator, including standard deviation and model name.
         iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
         logic_settings (dict): User provided - Logic settings for the identification process, including thresholds and maximum runs.
-        design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
+        des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
         num_parallel_runs (int): Number of parallel runs to execute MBDOE-PP.
         winner_solver (str): The name of the winning solver from the MD rounds.
         round_data (dict): Collection of saved data from each round of the experiment.
@@ -625,7 +625,7 @@ def main():
 
             # elif method == 'G_P':
             #     # Global optimization (pre-screened) using single-core execution
-            #     result = run_mbdoe_pp(design_settings, system, models, 0,
+            #     result = run_mbdoe_pp(des_opt, system, models, 0,
             #                           framework_settings, round)
             #     best_design_decisions, best_pp_obj, best_swps = result
             #     design_decisions.update(best_design_decisions)

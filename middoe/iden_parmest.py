@@ -480,7 +480,6 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, system, m
     Returns:
     float: Value of the objective function.
     """
-
     start_time = time.time()  # Start timer
     # Call the objective function
     optimized_data, metrics = _objective(
@@ -552,7 +551,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
                 method='SLSQP',
                 bounds=bounds,
                 options={'maxiter': 10000000, 'disp': False},
-                tol=1e-6
+                tol=1e-4
             )
 
         if method == 'Ln':
@@ -570,7 +569,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
                 _objective_function,
                 bounds=bounds,
                 args=(data, solver, initial_x0, thetac, objf, thetas, system, models),
-                maxiter=10000,
+                maxiter=1000,
                 popsize=18,
                 tol=1e-6,
                 strategy='best1bin',

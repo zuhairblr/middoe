@@ -3,8 +3,7 @@ from middoe.krnl_models import *
 import numpy as np
 from multiprocessing import Pool
 import time
-import os
-from middoe.log_utils import run_mbdoe_md, run_mbdoe_pp, write_excel, read_excel, save_rounds, save_to_jac, \
+from middoe.log_utils import run_mbdoe_md, read_excel, save_rounds, save_to_jac, \
     data_appender
 from middoe.krnl_expera import expera
 from middoe.sc_sensa import sensa
@@ -13,6 +12,7 @@ from middoe.iden_uncert import uncert
 from middoe.sc_estima import estima
 from middoe.krnl_simula import simula
 from middoe.iden_valida import validation
+from middoe.des_pp import mbdoe_pp
 
 
 def f17(t, y, phi, phit, theta, te):
@@ -24,11 +24,11 @@ def f17(t, y, phi, phit, theta, te):
     - y: [y1, y2] where
         y1: Fraction of unoccupied surface (dimensionless, 0 ≤ y1 ≤ 1)
         y2: Conversion (dimensionless, 0 ≤ y2 ≤ 1)
-    - phi: Time-invariant variables (dictionary containing):
+    - tii: Time-invariant variables (dictionary containing):
         S0: Initial surface area per unit volume (m²/m³)
         epsilon_0: Initial porosity (dimensionless, 0 ≤ epsilon_0 ≤ 1)
         Z: Ratio of product/reactant molar volumes (dimensionless)
-    - phit: Time-variant variables (dictionary containing):
+    - tvi: Time-variant variables (dictionary containing):
         C: Gas concentration (mol/m³)
         T: Temperature (Kelvin)
     - theta: Parameters [ks0, Ea_ks, Ds0, Ea_Ds, Dp0, Ea_Dp] where:
@@ -38,7 +38,7 @@ def f17(t, y, phi, phit, theta, te):
         Ea_Ds: Activation energy for Ds (J/mol)
         Dp0: Pre-exponential factor for Dp (m²/s)
         Ea_Dp: Activation energy for Dp (J/mol)
-    - te: Time points corresponding to profiles of phit variables (seconds)
+    - te: Time points corresponding to profiles of tvi variables (seconds)
 
     Returns:
     - [dy1_dt, dy2_dt]: Derivatives of y1 and y2 where:
@@ -56,9 +56,9 @@ def f17(t, y, phi, phit, theta, te):
     # Extract time-invariant variables
     S0 = phi['S0']  # Initial surface area per unit volume (m²/m³)
     epsilon_0 = phi['epsilon_0']  # Initial porosity (dimensionless)
-    # Z = phi['Z']  # Ratio of product/reactant molar volumes (dimensionless)
+    # Z = tii['Z']  # Ratio of product/reactant molar volumes (dimensionless)
     Z = 2.18
-    # VBM = phi['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
+    # VBM = tii['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
     VBM= 1.69e-5
 
     # Extract parameters from theta
@@ -107,11 +107,11 @@ def f19(t, y, phi, phit, theta, te):
     - y: [y1, y2] where
         y1: Fraction of unoccupied surface (dimensionless, 0 ≤ y1 ≤ 1)
         y2: Conversion (dimensionless, 0 ≤ y2 ≤ 1)
-    - phi: Time-invariant variables (dictionary containing):
+    - tii: Time-invariant variables (dictionary containing):
         S0: Initial surface area per unit volume (m²/m³)
         epsilon_0: Initial porosity (dimensionless, 0 ≤ epsilon_0 ≤ 1)
         Z: Ratio of product/reactant molar volumes (dimensionless)
-    - phit: Time-variant variables (dictionary containing):
+    - tvi: Time-variant variables (dictionary containing):
         C: Gas concentration (mol/m³)
         T: Temperature (Kelvin)
     - theta: Parameters [ks0, Ea_ks, Ds0, Ea_Ds, Dp0, Ea_Dp] where:
@@ -121,7 +121,7 @@ def f19(t, y, phi, phit, theta, te):
         Ea_Ds: Activation energy for Ds (J/mol)
         Dp0: Pre-exponential factor for Dp (m²/s)
         Ea_Dp: Activation energy for Dp (J/mol)
-    - te: Time points corresponding to profiles of phit variables (seconds)
+    - te: Time points corresponding to profiles of tvi variables (seconds)
 
     Returns:
     - [dy1_dt, dy2_dt]: Derivatives of y1 and y2 where:
@@ -139,9 +139,9 @@ def f19(t, y, phi, phit, theta, te):
     # Extract time-invariant variables
     S0 = phi['S0']  # Initial surface area per unit volume (m²/m³)
     epsilon_0 = phi['epsilon_0']  # Initial porosity (dimensionless)
-    # Z = phi['Z']  # Ratio of product/reactant molar volumes (dimensionless)
+    # Z = tii['Z']  # Ratio of product/reactant molar volumes (dimensionless)
     Z = 2.18
-    # VBM = phi['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
+    # VBM = tii['VBM']  # Molar Volumee of solid reactant (m³.mol-1)
     VBM= 1.69e-5
 
     # Extract parameters from theta
@@ -221,7 +221,7 @@ def main():
     theta17, theta17max, theta17min = thetadic17()
 
     system = {
-        'tvi': {  # Time-variant input variables (models input: phit), each key is a symbol nad key in phit as well
+        'tvi': {  # Time-variant input variables (models input: tvi), each key is a symbol nad key in tvi as well
             'T': {  # Temperature (K)
                 'swp': 5,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
                 # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
@@ -249,8 +249,8 @@ def main():
             'y1': {  # response variable, here carbonation efficiency
                 'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
                 'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 5,  # the amound of samples per each batch (run)
-                'unc': 0.05,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
+                'sp': 5,  # the amound of samples per each round (run)
+                'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for models prediction and data alignment
             },
@@ -259,14 +259,14 @@ def main():
                 # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
                 'measured': True,
                 # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 5,  # the amound of samples per each batch (run)
-                'unc': 0.05,
+                'sp': 5,  # the amound of samples per each round (run)
+                'unc': 0.02,
                 # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
                 'matching': '1'  # Matching criterion for models prediction and data alignment
             },
         },
-        'tii': {  # Time-invariant input variables (phi)
+        'tii': {  # Time-invariant input variables (tii)
             'slr': {  # 1st symbolic time-invariant control, Density of solid reactant (kg/m³)
                 'max': 0.2,  # Maximum allowable signal level, des_opt space upper bound
                 'min': 0.05  # Minimum allowable signal level, des_opt space upper bound
@@ -285,7 +285,7 @@ def main():
     des_opt = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'optimization_methods': {
-            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
+            'ppopt_method': 'L', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
             'mdopt_method': 'L' # optimization method for MBDoE-MD, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
         },
         'criteria': {
@@ -295,7 +295,7 @@ def main():
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp': 10, # maximum number of PP runs
+            'maxpp': 1, # maximum number of PP runs
             'tolpp': 1e-2, # tolerance for PP optimization
         }
     }
@@ -380,7 +380,7 @@ def main():
     # scms
     insilicos = { # Settings for the insilico data generation
         'true_model': 'f20', # selected true models (with nominal values)
-        'classic-des': { # classic des_opt settings, sheet name is the batch run name, each sheet contains the data for the batch, iso space.
+        'classic-des': { # classic des_opt settings, sheet name is the round run name, each sheet contains the data for the round, iso space.
             '1': {'T': 308.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
             '2': {'T': 338.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
             # '3': {'T': 338.15, 'P': 0.17, 'aps': 350, 'slr': 0.1},
@@ -406,7 +406,7 @@ def main():
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a models to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a models to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
-        'parallel_sessions': 14 # number of parallel sessions to be used in the workflow
+        'parallel_sessions': 15 # number of parallel sessions to be used in the workflow
     }
 
     framework_settings = { # Framework settings for saving the results
@@ -414,7 +414,7 @@ def main():
         'case': 15 # case number as the name of subfolder to be created and getting used for restoring
     }
 
-    def run_framework(framework_settings, logic_settings, system, des_opt, models,
+    def run_framework(logic_settings, system, des_opt, models,
                       insilicos, iden_opt, gsa):
         """
         Run the entire framework for in-silico experiments, including initial rounds, MD rounds, and PP rounds.
@@ -447,16 +447,17 @@ def main():
 
         # Perform Sobol Sensitivity Analysis if enabled in gsa settings
         if gsa['perform_sensitivity']:
-            sobol_results = sensa(gsa, models, system, framework_settings)
+            sobol_results = sensa(gsa, models, system)
+            save_to_jac(sobol_results, purpose="sensa")
 
 
         # Run the initial round of experiments (Classic Design)
-        data_storage = run_initial_round(framework_settings, system, models, insilicos,
+        data_storage = run_initial_round(system, models, insilicos,
                                          iden_opt, round_data, design_decisions, data_storage)
 
         # If no winner identified, proceed with Model Discrimination rounds
         if not winner_solver_found:
-            winner_solver_found, winner_solver = run_md_rounds(framework_settings, system, models,
+            winner_solver_found, winner_solver = run_md_rounds(system, models,
                                                                insilicos, iden_opt, logic_settings,
                                                                des_opt, logic_settings['parallel_sessions'],
                                                                round_data, design_decisions, data_storage)
@@ -465,7 +466,7 @@ def main():
 
         # Proceed with Parameter Precision rounds if a winner is identified
         if winner_solver_found:
-            terminate_loop = run_pp_rounds(framework_settings, system, models, insilicos,
+            terminate_loop = run_pp_rounds(system, models, insilicos,
                                            iden_opt, logic_settings, des_opt,
                                            logic_settings['parallel_sessions'], winner_solver, round_data,
                                            design_decisions, data_storage)
@@ -482,31 +483,16 @@ def main():
         # R2_prd, R2_val, parameters = validation(data_storage, system, models, iden_opt,
         #                                         Simula, round_data, framework_settings)
 
-        # Ensure the output folder structure exists for saving results
-        base_path = framework_settings['path']
-        modelling_folder = str(framework_settings['case'])
-        path = os.path.join(base_path, modelling_folder)
-        os.makedirs(path, exist_ok=True)
-
-        # Calculate and display total runtime
+        # --- Calculate and display total runtime
         end_time = time.time()
         runtime = end_time - start_time
-        print(f"Runtime of framework: {runtime} seconds")
+        print(f"[INFO] Runtime of framework: {runtime:.2f} seconds")
 
-        # Save results in .jac files (JSON compressed files)
-        folder_path = path
-        file_path = os.path.join(folder_path, 'results.jac')
-        file_path2 = os.path.join(folder_path, 'results2.jac')
-
-        os.makedirs(folder_path, exist_ok=True)
-        save_to_jac(round_data, file_path)
-
-        # Save Sobol results if sensitivity analysis was conducted
-        if gsa['perform_sensitivity']:
-            save_to_jac(sobol_results, file_path2)
+        # --- Save results
+        save_to_jac(round_data, purpose="iden")
 
 
-    def run_initial_round(framework_settings, system, models, insilicos,
+    def run_initial_round(system, models, insilicos,
                           iden_opt, round_data, design_decisions, data_storage):
         """
         Run the initial round of in-silico experiments, joint with identification steps.
@@ -528,49 +514,54 @@ def main():
         for i in range(len(insilicos['classic-des'])):
             j = i + 1  # Round counter (starting from 1)
             expr = i + 1  # Experiment ID
-            case = 'classic'  # Case label for classic des_opt
 
             # Generate experimental data (insilico or from input profiles)
-            excel_path, df_combined = expera(framework_settings, system, models,
-                                             insilicos, design_decisions, j)
+            df_combined = expera(system, models,insilicos, design_decisions, expr)
 
             # Write generated data to Excel and read it back for further processing
-            write_excel(df_combined, expr, excel_path)
-            data = read_excel(excel_path)
+            data = read_excel('indata')
 
-            # Append data to the main storage for future analysis
-            data_storage = data_appender(df_combined, expr, data)
+            # # Append data to the main storage for future analysis
+            # data_storage = data_appender(df_combined, expr, data)
 
             # Perform parameter estimation using the available data
-            resultpr = parmest(system,models,iden_opt,data_storage)
+            resultpr = parmest(system,models,iden_opt,data)
 
             # Perform uncertainty analysis to compute confidence intervals, etc.
-            resultun, theta_parameters, solver_parameters, scaled_params, obs = uncert(data_storage, resultpr, system, models, iden_opt)
+            uncert_results = uncert(data, resultpr, system, models, iden_opt)
 
-            # Perform estimability analysis only in the first two rounds
-            if j in [1, 2]:
-                ranking, k_optimal_value, rCC_values, J_k_values = estima(
-                    resultun,
-                    system,
-                    models,
-                    iden_opt,
-                    j,
-                    framework_settings,
-                    data_storage
-                )
-            else:
-                # Skip estimability analysis in later rounds
-                ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-            # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+            # Decompose as needed
+            resultun = uncert_results['results']
+            theta_parameters = uncert_results['theta_parameters']
+            solver_parameters = uncert_results['solver_parameters']
+            scaled_params = uncert_results['scaled_params']
+            obs = uncert_results['obs']
+
+            # ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun,system,models,iden_opt,j,data)
             # Save results for this round, including estimates, uncertainties, and observations
-            trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
-                              'classic des_opt', round_data, models, scaled_params, iden_opt,
-                              solver_parameters, framework_settings, obs, case, data_storage, system)
+            trv = save_rounds(
+                round=j,
+                result=resultun,
+                theta_parameters=theta_parameters,
+                design_type='classic des_opt',
+                round_data=round_data,
+                models=models,
+                scaled_params=scaled_params,
+                iden_opt=iden_opt,
+                solver_parameters=solver_parameters,
+                obs=obs,
+                data_storage=data,
+                system=system,
+                # ranking=ranking,
+                # k_optimal_value=k_optimal_value,
+                # rCC_values=rCC_values,
+                # J_k_values=J_k_values
+            )
 
         # Return the collected data for subsequent rounds
         return data_storage
 
-    def run_md_rounds(framework_settings, system, models, insilicos, iden_opt,
+    def run_md_rounds(system, models, insilicos, iden_opt,
                       logic_settings, des_opt, num_parallel_runs,
                       round_data, design_decisions, data_storage):
         """
@@ -595,7 +586,6 @@ def main():
         winner_solver_found = False  # Flag to track if a winner models is found
         winner_solver = None  # Placeholder for the identified winning solver
         start_round = len(round_data) + 1  # Start counting from the next available round
-        case = 'doe'  # Design of Experiment identifier
 
         # Iterate through MD rounds (maximum defined by logic_settings)
         for i in range(logic_settings['max_MD_runs']):
@@ -657,7 +647,7 @@ def main():
             # Save round data with key metrics and results
             trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
                               'MBDOE_MD des_opt', round_data, models, scaled_params, iden_opt,
-                              solver_parameters, framework_settings, obs, case, data_storage, system)
+                              solver_parameters, framework_settings, obs, data_storage, system)
 
             # Exit loop early if a winner is identified before max iterations
             if winner_solver_found:
@@ -665,14 +655,13 @@ def main():
 
         return winner_solver_found, winner_solver
 
-    def run_pp_rounds(framework_settings, system, models, insilicos, iden_opt,
+    def run_pp_rounds(system, models, insilicos, iden_opt,
                       logic_settings, des_opt, num_parallel_runs,
                       winner_solver, round_data, design_decisions, data_storage):
         """
         Run multiple rounds of Model-Based Design of Experiments (MBDOE) using the PP approach.
 
         Parameters:
-        framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
         system (dict): User provided - Structure of the models, including variables and their properties.
         models (dict): User provided - Settings related to the modelling process, including theta parameters.
         insilicos (dict): User provided - Settings for the simulator, including standard deviation and models name.
@@ -690,7 +679,6 @@ def main():
         """
         terminate_loop = False  # Flag to stop iterations if termination conditions are met
         start_round = len(round_data) + 1  # Start round number for PP experiments
-        case = 'doe'  # Case identifier
 
         for i in range(logic_settings['max_PP_runs']):  # Iterate over maximum PP runs
             j = start_round + i  # Round number tracking
@@ -700,62 +688,68 @@ def main():
             models['active_solvers'] = [winner_solver]
             method = des_opt['optimization_methods']['ppopt_method']
 
-            if method in ['L', 'G_P']:
-                # Local/Constrained optimization using parallel execution
-                with Pool(num_parallel_runs) as pool:
-                    results_list = pool.starmap(
-                        run_mbdoe_pp,
-                        [(des_opt, system, models, core_num,
-                          framework_settings, round) for core_num in range(num_parallel_runs)]
-                    )
-                best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
-                design_decisions.update(best_design_decisions)
-
-            # elif method == 'G_P':
-            #     # Global optimization (pre-screened) using single-core execution
-            #     result = run_mbdoe_pp(des_opt, system, models, 0,
-            #                           framework_settings, round)
+            # if method in ['L', 'G_P']:
+            #     # Local/Constrained optimization using parallel execution
+            #     with Pool(num_parallel_runs) as pool:
+            #         results_list = pool.starmap(
+            #             run_mbdoe_pp,
+            #             [(des_opt, system, models, core_num,  round) for core_num in range(num_parallel_runs)]
+            #         )
+            #     best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
+            #     design_decisions.update(best_design_decisions)
+            #
+            # elif method == 'GL':
+            #     # Global optimization (single-core execution)
+            #     result = run_mbdoe_pp(des_opt, system, models, 0, round)
             #     best_design_decisions, best_pp_obj, best_swps = result
             #     design_decisions.update(best_design_decisions)
 
-            elif method == 'GL':
-                # Global optimization (single-core execution)
-                result = run_mbdoe_pp(des_opt, system, models, 0,
-                                      framework_settings, round)
-                best_design_decisions, best_pp_obj, best_swps = result
-                design_decisions.update(best_design_decisions)
+            # Unified call using the wrapper
+            best_design_decisions, best_pp_obj, best_swps = mbdoe_pp(
+                des_opt=des_opt,
+                system=system,
+                models=models,
+                round=round,
+                num_parallel_runs=num_parallel_runs
+            )
+            design_decisions.update(best_design_decisions)
 
             # Data generation and storage
             expr = j  # Experiment ID
-            excel_path, df_combined = expera(framework_settings, system, models,
-                                             insilicos, design_decisions, j, swps=best_swps)
-            write_excel(df_combined, expr, excel_path)  # Save data to an Excel file
-            data = read_excel(excel_path)  # Load data from the file
-            data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
+            df_combined = expera(system, models, insilicos, design_decisions, expr, swps=best_swps)
+
+            data = read_excel('indata')  # Load data from the file
+            # data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
 
             # Parameter Estimation and Uncertainty Analysis
-            resultpr = parmest(
-                system,
-                models,
-                iden_opt,
-                data,
-                simula
-            )
+            resultpr = parmest(system,models,iden_opt,data)
 
-            resultun, theta_parameters, solver_parameters, scaled_params, obs = uncert(
-                data,
-                resultpr,
-                system,
-                models,
-                iden_opt,
-                simula
-            )
+            # Perform uncertainty analysis to compute confidence intervals, etc.
+            uncert_results = uncert(data, resultpr, system, models, iden_opt)
+
+            # Decompose as needed
+            resultun = uncert_results['results']
+            theta_parameters = uncert_results['theta_parameters']
+            solver_parameters = uncert_results['solver_parameters']
+            scaled_params = uncert_results['scaled_params']
+            obs = uncert_results['obs']
 
             # Save results for further analysis
-            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-            trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
-                              'MBDOE_PP des_opt', round_data, models, scaled_params, iden_opt,
-                              solver_parameters, framework_settings, obs, case, data_storage, system)
+
+            trv = save_rounds(
+                round=j,
+                result=resultun,
+                theta_parameters=theta_parameters,
+                design_type='MBDOE_PP des_opt',
+                round_data=round_data,
+                models=models,
+                scaled_params=scaled_params,
+                iden_opt=iden_opt,
+                solver_parameters=solver_parameters,
+                obs=obs,
+                data_storage=data,
+                system=system,
+            )
 
             # Check termination condition: all t-values must exceed threshold in resultun
             for solver, solver_results in resultun.items():
@@ -769,7 +763,7 @@ def main():
         return terminate_loop
 
 
-    run_framework(framework_settings, logic_settings, system, des_opt, models,
+    run_framework(logic_settings, system, des_opt, models,
                   insilicos, iden_opt, gsa)
 
 

@@ -152,7 +152,7 @@ def main():
         framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
         logic_settings (dict): User provided - Logic settings for the MBDOE process, including thresholds and maximum runs.
         system (dict): User provided - Structure of the model, including variables and their properties.
-        design_settings (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
+        des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
         models (dict): User provided - Settings related to the modelling process, including theta parameters.
         insilicos (dict): User provided - Settings for the simulator, including standard deviation and model name.
         iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
@@ -181,10 +181,10 @@ def main():
 
         # if not winner_solver_found:
         #
-        #     winner_solver_found, winner_solver = run_md_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, design_settings,  logic_settings['parallel_sessions'], round_data, design_decisions, data_storage)
+        #     winner_solver_found, winner_solver = run_md_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, des_opt,  logic_settings['parallel_sessions'], round_data, design_decisions, data_storage)
         # terminate_loop = False
         # if winner_solver_found:
-        #     terminate_loop = run_pp_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, design_settings,
+        #     terminate_loop = run_pp_rounds(framework_settings, system, models, insilicos, iden_opt, logic_settings, des_opt,
         #                                    logic_settings['parallel_sessions'], winner_solver, round_data,
         #                                    design_decisions, data_storage)
         #
@@ -275,13 +275,13 @@ def main():
                 simula
             )
 
-            # if j in [3]:
+            # if round in [3]:
             #     ranking, k_optimal_value, rCC_values, J_k_values = Estima(
             #         resultun,
             #         system,
             #         models,
             #         iden_opt,
-            #         j,
+            #         round,
             #         framework_settings,
             #         data_storage,
             #         Simula

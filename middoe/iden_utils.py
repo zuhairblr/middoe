@@ -9,6 +9,7 @@ from matplotlib.ticker import MaxNLocator
 from scipy.stats import norm, chi2
 from scipy.special import gamma
 from scipy.interpolate import interp1d
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ def Plot_estimability(round_data, path, solver):
     print(f"Plot saved in {full_path}")
 
 
-def plot_rCC_vs_k(x_values, rCC_values, round, framework_settings, solver):
+def plot_rCC_vs_k(x_values, rCC_values, round, solver):
     """
     Plot rCC values against k for a specific round and solver. Estimability plotter while analysis.
 
@@ -144,13 +145,21 @@ def plot_rCC_vs_k(x_values, rCC_values, round, framework_settings, solver):
     Returns:
     None
     """
-    # Create the folder path once
-    base_path = framework_settings['path']
-    modelling_folder = str(framework_settings['case'])  # Convert case to string
-    full_path = os.path.join(base_path, modelling_folder, 'estimability')
+    # # Create the folder path once
+    # base_path = framework_settings['path']
+    # modelling_folder = str(framework_settings['case'])  # Convert case to string
+    # full_path = os.path.join(base_path, modelling_folder, 'estimability')
+    #
+    #
+    # # Ensure the 'estimability' directory exists
+    # os.makedirs(full_path, exist_ok=True)
+    # filename = os.path.join(full_path, f'rCC vs k round_{str(round)} in model_{solver}.png')
 
-    # Ensure the 'estimability' directory exists
-    os.makedirs(full_path, exist_ok=True)
+    # Create path: ./estimability/
+    estimability_dir = Path.cwd() / "estimability"
+    estimability_dir.mkdir(parents=True, exist_ok=True)
+    # Define the output file path
+    filename = estimability_dir / f"rCC vs k round_{str(round)} in model_{solver}.png"
 
     # Improve plot quality and save
     plt.figure(figsize=(8, 5), dpi=150)  # Higher DPI for better quality
@@ -168,14 +177,13 @@ def plot_rCC_vs_k(x_values, rCC_values, round, framework_settings, solver):
     plt.tight_layout()
 
     # Define the filename for the plot and save it
-    filename = os.path.join(full_path, f'rCC vs k round_{str(round)} in model_{solver}.png')
     plt.savefig(filename, dpi=300)
 
     # Optionally show the plot
     plt.show()
 
 
-def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solver, response_key, framework_settings):
+def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solver, response_key):
     """
     Plot Sobol sensitivity analysis results for a given solver
 
@@ -193,10 +201,12 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
     num_samples = len(time_samples)
     num_keys = sobol_problem['num_vars']
     names = sobol_problem['names']
-    base_path = framework_settings['path']
-    modelling_folder = str(framework_settings['case'])
-    path = os.path.join(base_path, modelling_folder)
-    os.makedirs(path, exist_ok=True)
+    # base_path = framework_settings['path']
+    # modelling_folder = str(framework_settings['case'])
+    # path = os.path.join(base_path, modelling_folder)
+    # os.makedirs(path, exist_ok=True)
+    # Use current working directory directly
+    path = Path.cwd()
     filename = os.path.join(path, f'Sobol_SIs_response_{response_key} for model_{solver}.png')
 
     # Initialize arrays for first-order and total-order sensitivities
@@ -264,21 +274,24 @@ class Plotting_Results:
     mutation_settings (dict): Settings related to mutation in the modelling process.
     modelling_folder (str): Folder name for storing modelling results.
     """
-    def __init__(self, models, framework_settings):
+    def __init__(self, models, round=None):
         """
-        Initialize the Plotting_Results class with modelling and framework settings.
+        Initialize the Plotting_Results class with modelling settings.
 
         Parameters:
         models (dict): Settings related to the modelling process.
-        framework_settings (dict): Settings related to the framework, including paths and case information.
+        round (int, optional): Round number, if you want to tag subfolders.
         """
-        # Store key settings as instance variables
-        self.path = framework_settings['path']
-        self.case = framework_settings['case']
+        self.base_path = Path.cwd()
+        self.round = str(round)
         self.mutation_settings = models['mutation']
-        self.modelling_folder = 'modelling'
+        self.modelling_folder = self.base_path / 'modelling'
+        self.confidence_folder = self.base_path / 'confidence'
+        self.modelling_folder.mkdir(parents=True, exist_ok=True)
+        self.confidence_folder.mkdir(parents=True, exist_ok=True)
 
-    def fit_plot(self, data, result, round, system):
+
+    def fit_plot(self, data, result, system):
         """
         Generate and save the model fitting to experimental data plot for the given data and results.
 
@@ -456,12 +469,7 @@ class Plotting_Results:
             ax2.set_xlabel('Time (t)')
             # ax2.grid(True)
 
-            # Construct the path and filename correctly
-            full_path = os.path.join(self.path, str(self.case), self.modelling_folder)
-            os.makedirs(full_path, exist_ok=True)  # Create the folder if it doesn't exist
-
-            # Construct the full file path
-            filename = os.path.join(full_path, f'{str(round)}(th round) and {str(sheet_name)} (th exp).png')
+            filename = self.modelling_folder / f"{self.round}_round_{sheet_name}.png"
 
             # Now save the plot
             plt.tight_layout()
@@ -541,12 +549,7 @@ class Plotting_Results:
 
             plt.tight_layout()
 
-            # Construct the full path for saving the figure
-            full_path = os.path.join(self.path, str(self.case), self.modelling_folder)
-            os.makedirs(full_path, exist_ok=True)
-
-            # Create the filename with the full path
-            filename = os.path.join(full_path, f'{str(round)}_th_round_{solver}.png')
+            filename = self.confidence_folder / f"{round}_th_round_{solver}.png"
 
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)

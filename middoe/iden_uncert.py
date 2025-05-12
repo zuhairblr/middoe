@@ -180,7 +180,16 @@ def uncert(data, resultpr, system, models, iden_opt):
         logging
     )
 
-    return resultun2, theta_parameters, solver_parameters, scaled_params, observed_values
+    # Construct return dictionary
+    uncert_output = {
+        'results': resultun2,
+        'theta_parameters': theta_parameters,
+        'solver_parameters': solver_parameters,
+        'scaled_params': scaled_params,
+        'obs': observed_values
+    }
+
+    return uncert_output
 
 def _uncert_metrics(
     theta,
