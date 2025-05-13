@@ -10,42 +10,46 @@ from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize as pymoo_minimize
-
-
 from multiprocessing import Pool
+import traceback
 
 def mbdoe_pp(des_opt, system, models, round, num_parallel_runs=1):
     """
-    Run MBDOE-PP in either parallel or single-core mode.
-
-    Parameters:
-    - des_opt (dict): Design settings
-    - system (dict): System/model structure
-    - models (dict): Modelling settings
-    - round (int): Round number
-    - num_parallel_runs (int): Number of cores for parallel run. If 1, runs single-core.
-
-    Returns:
-    - design_decisions (dict), pp_obj (float), swps (dict)
+    Run MBDOE-PP with parallel or single-core fallback.
+    Filters out failed processes and uses only successful ones.
     """
     method = des_opt['optimization_methods']['ppopt_method']
 
     if method in ['L', 'G_P'] and num_parallel_runs > 1:
-
         with Pool(num_parallel_runs) as pool:
-            results_list = pool.starmap(
-                _run_pp,
-                [(copy.deepcopy(des_opt), copy.deepcopy(system), copy.deepcopy(models), core_num, round)
-                 for core_num in range(num_parallel_runs)]
+            results_list = pool.map(
+                _safe_run,
+                [(des_opt, system, models, core_num, round) for core_num in range(num_parallel_runs)]
             )
-        best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
+
+        successful = [res for res in results_list if res is not None]
+        if not successful:
+            raise RuntimeError("All MBDOE-PP optimisation runs failed. Try increasing maxpp or relaxing constraints.")
+        best_design_decisions, best_pp_obj, best_swps = max(successful, key=lambda x: x[1])
 
     else:
-        best_design_decisions, best_pp_obj, best_swps = _run_pp(
-            des_opt, system, models, core_number=0, round=round
-        )
+        try:
+            best_design_decisions, best_pp_obj, best_swps = _run_pp(des_opt, system, models, 0, round)
+        except Exception as e:
+            raise RuntimeError(f"Single-core optimisation failed: {e}")
 
     return best_design_decisions, best_pp_obj, best_swps
+
+
+def _safe_run(args):
+    des_opt, system, models, core_num, round = args
+    try:
+        return _run_pp(des_opt, system, models, core_num, round)
+    except Exception as e:
+        print(f"[Core {core_num}] FAILED: {e}")
+        traceback.print_exc()
+        return None
+
 
 def _run_pp(des_opt, system, models, core_number, round):
     """
@@ -147,7 +151,7 @@ def _run_pp(des_opt, system, models, core_number, round):
         system['tvi'][var]['offsetl'] / system['tvi'][var]['max']
         for var in tv_iphi_vars
     ]
-    tv_iphi_cvp = {var: system['tvi'][var]['design_cvp'] for var in tv_iphi_vars}
+    tv_iphi_cvp = {var: system['tvi'][var]['cvp'] for var in tv_iphi_vars}
 
     # Time-invariant inputs
     ti_iphi_vars = list(system['tii'].keys())
@@ -161,7 +165,7 @@ def _run_pp(des_opt, system, models, core_number, round):
     ]
     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
     tv_ophi_offsett_ophi = [system['tvo'][var]['offsett'] / tf for var in tv_ophi_vars]
-    tv_ophi_matching = [system['tvo'][var]['matching'] for var in tv_ophi_vars]
+    tv_ophi_sampling = [system['tvo'][var]['sampling'] for var in tv_ophi_vars]
 
     # Time-invariant outputs
     ti_ophi_vars = [
@@ -190,7 +194,7 @@ def _run_pp(des_opt, system, models, core_number, round):
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
@@ -204,7 +208,7 @@ def _run_pp(des_opt, system, models, core_number, round):
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
@@ -218,7 +222,7 @@ def _run_pp(des_opt, system, models, core_number, round):
             tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
             tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
             ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
             ti_ophi_vars,
             tf, ti,
             active_solvers, theta_parameters,
@@ -647,6 +651,148 @@ def _optimize_g_p(
     )
 
     return res_de, index_dict
+
+
+# def _optimize_g_p(
+#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+#     ti_ophi_vars,
+#     tf, ti,
+#     active_solvers, theta_parameters,
+#     eps, maxpp, tolpp,
+#     mutation, V_matrix, design_criteria,
+#     system, models
+# ):
+#
+#     bounds = []
+#     x0 = []
+#     index_dict = {'ti': {}, 'swps': {}, 'st': {}}
+#
+#     # Time-invariant inputs
+#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+#         lo, hi = mn / mx, 1.0
+#         bounds.append((lo, hi))
+#         x0.append((lo + hi) / 2)
+#         index_dict['ti'][name] = [len(x0) - 1]
+#
+#     # Time-variant input levels and times
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]
+#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
+#         lo = mn / mx
+#
+#         level_idxs = []
+#         for _ in range(seg - 1):
+#             bounds.append((lo, 1.0))
+#             x0.append((lo + 1.0) / 2)
+#             level_idxs.append(len(x0) - 1)
+#         index_dict['swps'][name + 'l'] = level_idxs
+#
+#         time_idxs = []
+#         lo_t, hi_t = ti / tf, 1 - ti / tf
+#         for _ in range(seg - 2):
+#             bounds.append((lo_t, hi_t))
+#             x0.append((lo_t + hi_t) / 2)
+#             time_idxs.append(len(x0) - 1)
+#         index_dict['swps'][name + 't'] = time_idxs
+#
+#     # === Sampling time matching ===
+#     matched_groups = {}
+#     for idx, group_id in enumerate(tv_ophi_matching):
+#         matched_groups.setdefault(group_id, []).append(idx)
+#
+#     for group_id, var_indices in matched_groups.items():
+#         seg = tv_ophi_seg[var_indices[0]]  # all in same group must have same segments
+#         lo_t, hi_t = ti / tf, 1 - ti / tf
+#
+#         shared_idxs = []
+#         for _ in range(seg - 2):
+#             bounds.append((lo_t, hi_t))
+#             x0.append((lo_t + hi_t) / 2)
+#             shared_idxs.append(len(x0) - 1)
+#
+#         for idx in var_indices:
+#             name = tv_ophi_vars[idx]
+#             index_dict['st'][name] = shared_idxs
+#
+#     # === Constraints ===
+#     constraint_index_list = []
+#
+#     # Input level monotonicity
+#     for i, name in enumerate(tv_iphi_vars):
+#         if tv_iphi_const[i] != 'rel':
+#             idxs = index_dict['swps'][name + 'l']
+#             for j in range(len(idxs) - 1):
+#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
+#
+#     # Input time monotonicity
+#     for i, name in enumerate(tv_iphi_vars):
+#         idxs = index_dict['swps'][name + 't']
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
+#
+#     # Sampling time monotonicity
+#     for i, name in enumerate(tv_ophi_vars):
+#         idxs = index_dict['st'][name]
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+#
+#     total_constraints = len(constraint_index_list)
+#
+#     local_obj = partial(
+#         _pp_objective_function,
+#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+#         tv_iphi_cvp=tv_iphi_cvp,
+#         active_solvers=active_solvers,
+#         theta_parameters=theta_parameters,
+#         tf=tf, eps=eps, mutation=mutation,
+#         V_matrix=V_matrix, design_criteria=design_criteria,
+#         index_dict=index_dict,
+#         system=system,
+#         models=models
+#     )
+#
+#     class DEProblem(ElementwiseProblem):
+#         def __init__(self):
+#             super().__init__(
+#                 n_var=len(bounds), n_obj=1, n_constr=total_constraints,
+#                 xl=np.array([b[0] for b in bounds]),
+#                 xu=np.array([b[1] for b in bounds])
+#             )
+#
+#         def _evaluate(self, x, out, *args, **kwargs):
+#             f_val = local_obj(x)
+#             g = []
+#             for kind, i, i1, i2 in constraint_index_list:
+#                 if kind == 'lvl':
+#                     offs = tv_iphi_offsetl[i]
+#                     const = tv_iphi_const[i]
+#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+#                     g.append(offs - diff)
+#                 elif kind == 't':
+#                     offs = tv_iphi_offsett[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#                 elif kind == 'st':
+#                     offs = tv_ophi_offsett_ophi[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#             out['F'] = f_val
+#             out['G'] = np.array(g, dtype=float)
+#
+#     algo = DE(pop_size=20, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+#
+#     res_de = pymoo_minimize(
+#         DEProblem(), algo,
+#         termination=('n_gen', maxpp),
+#         seed=None, verbose=True,
+#         constraint_tolerance=tolpp
+#     )
+#
+#     return res_de, index_dict
+
 
 
 def _pp_objective_function(

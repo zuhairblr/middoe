@@ -54,11 +54,11 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
     # Construct piecewise functions for initial and DOE cases
     cvp_initial = {
-        var: system['tvi'][var]['initial_cvp']
+        var: 'no_CVP'
         for var in system['tvi'].keys()
     }
     cvp_doe = {
-        var: system['tvi'][var]['design_cvp']
+        var: system['tvi'][var]['cvp']
         for var in system['tvi'].keys()
     }
 

@@ -14,6 +14,7 @@ import random
 import importlib.util
 
 
+
 def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, system, models):
     """
     Simulate the system dynamics using the provided parameters and model.
@@ -57,9 +58,9 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         ti_ophi (dict): Time-invariant outputs (currently empty)
         tvi (dict): Scaled piecewise interpolated data {var_name: ndarray}
     """
-    import importlib
-    import importlib.util
-    import os
+
+
+
 
     # Determine model source
     if model_name in models.get('ext_func', {}):
@@ -85,56 +86,104 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
     )
     return tv_ophi, ti_ophi, phit
 
+# def _Piecewiser(t, swps, cvp, phit):
+#     """
+#     Perform piecewise interpolation for trajectories of time-variant input variables.
+#
+#     Parameters
+#     ----------
+#     t : array-like
+#         Time points at which to evaluate the piecewise functions.
+#     swps : dict of str: list
+#         Dictionary containing time and level vectors for piecewise functions.
+#         For a variable 'X', 'Xt' defines times and 'Xl' defines levels.
+#     cvp : dict of str: str
+#         Dictionary of methods for each variable. Keys are variable names, values are:
+#         - 'CPF': Constant piecewise function (previous step interpolation)
+#         - 'LPF': Linear piecewise function
+#         - 'none': No interpolation, use tvi values as constants.
+#     phit : dict of str: float or list
+#         Initial or constant values for each variable when using the 'none' method.
+#
+#     Returns
+#     -------
+#     dict of str: ndarray
+#         Dictionary mapping variable names to arrays of interpolated values.
+#     """
+#
+#     result = {}
+#     # Iterate over each variable defined in cvp
+#     for var, method in cvp.items():
+#         time_key = f'{var}t'
+#         level_key = f'{var}l'
+#
+#         if method == 'CPF':
+#             # For CPF, we need both time and level data in swps
+#             if time_key in swps and level_key in swps:
+#                 f_previous = interp1d(swps[time_key], swps[level_key], kind='previous', fill_value="extrapolate")
+#                 result[var] = f_previous(t)
+#             else:
+#                 raise KeyError(f"Missing keys for CPF method: '{time_key}' or '{level_key}'")
+#
+#         elif method == 'LPF':
+#             # For LPF, we need both time and level data in swps
+#             if time_key in swps and level_key in swps:
+#                 result[var] = np.interp(t, swps[time_key], swps[level_key])
+#             else:
+#                 raise KeyError(f"Missing keys for LPF method: '{time_key}' or '{level_key}'")
+#
+#         elif method == 'no_CVP':
+#             # For 'none', we do not rely on swps. Instead, we use the constant value from tvi.
+#             if var not in phit:
+#                 raise KeyError(f"No initial value provided in tvi for variable '{var}' under 'none' method.")
+#             value = phit[var]
+#             if isinstance(value, (list, np.ndarray)):
+#                 result[var] = np.full_like(t, value[0])
+#             else:
+#                 result[var] = np.full_like(t, value)
+#
+#         else:
+#             # Unrecognized method
+#             raise ValueError(f"Unrecognized piecewise method '{method}' for variable '{var}'.")
+#
+#     return result
+
 def _Piecewiser(t, swps, cvp, phit):
     """
     Perform piecewise interpolation for trajectories of time-variant input variables.
-
-    Parameters
-    ----------
-    t : array-like
-        Time points at which to evaluate the piecewise functions.
-    swps : dict of str: list
-        Dictionary containing time and level vectors for piecewise functions.
-        For a variable 'X', 'Xt' defines times and 'Xl' defines levels.
-    cvp : dict of str: str
-        Dictionary of methods for each variable. Keys are variable names, values are:
-        - 'CPF': Constant piecewise function (previous step interpolation)
-        - 'LPF': Linear piecewise function
-        - 'none': No interpolation, use tvi values as constants.
-    phit : dict of str: float or list
-        Initial or constant values for each variable when using the 'none' method.
-
-    Returns
-    -------
-    dict of str: ndarray
-        Dictionary mapping variable names to arrays of interpolated values.
     """
 
     result = {}
-    # Iterate over each variable defined in cvp
     for var, method in cvp.items():
         time_key = f'{var}t'
         level_key = f'{var}l'
 
         if method == 'CPF':
-            # For CPF, we need both time and level data in swps
             if time_key in swps and level_key in swps:
+                if len(swps[time_key]) != len(swps[level_key]):
+                    raise ValueError(
+                        f"[Piecewiser-CPF] Length mismatch for '{var}': "
+                        f"len({time_key})={len(swps[time_key])}, len({level_key})={len(swps[level_key])}"
+                    )
                 f_previous = interp1d(swps[time_key], swps[level_key], kind='previous', fill_value="extrapolate")
                 result[var] = f_previous(t)
             else:
                 raise KeyError(f"Missing keys for CPF method: '{time_key}' or '{level_key}'")
 
         elif method == 'LPF':
-            # For LPF, we need both time and level data in swps
             if time_key in swps and level_key in swps:
+                if len(swps[time_key]) != len(swps[level_key]):
+                    raise ValueError(
+                        f"[Piecewiser-LPF] Length mismatch for '{var}': "
+                        f"len({time_key})={len(swps[time_key])}, len({level_key})={len(swps[level_key])}"
+                    )
                 result[var] = np.interp(t, swps[time_key], swps[level_key])
             else:
                 raise KeyError(f"Missing keys for LPF method: '{time_key}' or '{level_key}'")
 
-        elif method == 'none':
-            # For 'none', we do not rely on swps. Instead, we use the constant value from tvi.
+        elif method == 'no_CVP':
             if var not in phit:
-                raise KeyError(f"No initial value provided in tvi for variable '{var}' under 'none' method.")
+                raise KeyError(f"No initial value provided in phit for variable '{var}' under 'none' method.")
             value = phit[var]
             if isinstance(value, (list, np.ndarray)):
                 result[var] = np.full_like(t, value[0])
@@ -142,10 +191,10 @@ def _Piecewiser(t, swps, cvp, phit):
                 result[var] = np.full_like(t, value)
 
         else:
-            # Unrecognized method
             raise ValueError(f"Unrecognized piecewise method '{method}' for variable '{var}'.")
 
     return result
+
 
 
 def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, system, models, model_name):

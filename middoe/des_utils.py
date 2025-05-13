@@ -277,6 +277,8 @@ def _segmenter(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_cons
 
     return bounds, x0, index_pairs_levels, index_pairs_times, index_dict
 
+
+
 def _slicer(x, index_dict, tlin):
     """
     Slice the optimization variables into time-invariant inputs, switching points, and sampling times (a index base decomposer of design decision concated list
@@ -318,6 +320,7 @@ def _slicer(x, index_dict, tlin):
         St[key] = snapped
 
     return ti, swps, St
+
 
 def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi,
               tv_iphi_vars, tv_iphi_max,
