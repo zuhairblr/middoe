@@ -13,7 +13,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
 # Set Times New Roman font globally for all elements
 rcParams['font.family'] = 'arial'
 
@@ -1811,10 +1810,6 @@ def validation_params(parameters, ref_params, full_path):
         plot_filename = os.path.join(full_path, f'Normalized Parameter Trends for {solver}.png')
         plt.savefig(plot_filename, dpi=300)
         plt.show()
-
-
-
-
 
 
 def run_postprocessing(round_data, solvers, selected_rounds):

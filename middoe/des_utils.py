@@ -2,7 +2,6 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
     """
     Slice optimization variables into structured design variables including time-invariant inputs, switching points, and sampling times.
@@ -268,17 +267,6 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
 
     ax_list_2 = [ax2]
 
-    # for model_idx, (design_name, maybe_array_or_dict) in enumerate(tvi.items()):
-    #     # If 'maybe_array_or_dict' is just an array, then we have no .items().
-    #     # We'll interpret that as a single variable named design_name
-    #     if isinstance(maybe_array_or_dict, np.ndarray):
-    #         # Wrap it into a single entry dict
-    #         maybe_array_or_dict = {design_name: maybe_array_or_dict}
-    #     elif not isinstance(maybe_array_or_dict, dict):
-    #         # It's neither array nor dict => skip or log a warning
-    #         print(f"Warning: '{design_name}' is neither dict nor array. Skipping.")
-    #         continue
-
     # Now that we have a dictionary, do the usual loop
     for var_idx, (var_name, numeric_value) in enumerate(phit.items()):
         color = colors[var_idx % len(colors)]
@@ -352,10 +340,6 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
 
     plt.savefig(final_filename, dpi=300)
     plt.close()
-
-
-
-
 
 def _par_update(theta_parameters, estimations):
     """

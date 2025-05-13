@@ -16,8 +16,6 @@ def fun_globalizer(func_name):
     kernel_simulator = importlib.import_module('idenpy.kernel_simulator')
     setattr(kernel_simulator, func_name, lambda *args, **kwargs: globals()[func_name](*args, **kwargs))
 
-
-
 def read_excel(data_type):
     """
     Read data from 'indata.xlsx' or 'exdata.xlsx' in the current working directory.
@@ -130,7 +128,6 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
 
     return trv
 
-
 def save_to_jac(results, purpose):
     """
     Save results to a .jac file in the project directory using a fixed name.
@@ -207,7 +204,6 @@ def data_appender(df_combined, experiment_number, data_storage):
 
     return data_storage
 
-
 def add_norm_par(modelling_settings):
     """
     Add normalized parameters to the modelling settings.
@@ -231,7 +227,6 @@ def add_norm_par(modelling_settings):
         raise KeyError("The dictionary must contain 'theta_parameters' as a key.")
 
     return modelling_settings
-
 
 def save_sobol_results_to_excel(sensa):
     """
