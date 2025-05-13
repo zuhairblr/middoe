@@ -224,7 +224,7 @@ def main():
         'tvi': {  # Time-variant input variables (models input: tvi), each key is a symbol nad key in tvi as well
             'T': {  # Temperature (K)
                 'swp': 3,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
-                # Must be a positive integer > 1. Controls the number of discrete steps in the profile.
+                # Must be a positive integer > 1. swps-1 is the number of steps
                 'constraints': 'dec',  # Constraint type: relative state of signal levels in CVPs
                 # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
                 'max': 358.15,  # Maximum allowable signal level, des_opt space upper bound
@@ -250,18 +250,20 @@ def main():
                 'sp': 5,  # the amound of samples per each round (run)
                 'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
-                'sampling': 1  # Matching criterion for models prediction and data alignment
+                'sampling': 1,  # Matching criterion for models prediction and data alignment
+                'fixedsps': [0, 1500],  # fixed sampling times
             },
             'y2': {  # response variable, here carbonation efficiency
                 'initials': 0.001,
                 # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
                 'measured': True,
                 # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 5,  # the amound of samples per each round (run)
+                'sp': 10,  # the amound of samples per each round (run)
                 'unc': 0.02,
                 # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
-                'sampling': 1  # Matching criterion for models prediction and data alignment
+                'sampling': 2,  # Matching criterion for models prediction and data alignment
+                'fixedsps': [0, 1500],  # fixed sampling times
             },
         },
         'tii': {  # Time-invariant input variables (tii)
@@ -276,16 +278,12 @@ def main():
         },
         'tio': {  # Time-invariant output variables (empty here, could hold steady state responses that hold no dependency)
         },
-        't_s': [150, 7200],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from des_opt)
+        't_s': [150, 7050],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from des_opt)
         't_r': 15,  # Time resolution (10 s), minimum time steps for the simulation/des_opt/controls
     }
 
     des_opt = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
-        'optimization_methods': {
-            'ppopt_method': 'G_P', # optimization method for MBDoE-PP, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
-            'mdopt_method': 'L' # optimization method for MBDoE-MD, 'L': trust-constr method in .py, 'G_P': differential evolution in .py, 'GL': + penalised differential evolution + trust-constr in .py .  Note: L adn G are multi start due to child processes created in framework_settings, GL in single start, and DE of it is a penalised. 'G_P' is suggested for usage over the rest
-        },
         'criteria': {
             'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
             'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
@@ -293,7 +291,7 @@ def main():
         'iteration_settings': {
             'maxmd': 100, # maximum number of MD runs
             'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp':5 ,# maximum number of PP runs
+            'maxpp':20 ,# maximum number of PP runs
             'tolpp': 1, # tolerance for PP optimization
         }
     }
@@ -684,7 +682,6 @@ def main():
 
             # Assign the winner solver as the only active solver for the PP round
             models['active_solvers'] = [winner_solver]
-            method = des_opt['optimization_methods']['ppopt_method']
 
             # if method in ['L', 'G_P']:
             #     # Local/Constrained optimization using parallel execution

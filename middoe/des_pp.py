@@ -1,11 +1,8 @@
-from multiprocessing import Pool
-import copy
-from middoe.des_utils import _segmenter, _slicer, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
+from middoe.des_utils import _slicer, _reporter, _par_update
 from middoe.krnl_simula import simula
 from collections import defaultdict
 from functools import partial
 import numpy as np
-from scipy.optimize import differential_evolution, minimize, Bounds
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.core.problem import ElementwiseProblem
@@ -18,9 +15,8 @@ def mbdoe_pp(des_opt, system, models, round, num_parallel_runs=1):
     Run MBDOE-PP with parallel or single-core fallback.
     Filters out failed processes and uses only successful ones.
     """
-    method = des_opt['optimization_methods']['ppopt_method']
 
-    if method in ['L', 'G_P'] and num_parallel_runs > 1:
+    if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
                 _safe_run,
@@ -165,7 +161,8 @@ def _run_pp(des_opt, system, models, core_number, round):
     ]
     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
     tv_ophi_offsett_ophi = [system['tvo'][var]['offsett'] / tf for var in tv_ophi_vars]
-    tv_ophi_sampling = [system['tvo'][var]['sampling'] for var in tv_ophi_vars]
+    tv_ophi_sampling = {var: system['tvo'][var]['sampling'] for var in tv_ophi_vars}
+    tv_ophi_forcedsamples = {var: [v / tf for v in system['tvo'][var]['fixedsps']] for var in tv_ophi_vars}
 
     # Time-invariant outputs
     ti_ophi_vars = [
@@ -188,50 +185,19 @@ def _run_pp(des_opt, system, models, core_number, round):
     V_matrix = models['V_matrix']
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
-    method_key = des_opt['optimization_methods']['ppopt_method']
-    if method_key == 'L':
-        result, index_dict = _optimize_l(
-            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
-            ti_ophi_vars,
-            tf, ti,
-            active_solvers, theta_parameters,
-            eps, maxpp, tolpp,
-            mutation, V_matrix, design_criteria,
-            system, models
-        )
 
-    elif method_key == 'G_P':
-        result, index_dict = _optimize_g_p(
-            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
-            ti_ophi_vars,
-            tf, ti,
-            active_solvers, theta_parameters,
-            eps, maxpp, tolpp,
-            mutation, V_matrix, design_criteria,
-            system, models
-        )
-
-    elif method_key == 'GL':
-        result, index_dict = _optimize_gl(
-            tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-            tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-            ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-            tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling,
-            ti_ophi_vars,
-            tf, ti,
-            active_solvers, theta_parameters,
-            eps, maxpp, tolpp,
-            mutation, V_matrix, design_criteria,
-            system, models
-        )
-    else:
-        raise ValueError(f"Unknown method '{method_key}' for mdopt_method in PP().")
+    result, index_dict = _optimiser(
+        tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+        tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+        ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+        tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
+        ti_ophi_vars,
+        tf, ti,
+        active_solvers, theta_parameters,
+        eps, maxpp, tolpp,
+        mutation, V_matrix, design_criteria,
+        system, models
+    )
 
     if hasattr(result, 'X'):
         x_final = result.X
@@ -246,7 +212,7 @@ def _run_pp(des_opt, system, models, core_number, round):
         ti_iphi_vars, ti_iphi_max,
         tv_ophi_vars, ti_ophi_vars,
         active_solvers, theta_parameters,
-        tv_iphi_cvp,
+        tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling, ti,
         tf, eps, mutation, V_matrix, design_criteria,
         index_dict,
         system,
@@ -281,218 +247,12 @@ def _run_pp(des_opt, system, models, core_number, round):
 
     return design_decisions, pp_obj, swps
 
-def _optimize_l(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-                tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-                ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-                tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-                ti_ophi_vars,
-                tf, ti,
-                active_solvers, theta_parameters,
-                eps, maxpp, tolpp,
-                mutation, V_matrix, design_criteria,
-                system, models):
-    """
-    Local optimization for MBDOE_PP using trust-constr (analogous to _optimizel in des-md).
-    Returns (result, index_dict).
-    """
 
-    # 1) Possibly build a var_groups dict like in des-md
-    var_groups = build_var_groups(
-        tv_iphi_vars, tv_iphi_offsetl, tv_iphi_offsett, tv_iphi_const,
-        tv_ophi_vars, tv_ophi_offsett_ophi
-    )
-
-    # 2) Segmenter => bounds, x0, index_pairs, index_dict
-    bounds_list, x0, index_pairs_levels, index_pairs_times, index_dict = _segmenter(
-        tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-        tv_iphi_offsett, tv_iphi_offsetl,
-        ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-        tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-        tf, ti
-    )
-    lower_bounds = [b[0] for b in bounds_list]
-    upper_bounds = [b[1] for b in bounds_list]
-    x0 = np.clip(x0, lower_bounds, upper_bounds)
-    bounds = Bounds(lower_bounds, upper_bounds)
-
-    # 3) Build linear constraints (similarly to des-md)
-    A_level, lb_level, A_time, lb_time, constraints_list = build_linear_constraints(
-        x_len=len(x0),
-        index_pairs_levels=index_pairs_levels,
-        index_pairs_times=index_pairs_times,
-        var_groups=var_groups
-    )
-
-    # 4) Objective function that calls _runnerpp
-    def local_objective(x):
-        return _pp_objective_function(
-            x,
-            tv_iphi_vars, tv_iphi_max,
-            ti_iphi_vars, ti_iphi_max,
-            tv_ophi_vars, ti_ophi_vars,
-            active_solvers, theta_parameters,
-            tv_iphi_cvp,
-            tf, eps, mutation, V_matrix, design_criteria,
-            index_dict,
-            system,
-            models
-        )
-
-    # 5) trust-constr solve
-    result = minimize(
-        fun=local_objective,
-        x0=x0,
-        bounds=bounds,
-        constraints=constraints_list,
-        method='trust-constr',
-        options={
-            'maxiter': maxpp,
-            'verbose': 3,
-            'xtol': tolpp,
-            'gtol': tolpp,
-            'barrier_tol': 1e-8,
-        }
-    )
-
-    if not result.success:
-        print("Parameter-Precision (Local) Optimization failed!")
-    else:
-        print("Parameter-Precision (Local) Optimization succeeded!")
-
-    return result, index_dict
-
-def _optimize_gl(tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-                 tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-                 ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-                 tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-                 ti_ophi_vars,
-                 tf, ti,
-                 active_solvers, theta_parameters,
-                 eps, maxpp, tolpp,
-                 mutation, V_matrix, design_criteria,
-                 system, models):
-
-    # 1) Build var_groups (parallel to des-md)
-    var_groups = build_var_groups(
-        tv_iphi_vars, tv_iphi_offsetl, tv_iphi_offsett, tv_iphi_const,
-        tv_ophi_vars, tv_ophi_offsett_ophi
-    )
-
-    # 2) Segmenter => bounds, x0, index_pairs, index_dict
-    bounds_list, x0, index_pairs_levels, index_pairs_times, index_dict = _segmenter(
-        tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-        tv_iphi_offsett, tv_iphi_offsetl,
-        ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-        tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-        tf, ti
-    )
-    lower_bounds = [b[0] for b in bounds_list]
-    upper_bounds = [b[1] for b in bounds_list]
-    trust_bounds = Bounds(lower_bounds, upper_bounds)
-
-    # 3) Build linear constraints
-    (
-        A_level, lb_level,
-        A_time, lb_time,
-        constraints_list
-    ) = build_linear_constraints(
-        x_len=len(x0),
-        index_pairs_levels=index_pairs_levels,
-        index_pairs_times=index_pairs_times,
-        var_groups=var_groups
-    )
-
-    # 4) Build partial function for local objective (pp_objective_function)
-    local_obj_fun = partial(
-        _pp_objective_function,
-        tv_iphi_vars=tv_iphi_vars,
-        tv_iphi_max=tv_iphi_max,
-        ti_iphi_vars=ti_iphi_vars,
-        ti_iphi_max=ti_iphi_max,
-        tv_ophi_vars=tv_ophi_vars,
-        ti_ophi_vars=ti_ophi_vars,
-        active_solvers=active_solvers,
-        theta_parameters=theta_parameters,
-        tv_iphi_cvp=tv_iphi_cvp,
-        tf=tf, eps=eps, mutation=mutation,
-        V_matrix=V_matrix, design_criteria=design_criteria,
-        index_dict=index_dict,
-        system=system,
-        models=models
-    )
-
-    # 5) Build penalized objective for DE (just like des-md):
-    #
-    #    First, define arguments for the objective and the constraint violation:
-    obj_args = {
-        'objective_fun': local_obj_fun
-    }
-    constraint_args = {
-        # If your violation function is named differently, adjust accordingly
-        'violation_fun': partial(
-            constraint_violation,  # or constraint_violation
-            A_level=A_level,
-            lb_level=lb_level,
-            A_time=A_time,
-            lb_time=lb_time
-        )
-    }
-
-    #    Then define penalized function via partial:
-    penalized_de_fun = partial(
-        penalized_objective,  # or penalized_objective_de
-        obj_args=obj_args,
-        constraint_args=constraint_args,
-        penalty_weight=1e-1  # tune your penalty factor
-    )
-
-    # 6) Run Differential Evolution with the penalized objective
-    de_bounds = list(zip(lower_bounds, upper_bounds))
-    de_result = differential_evolution(
-        penalized_de_fun,
-        bounds=de_bounds,
-        strategy='best1bin',
-        maxiter=maxpp,          # or any other suitable number
-        popsize=15,
-        tol=1e-6,
-        mutation=(0.5, 1.0),
-        recombination=0.7,
-        seed=None,
-        polish=False,        # we do our own local refinement
-        workers=-1,          # parallel
-        updating='deferred',
-        disp=True
-    )
-    x0_de = de_result.x
-
-    # 7) Local refinement with trust-constr
-    result = minimize(
-        fun=local_obj_fun,
-        x0=x0_de,
-        bounds=trust_bounds,
-        constraints=constraints_list,
-        method='trust-constr',
-        options={
-            'maxiter': maxpp,
-            'verbose': 3,
-            'xtol': tolpp,
-            'gtol': tolpp,
-            'barrier_tol': 1e-8,
-        }
-    )
-
-    if not result.success:
-        print("Global+Local Parameter-Precision Optimization failed or did not converge.")
-    else:
-        print("Global+Local Parameter-Precision Optimization succeeded!")
-
-    return result, index_dict
-
-def _optimize_g_p(
+def _optimiser(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-    tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
+    tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
     ti_ophi_vars,
     tf, ti,
     active_solvers, theta_parameters,
@@ -508,21 +268,17 @@ def _optimize_g_p(
         'st': {}
     }
 
-    # Time-invariant inputs
     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
         lo, hi = mn / mx, 1.0
         bounds.append((lo, hi))
         x0.append((lo + hi) / 2)
         index_dict['ti'][name] = [i]
 
-    # Time-variant input levels and times
     start = len(x0)
     for i, name in enumerate(tv_iphi_vars):
         seg = tv_iphi_seg[i]
         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
         lo = mn / mx
-
-        # Level indexes
         level_idxs = list(range(start, start + seg - 1))
         index_dict['swps'][name + 'l'] = level_idxs
         for _ in range(seg - 1):
@@ -533,8 +289,6 @@ def _optimize_g_p(
     for i, name in enumerate(tv_iphi_vars):
         seg = tv_iphi_seg[i]
         lo, hi = ti / tf, 1 - ti / tf
-
-        # Time indexes
         time_idxs = list(range(start, start + seg - 2))
         index_dict['swps'][name + 't'] = time_idxs
         for _ in range(seg - 2):
@@ -542,26 +296,33 @@ def _optimize_g_p(
             x0.append((lo + hi) / 2)
         start += seg - 2
 
-    # Sampling times
-    for i, name in enumerate(tv_ophi_vars):
+    sampling_groups = defaultdict(list)
+    for var in tv_ophi_vars:
+        group_id = tv_ophi_sampling[var]
+        sampling_groups[group_id].append(var)
+
+    for group_id, group_vars in sampling_groups.items():
+        var = group_vars[0]
+        i = tv_ophi_vars.index(var)
         seg = tv_ophi_seg[i]
+        num_forced = len(tv_ophi_forcedsamples[var])
+        num_free = seg - num_forced
         lo, hi = ti / tf, 1 - ti / tf
 
-        idxs = list(range(start, start + seg - 2))
-        index_dict['st'][name] = idxs
-        for _ in range(seg - 2):
+        idxs = list(range(start, start + num_free))
+        for var_in_group in group_vars:
+            index_dict['st'][var_in_group] = idxs
+
+        for _ in range(num_free):
             bounds.append((lo, hi))
             x0.append((lo + hi) / 2)
-        start += seg - 2
+        start += num_free
 
     lower = np.array([b[0] for b in bounds])
     upper = np.array([b[1] for b in bounds])
     x0 = np.array(x0)
 
-    # === Build constraints and store indexes ===
     constraint_index_list = []
-
-    # Level constraints
     for i, name in enumerate(tv_iphi_vars):
         const = tv_iphi_const[i]
         if const != 'rel':
@@ -569,41 +330,33 @@ def _optimize_g_p(
             for j in range(len(idxs) - 1):
                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
 
-    # Time constraints
     for i, name in enumerate(tv_iphi_vars):
         idxs = index_dict['swps'][name + 't']
         for j in range(len(idxs) - 1):
             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
 
-    # Sampling time constraints
     for i, name in enumerate(tv_ophi_vars):
         idxs = index_dict['st'][name]
         for j in range(len(idxs) - 1):
             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
 
-    # Number of constraints
     total_constraints = len(constraint_index_list)
 
-    # Objective wrapper
     local_obj = partial(
         _pp_objective_function,
         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-        tv_iphi_cvp=tv_iphi_cvp,
-        active_solvers=active_solvers,
-        theta_parameters=theta_parameters,
+        tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
+        tv_ophi_sampling=tv_ophi_sampling,
+        active_solvers=active_solvers, theta_parameters=theta_parameters,
         tf=tf, eps=eps, mutation=mutation,
         V_matrix=V_matrix, design_criteria=design_criteria,
-        index_dict=index_dict,
-        system=system,
-        models=models
+        index_dict=index_dict, system=system, models=models
     )
 
-    # Constraint-aware DE problem
     class DEProblem(ElementwiseProblem):
         def __init__(self):
-
             super().__init__(
                 n_var=len(bounds),
                 n_obj=1,
@@ -615,7 +368,6 @@ def _optimize_g_p(
         def _evaluate(self, x, out, *args, **kwargs):
             f_val = local_obj(x)
             g = []
-
             for kind, i, i1, i2 in constraint_index_list:
                 if kind == 'lvl':
                     offs = tv_iphi_offsetl[i]
@@ -628,18 +380,11 @@ def _optimize_g_p(
                 elif kind == 'st':
                     offs = tv_ophi_offsett_ophi[i]
                     g.append(offs - (x[i2] - x[i1]))
-
             out['F'] = f_val
             out['G'] = np.array(g, dtype=np.float64)
 
     problem = DEProblem()
-
-    algo = DE(
-        pop_size=10,
-        sampling=LHS(),
-        variant='DE/rand/1/bin',
-        CR=0.7
-    )
+    algo = DE(pop_size=50, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
 
     res_de = pymoo_minimize(
         problem,
@@ -647,152 +392,10 @@ def _optimize_g_p(
         termination=('n_gen', maxpp),
         seed=None,
         verbose=True,
-        constraint_tolerance = tolpp
+        constraint_tolerance=tolpp
     )
 
     return res_de, index_dict
-
-
-# def _optimize_g_p(
-#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_matching,
-#     ti_ophi_vars,
-#     tf, ti,
-#     active_solvers, theta_parameters,
-#     eps, maxpp, tolpp,
-#     mutation, V_matrix, design_criteria,
-#     system, models
-# ):
-#
-#     bounds = []
-#     x0 = []
-#     index_dict = {'ti': {}, 'swps': {}, 'st': {}}
-#
-#     # Time-invariant inputs
-#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-#         lo, hi = mn / mx, 1.0
-#         bounds.append((lo, hi))
-#         x0.append((lo + hi) / 2)
-#         index_dict['ti'][name] = [len(x0) - 1]
-#
-#     # Time-variant input levels and times
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
-#         lo = mn / mx
-#
-#         level_idxs = []
-#         for _ in range(seg - 1):
-#             bounds.append((lo, 1.0))
-#             x0.append((lo + 1.0) / 2)
-#             level_idxs.append(len(x0) - 1)
-#         index_dict['swps'][name + 'l'] = level_idxs
-#
-#         time_idxs = []
-#         lo_t, hi_t = ti / tf, 1 - ti / tf
-#         for _ in range(seg - 2):
-#             bounds.append((lo_t, hi_t))
-#             x0.append((lo_t + hi_t) / 2)
-#             time_idxs.append(len(x0) - 1)
-#         index_dict['swps'][name + 't'] = time_idxs
-#
-#     # === Sampling time matching ===
-#     matched_groups = {}
-#     for idx, group_id in enumerate(tv_ophi_matching):
-#         matched_groups.setdefault(group_id, []).append(idx)
-#
-#     for group_id, var_indices in matched_groups.items():
-#         seg = tv_ophi_seg[var_indices[0]]  # all in same group must have same segments
-#         lo_t, hi_t = ti / tf, 1 - ti / tf
-#
-#         shared_idxs = []
-#         for _ in range(seg - 2):
-#             bounds.append((lo_t, hi_t))
-#             x0.append((lo_t + hi_t) / 2)
-#             shared_idxs.append(len(x0) - 1)
-#
-#         for idx in var_indices:
-#             name = tv_ophi_vars[idx]
-#             index_dict['st'][name] = shared_idxs
-#
-#     # === Constraints ===
-#     constraint_index_list = []
-#
-#     # Input level monotonicity
-#     for i, name in enumerate(tv_iphi_vars):
-#         if tv_iphi_const[i] != 'rel':
-#             idxs = index_dict['swps'][name + 'l']
-#             for j in range(len(idxs) - 1):
-#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
-#
-#     # Input time monotonicity
-#     for i, name in enumerate(tv_iphi_vars):
-#         idxs = index_dict['swps'][name + 't']
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
-#
-#     # Sampling time monotonicity
-#     for i, name in enumerate(tv_ophi_vars):
-#         idxs = index_dict['st'][name]
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
-#
-#     total_constraints = len(constraint_index_list)
-#
-#     local_obj = partial(
-#         _pp_objective_function,
-#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-#         tv_iphi_cvp=tv_iphi_cvp,
-#         active_solvers=active_solvers,
-#         theta_parameters=theta_parameters,
-#         tf=tf, eps=eps, mutation=mutation,
-#         V_matrix=V_matrix, design_criteria=design_criteria,
-#         index_dict=index_dict,
-#         system=system,
-#         models=models
-#     )
-#
-#     class DEProblem(ElementwiseProblem):
-#         def __init__(self):
-#             super().__init__(
-#                 n_var=len(bounds), n_obj=1, n_constr=total_constraints,
-#                 xl=np.array([b[0] for b in bounds]),
-#                 xu=np.array([b[1] for b in bounds])
-#             )
-#
-#         def _evaluate(self, x, out, *args, **kwargs):
-#             f_val = local_obj(x)
-#             g = []
-#             for kind, i, i1, i2 in constraint_index_list:
-#                 if kind == 'lvl':
-#                     offs = tv_iphi_offsetl[i]
-#                     const = tv_iphi_const[i]
-#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
-#                     g.append(offs - diff)
-#                 elif kind == 't':
-#                     offs = tv_iphi_offsett[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#                 elif kind == 'st':
-#                     offs = tv_ophi_offsett_ophi[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#             out['F'] = f_val
-#             out['G'] = np.array(g, dtype=float)
-#
-#     algo = DE(pop_size=20, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
-#
-#     res_de = pymoo_minimize(
-#         DEProblem(), algo,
-#         termination=('n_gen', maxpp),
-#         seed=None, verbose=True,
-#         constraint_tolerance=tolpp
-#     )
-#
-#     return res_de, index_dict
-
 
 
 def _pp_objective_function(
@@ -801,7 +404,7 @@ def _pp_objective_function(
     ti_iphi_vars, ti_iphi_max,
     tv_ophi_vars, ti_ophi_vars,
     active_solvers, theta_parameters,
-    tv_iphi_cvp,
+    tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
     tf, eps, mutation, V_matrix, design_criteria,
     index_dict,
     system,
@@ -818,7 +421,7 @@ def _pp_objective_function(
             ti_iphi_vars, ti_iphi_max,
             tv_ophi_vars, ti_ophi_vars,
             active_solvers, theta_parameters,
-            tv_iphi_cvp,
+            tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
             tf, eps, mutation, V_matrix, design_criteria,
             index_dict,
             system,
@@ -842,6 +445,8 @@ def _runner(
     active_solvers,
     theta_parameters,
     tv_iphi_cvp,
+    tv_ophi_forcedsamples,
+    tv_ophi_sampling,
     tf,
     eps,
     mutation,
@@ -920,9 +525,9 @@ def _runner(
     dt_real = system['t_r']
     nodes = int(round(tf / dt_real)) + 1
     tlin = np.linspace(0, 1, nodes)
-    ti, swps, St = _slicer(x, index_dict, tlin)
+    ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
     # Convert St into dict of var -> np.array
-    St = {var: np.array(St[var]) for var in St}
+    St = {var: np.array(sorted(St[var])) for var in St}
 
     # Combine nd equally spaced points in [0,1] with the sampling points
     t_values_flat = [tp for times in St.values() for tp in times]

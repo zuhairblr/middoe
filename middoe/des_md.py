@@ -1,7 +1,7 @@
 from functools import partial
 from scipy.optimize import differential_evolution, Bounds, minimize
 import os
-from middoe.des_utils import _slicer, _segmenter, _reporter, _par_update, build_var_groups, build_linear_constraints, penalized_objective, constraint_violation
+from middoe.des_utils import _slicer, _reporter, _par_update
 from collections import defaultdict
 import numpy as np
 from middoe.krnl_simula import simula
