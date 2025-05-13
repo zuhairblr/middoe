@@ -1813,62 +1813,58 @@ def validation_params(parameters, ref_params, full_path):
         plt.show()
 
 
-def save_sobol_results_to_excel(results2, folder_path, file_name="sobol_results.xlsx"):
+
+
+
+
+def run_postprocessing(round_data, solvers, selected_rounds):
     """
-    Saves Sobol analysis results to an Excel file in a specified folder.
+    Run full post-processing analysis for multiple solvers and selected rounds.
 
-    Parameters:
-    - results2: Dictionary containing Sobol analysis results.
-    - folder_path: Path to the folder where the Excel file will be saved.
-    - file_name: Name of the Excel file (default: 'sobol_results.xlsx').
+    Parameters
+    ----------
+    round_data : dict
+        Dictionary containing all round data (e.g., loaded from .jac).
+    solvers : list of str
+        List of solver/model names to process (e.g., ['f20', 'f21']).
+    selected_rounds : list of int
+        List of round numbers to include in the analysis (e.g., [1, 2, 3]).
     """
-    # Ensure results2 is not None and contains the required key
-    if not results2 or not isinstance(results2, dict) or 'analysis' not in results2:
-        print("Error: sobol results are not available, No file will be created")
-        return
+    import os
 
-    # Ensure the folder path exists
-    if not os.path.exists(folder_path):
-        raise FileNotFoundError(f"The specified folder does not exist: {folder_path}")
+    postprocessing_dir = os.path.join(os.getcwd(), "post_processing")
+    os.makedirs(postprocessing_dir, exist_ok=True)
 
-    # Combine folder path and file name
-    file_path = os.path.join(folder_path, file_name)
+    # Overall model comparison plots
+    pcomp_plot_instance = Plotting_FinalResults(round_data, None, [])
+    pcomp_plot_instance.pcomp_plot(postprocessing_dir)
+    pcomp_plot_instance.tcomp_plot(postprocessing_dir)
 
-    # Get the main dictionary containing the Sobol analysis results
-    sobol_analysis = results2['analysis']
+    for solver_name in solvers:
+        print(f"Processing solver: {solver_name}")
+        plotting = Plotting_FinalResults(round_data, solver_name, selected_rounds)
 
-    # Create a writer object for the Excel file
-    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        # Iterate through each model in the Sobol analysis results
-        for model_name, model_data in sobol_analysis.items():
-            # Check if model_data[model_name] is a list
-            if isinstance(model_data[model_name], list):
-                data = {'x_axis_steps': []}
-                # Iterate through the list and assume each item has 'ST'
-                for step_index, step_data in enumerate(model_data[model_name]):
-                    data['x_axis_steps'].append(step_index)
-                    st_values = step_data.get('ST', [])
-                    for param_index, st_value in enumerate(st_values):
-                        column_name = f"Parameter_{param_index + 1}"
-                        if column_name not in data:
-                            data[column_name] = []
-                        data[column_name].append(st_value)
-            else:
-                # Handle dictionary-like model_data[model_name]
-                data = {'x_axis_steps': []}
-                for step, step_data in model_data[model_name].items():
-                    data['x_axis_steps'].append(step)
-                    st_values = step_data.get('ST', [])
-                    for param_index, st_value in enumerate(st_values):
-                        column_name = f"Parameter_{param_index + 1}"
-                        if column_name not in data:
-                            data[column_name] = []
-                        data[column_name].append(st_value)
+        plotting.conf_plot(
+            filename=os.path.join(postprocessing_dir, f"{solver_name}_confint.png"),
+            ellipsoid_volume_filename=os.path.join(postprocessing_dir, f"{solver_name}_ellipsoid_volume.png"),
+            std_devs_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_std_devs.png"),
+            parameter_estimates_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_estimates.png"),
+        )
 
-            # Create a DataFrame from the data dictionary
-            df = pd.DataFrame(data)
+        plotting.pt_plot(
+            filename=os.path.join(postprocessing_dir, f"{solver_name}_tval.png"),
+            roundc=round_data
+        )
 
-            # Write the DataFrame to a sheet named after the model
-            df.to_excel(writer, sheet_name=model_name, index=False)
+        plotting.reporter(
+            filename=os.path.join(postprocessing_dir, f"{solver_name}_fit_plot")
+        )
 
-    print(f"Sobol analysis results have been saved to: {file_path}")
+        Plot_estimability(
+            round_data=round_data,
+            path=postprocessing_dir,
+            solver=solver_name
+        )
+
+    print(f"Post-processing completed for: {', '.join(solvers)}")
+

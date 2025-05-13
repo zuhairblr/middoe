@@ -353,6 +353,10 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     plt.savefig(final_filename, dpi=300)
     plt.close()
 
+
+
+
+
 def _par_update(theta_parameters, estimations):
     """
     Multiplies corresponding elements in lists or arrays of two dictionaries for matching keys.

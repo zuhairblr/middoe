@@ -3,7 +3,7 @@ from middoe.krnl_models import *
 import numpy as np
 from multiprocessing import Pool
 import time
-from middoe.log_utils import run_mbdoe_md, read_excel, save_rounds, save_to_jac, \
+from middoe.log_utils import  read_excel, save_rounds, save_to_jac, \
     data_appender
 from middoe.krnl_expera import expera
 from middoe.sc_sensa import sensa
@@ -13,6 +13,7 @@ from middoe.sc_estima import estima
 from middoe.krnl_simula import simula
 from middoe.iden_valida import validation
 from middoe.des_pp import mbdoe_pp
+from middoe.des_md import mbdoe_md
 
 
 def f17(t, y, phi, phit, theta, te):
@@ -206,6 +207,13 @@ def main():
     theta20maxs = [max_val / theta for max_val, theta in zip(theta20max, theta20)]
     theta20mins = [min_val / theta for min_val, theta in zip(theta20min, theta20)]
 
+
+    theta21 = [900, 21000, 4e-4, 0.005]
+    theta21min = [10, 18000, 1e-4, 0.0008]
+    theta21max = [2000, 30000, 1e-3, 0.008]
+    theta21maxs = [max_val / theta for max_val, theta in zip(theta21max, theta21)]
+    theta21mins = [min_val / theta for min_val, theta in zip(theta21min, theta21)]
+
     #reading parameters from embedded models
     theta05, theta05max, theta05min = thetadic05()
     theta06, theta06max, theta06min = thetadic06()
@@ -258,7 +266,7 @@ def main():
                 # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
                 'measured': True,
                 # Flag indicating if this variable is directly measurable, if False, it is a virtual output
-                'sp': 10,  # the amound of samples per each round (run)
+                'sp': 5,  # the amound of samples per each round (run)
                 'unc': 0.02,
                 # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
                 'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
@@ -289,20 +297,20 @@ def main():
             'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         },
         'iteration_settings': {
-            'maxmd': 100, # maximum number of MD runs
-            'tolmd': 1e-3, # tolerance for MD optimization
-            'maxpp':20 ,# maximum number of PP runs
+            'maxmd': 2, # maximum number of MD runs
+            'tolmd': 1, # tolerance for MD optimization
+            'maxpp':2 ,# maximum number of PP runs
             'tolpp': 1, # tolerance for PP optimization
         }
     }
 
     models = { # Settings related to the rival models and their parameters
         'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
-        'active_solvers': ['f20'], # Active solvers (rival models) to be used in the experiment
-        'sim': {'f20': 'sci_file'}, # select the simulator of each models (models should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
+        'active_solvers': ['f20', 'f21'], # Active solvers (rival models) to be used in the experiment
+        'sim': {'f20': 'sci_file', 'f21':'sci_file'}, # select the simulator of each models (models should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'exfiles': {
-            'credentials': {'f20': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py'},            # for now only for gPAS readable files, it is the path to zip file
+            'credentials': {'f20': '@@TTmnoa698','f21': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
+            'connector': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py', 'f21': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py'},            # for now only for gPAS readable files, it is the path to zip file
         },
 
         'theta_parameters': { # Theta parameters for each models
@@ -320,6 +328,7 @@ def main():
             'f17': theta17,
             'f19': theta19,
             'f20': theta20,
+            'f21': theta21
 
         },
         'bound_max': { # Maximum bounds for theta parameters (based on normalized to 1)
@@ -336,7 +345,8 @@ def main():
             'f16': theta16max,
             'f17': theta17max,
             'f19': theta19maxs,
-            'f20': theta20maxs
+            'f20': theta20maxs,
+            'f21': theta21maxs
         },
         'bound_min': { # Minimum bounds for theta parameters (based on normalized to 1)
             'f05': theta05min,
@@ -352,7 +362,8 @@ def main():
             'f16': theta16min,
             'f17': theta17min,
             'f19': theta19mins,
-            'f20': theta20mins
+            'f20': theta20mins,
+            'f21': theta21mins
         },
     }
 
@@ -587,38 +598,59 @@ def main():
         for i in range(logic_settings['max_MD_runs']):
             j = start_round + i  # Current round index
 
-            # Check optimization method for MBDoE-MD and apply appropriate logic
-            if des_opt['optimization_methods']['mdopt_method'] == 'Local':
-                # Parallel execution using multiprocessing for speed improvement
-                with Pool(num_parallel_runs) as pool:
-                    results_list = pool.starmap(run_mbdoe_md,
-                                                [(des_opt, system, models, core_num,
-                                                  framework_settings, j) for core_num in range(num_parallel_runs)])
-                best_design_decisions, best_sum_squared_differences, best_swps = max(results_list, key=lambda x: x[1])
-                design_decisions.update(best_design_decisions)  # Update des_opt decisions with the best found
-            elif des_opt['optimization_methods']['mdopt_method'] == 'Global':
-                core_num = 1
-                results_list = run_mbdoe_md(des_opt, system, models, core_num,
-                                            framework_settings, j)
-                best_design_decisions, best_sum_squared_differences, best_swps = results_list
-                design_decisions.update(best_design_decisions)
+            # Run the MBDoE-MD procedure and retrieve results
+            result_md = mbdoe_md(
+                des_opt=des_opt,
+                system=system,
+                models=models,
+                round=j,
+                num_parallel_runs=num_parallel_runs
+            )
+
+            # Extract and store the optimal design
+            best_design_decisions = result_md['x']
+            best_md_obj = result_md['fun']
+            best_swps = result_md['swps']
+
+            # Update the overall design record
+            design_decisions.update(best_design_decisions)
+
+            #
+            #
+            # # Check optimization method for MBDoE-MD and apply appropriate logic
+            # if des_opt['optimization_methods']['mdopt_method'] == 'Local':
+            #     # Parallel execution using multiprocessing for speed improvement
+            #     with Pool(num_parallel_runs) as pool:
+            #         results_list = pool.starmap(run_mbdoe_md,
+            #                                     [(des_opt, system, models, core_num,
+            #                                       framework_settings, j) for core_num in range(num_parallel_runs)])
+            #     best_design_decisions, best_sum_squared_differences, best_swps = max(results_list, key=lambda x: x[1])
+            #     design_decisions.update(best_design_decisions)  # Update des_opt decisions with the best found
+            # elif des_opt['optimization_methods']['mdopt_method'] == 'Global':
+            #     core_num = 1
+            #     results_list = run_mbdoe_md(des_opt, system, models, core_num,
+            #                                 framework_settings, j)
+            #     best_design_decisions, best_sum_squared_differences, best_swps = results_list
+            #     design_decisions.update(best_design_decisions)
+
+
 
             # Generate experiment data using updated des_opt decisions
             expr = j
-            excel_path, df_combined = expera(framework_settings, system, models,
-                                             insilicos, design_decisions, j, swps=best_swps)
-            write_excel(df_combined, expr, excel_path)  # Write experiment data to an Excel file
-            data = read_excel(excel_path)  # Read data back for processing
-            data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
+            df_combined = expera(system, models, insilicos, design_decisions, expr, swps=best_swps)
 
-            # Perform parameter estimation using Parmest
-            resultpr = parmest(system, models, iden_opt, data, simula)
+            data = read_excel('indata')  # Load data from the file
 
-            # Perform uncertainty analysis to identify potential solvers and assess variability
-            resultun, theta_parameters, solver_parameters, scaled_params, obs = uncert(
-                data, resultpr, system, models, iden_opt, simula)
+            # Parameter Estimation and Uncertainty Analysis
+            resultpr = parmest(system, models, iden_opt, data)
 
-            ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None  # Default placeholders
+            uncert_results = uncert(data, resultpr, system, models, iden_opt)
+            resultun = uncert_results['results']
+            theta_parameters = uncert_results['theta_parameters']
+            solver_parameters = uncert_results['solver_parameters']
+            scaled_params = uncert_results['scaled_params']
+            obs = uncert_results['obs']
+
 
             # Check discrimination thresholds for solver selection
             p_r_threshold = logic_settings['md_rej_tresh']  # Rejection threshold for solvers
@@ -641,9 +673,20 @@ def main():
                     f"Model discrimination ended after {i + 1} iterations. Model '{winner_solver}' selected as winner based on P value = {highest_p_value}.")
 
             # Save round data with key metrics and results
-            trv = save_rounds(j, ranking, k_optimal_value, rCC_values, J_k_values, resultun, theta_parameters,
-                              'MBDOE_MD des_opt', round_data, models, scaled_params, iden_opt,
-                              solver_parameters, framework_settings, obs, data_storage, system)
+            trv = save_rounds(
+                round=j,
+                result=resultun,
+                theta_parameters=theta_parameters,
+                design_type='MBDOE_MD des_opt',
+                round_data=round_data,
+                models=models,
+                scaled_params=scaled_params,
+                iden_opt=iden_opt,
+                solver_parameters=solver_parameters,
+                obs=obs,
+                data_storage=data,
+                system=system
+            )
 
             # Exit loop early if a winner is identified before max iterations
             if winner_solver_found:
@@ -683,30 +726,21 @@ def main():
             # Assign the winner solver as the only active solver for the PP round
             models['active_solvers'] = [winner_solver]
 
-            # if method in ['L', 'G_P']:
-            #     # Local/Constrained optimization using parallel execution
-            #     with Pool(num_parallel_runs) as pool:
-            #         results_list = pool.starmap(
-            #             run_mbdoe_pp,
-            #             [(des_opt, system, models, core_num,  round) for core_num in range(num_parallel_runs)]
-            #         )
-            #     best_design_decisions, best_pp_obj, best_swps = max(results_list, key=lambda x: x[1])
-            #     design_decisions.update(best_design_decisions)
-            #
-            # elif method == 'GL':
-            #     # Global optimization (single-core execution)
-            #     result = run_mbdoe_pp(des_opt, system, models, 0, round)
-            #     best_design_decisions, best_pp_obj, best_swps = result
-            #     design_decisions.update(best_design_decisions)
-
-            # Unified call using the wrapper
-            best_design_decisions, best_pp_obj, best_swps = mbdoe_pp(
+            # Run the MBDoE-PP procedure and retrieve results
+            result_pp = mbdoe_pp(
                 des_opt=des_opt,
                 system=system,
                 models=models,
                 round=round,
                 num_parallel_runs=num_parallel_runs
             )
+
+            # Extract and store the optimal design
+            best_design_decisions = result_pp['x']
+            best_pp_obj = result_pp['fun']
+            best_swps = result_pp['swps']
+
+            # Update the overall design record
             design_decisions.update(best_design_decisions)
 
             # Data generation and storage

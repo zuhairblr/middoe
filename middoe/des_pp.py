@@ -10,10 +10,131 @@ from pymoo.optimize import minimize as pymoo_minimize
 from multiprocessing import Pool
 import traceback
 
-def mbdoe_pp(des_opt, system, models, round, num_parallel_runs=1):
+from typing import Dict, Any, Union
+
+def mbdoe_pp(
+    des_opt: Dict[str, Any],
+    system: Dict[str, Any],
+    models: Dict[str, Any],
+    round: int,
+    num_parallel_runs: int = 1
+) -> Dict[str, Union[Dict[str, Any], float]]:
     """
-    Run MBDOE-PP with parallel or single-core fallback.
-    Filters out failed processes and uses only successful ones.
+    Execute the Model-Based Design of Experiments for Parameter Precision (MBDoE-PP).
+
+    This function orchestrates one or more optimisation runs (in parallel or single-core)
+    to identify the most informative experimental design for improving parameter precision.
+    It filters failed runs and returns the design that maximises the specified precision criterion.
+
+    Parameters
+    ----------
+    des_opt : dict
+        Dictionary of optimisation settings:
+            - 'criteria' : dict[str, str]
+                Specifies the objective function for precision (e.g., {'MBDOE_PP_criterion': 'D'})
+            - 'iteration_settings' : dict
+                Iteration controls:
+                    * 'maxpp': int — maximum iterations
+                    * 'tolpp': float — convergence threshold
+            - 'eps' : float
+                Perturbation step size for numerical derivatives.
+
+    system : dict
+        Dictionary defining the system model and constraints:
+            - 'tf', 'ti' : float
+                Final and initial time for simulation.
+            - 'tv_iphi', 'ti_iphi' : dict
+                Time-variant and time-invariant input variable definitions.
+            - 'tv_ophi', 'ti_ophi' : dict
+                Time-variant and time-invariant output definitions.
+            - 'tv_iphi_seg' : dict[str, int]
+                Segmentation for control profiles (CVP).
+            - 'tv_iphi_offsett', 'tv_iphi_offsetl' : dict
+                Time/level offsets to enforce switching logic.
+            - 'tv_ophi_matching' : dict[str, bool]
+                Enforces synchronised sampling between outputs.
+            - 'sampling_constraints' : dict
+                Sampling limits, including:
+                    * 'min_interval': float — minimum time between samples
+                    * 'max_samples_per_response': int
+                    * 'total_samples': int
+                    * 'forbidden_times': dict[str, List[float]]
+                    * 'forced_times': dict[str, List[float]]
+                    * 'sync_sampling': bool
+
+    models : dict
+        Model and solver settings:
+            - 'active_solvers' : List[str]
+                Names of solvers to evaluate.
+            - 'theta_parameters' : dict[str, List[float]]
+                Nominal parameter values for each solver.
+            - 'mutation' : dict[str, List[bool]]
+                Boolean masks for which parameters are to be optimised.
+            - 'V_matrix' : dict[str, ndarray]
+                Prior covariance matrices for parameters.
+            - 'ext_models' : dict[str, Callable]
+                Mapping of solver names to simulation functions.
+
+    round : int
+        Current experimental design round. Used for conditional logic/logging.
+
+    num_parallel_runs : int, optional
+        Number of parallel runs to execute. Default is 1 (single-core mode).
+
+    Returns
+    -------
+    results : dict
+        Dictionary containing the best optimisation result:
+            - 'x' : dict[str, Any]
+                Optimal design decisions including sampling times, control levels, etc.
+            - 'fun' : float
+                Objective function value (e.g., log det(FIM)) of the best design.
+            - 'swps' : dict[str, List[float]]
+                Switching times for time-variant control profiles.
+
+    Raises
+    ------
+    RuntimeError
+        Raised when all parallel runs fail, or the single-core run encounters an exception.
+
+    Notes
+    -----
+    MBDoE-PP focuses on reducing the uncertainty in estimated parameters
+    by designing informative experiments. This is achieved by maximising
+    a criterion derived from the Fisher Information Matrix (FIM), such as:
+        - D-optimality (log det(FIM))
+        - A-optimality (trace of FIM⁻¹)
+        - E-optimality (smallest eigenvalue of FIM)
+
+    Constraints supported:
+        - Level bounds for control variables
+        - Minimum sampling intervals
+        - Total number of samples or max per response
+        - Forced or forbidden sampling times
+        - Control switching limits and synchronisation
+        - Synchronized sampling across outputs
+
+    The best design is selected as the one achieving the highest value of the objective
+    among all valid runs.
+
+    References
+    ----------
+    Franceschini, G., & Macchietto, S. (2008).
+    Model-based design of experiments for parameter precision: State of the art.
+    Chemical Engineering Science, 63(19), 4846–4872.
+    https://doi.org/10.1016/j.ces.2008.07.006
+
+    See Also
+    --------
+    _safe_run : Wrapper to safely run optimisation in parallel.
+    _run_single_pp : Direct call for single-core optimisation logic.
+
+    Examples
+    --------
+    >>> result = mbdoe_pp(des_opt, system, models, round=1, num_parallel_runs=4)
+    >>> print("Best objective value:", result['fun'])
+    >>> print("Design variables:", result['x'])
+
     """
 
     if num_parallel_runs > 1:
@@ -25,29 +146,40 @@ def mbdoe_pp(des_opt, system, models, round, num_parallel_runs=1):
 
         successful = [res for res in results_list if res is not None]
         if not successful:
-            raise RuntimeError("All MBDOE-PP optimisation runs failed. Try increasing maxpp or relaxing constraints.")
+            raise RuntimeError(
+                "All MBDOE-PP optimisation runs failed. "
+                "Try increasing 'maxpp', adjusting bounds, or relaxing constraints."
+            )
+
         best_design_decisions, best_pp_obj, best_swps = max(successful, key=lambda x: x[1])
 
     else:
         try:
-            best_design_decisions, best_pp_obj, best_swps = _run_pp(des_opt, system, models, 0, round)
+            best_design_decisions, best_pp_obj, best_swps = _run_single_pp(
+                des_opt, system, models, core_id=0, round=round
+            )
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
 
-    return best_design_decisions, best_pp_obj, best_swps
+    return {
+        'x': best_design_decisions,
+        'fun': best_pp_obj,
+        'swps': best_swps
+    }
+
 
 
 def _safe_run(args):
     des_opt, system, models, core_num, round = args
     try:
-        return _run_pp(des_opt, system, models, core_num, round)
+        return _run_single_pp(des_opt, system, models, core_num, round)
     except Exception as e:
         print(f"[Core {core_num}] FAILED: {e}")
         traceback.print_exc()
         return None
 
 
-def _run_pp(des_opt, system, models, core_number, round):
+def _run_single_pp(des_opt, system, models, core_number, round):
     """
     Perform Model-Based Design of Experiments for Parameter Precision (MBDOE-PP).
 
@@ -206,18 +338,25 @@ def _run_pp(des_opt, system, models, core_number, round):
     else:
         raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
-    phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _runner(
-        x_final,
-        tv_iphi_vars, tv_iphi_max,
-        ti_iphi_vars, ti_iphi_max,
-        tv_ophi_vars, ti_ophi_vars,
-        active_solvers, theta_parameters,
-        tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling, ti,
-        tf, eps, mutation, V_matrix, design_criteria,
-        index_dict,
-        system,
-        models
-    )
+    try:
+        phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _pp_runner(
+            x_final,
+            tv_iphi_vars, tv_iphi_max,
+            ti_iphi_vars, ti_iphi_max,
+            tv_ophi_vars, ti_ophi_vars,
+            active_solvers, theta_parameters,
+            tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
+            tf, eps, mutation, V_matrix, design_criteria,
+            index_dict,
+            system,
+            models
+        )
+    except ValueError as e:
+        if "MBDoE optimiser kernel was unsuccessful" in str(e):
+            print(f"[INFO] Kernel infeasibility in core {core_number}, round {round}. Skipping.")
+            return None
+        else:
+            raise  # propagate other ValueErrors if unrelated
 
     # --------------------------- REPORT & SAVE --------------------------- #
 
@@ -343,7 +482,7 @@ def _optimiser(
     total_constraints = len(constraint_index_list)
 
     local_obj = partial(
-        _pp_objective_function,
+        _pp_of,
         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
@@ -398,7 +537,7 @@ def _optimiser(
     return res_de, index_dict
 
 
-def _pp_objective_function(
+def _pp_of(
     x,
     tv_iphi_vars, tv_iphi_max,
     ti_iphi_vars, ti_iphi_max,
@@ -415,7 +554,7 @@ def _pp_objective_function(
     => so return -pp_obj from _runnerpp (unless it's a min-type objective).
     """
     try:
-        _, _, _, pp_obj, _, _, _, _ = _runner(
+        _, _, _, pp_obj, _, _, _, _ = _pp_runner(
             x,
             tv_iphi_vars, tv_iphi_max,
             ti_iphi_vars, ti_iphi_max,
@@ -434,7 +573,7 @@ def _pp_objective_function(
         print(f"Exception in pp_objective_function: {e}")
         return 1e6
 
-def _runner(
+def _pp_runner(
     x,
     tv_iphi_vars,
     tv_iphi_max,

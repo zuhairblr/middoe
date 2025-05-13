@@ -1,10 +1,8 @@
-import copy
 import pickle
 import os
 import pandas as pd
 from scipy import stats
 from middoe.iden_utils import Plotting_Results
-from middoe.des_md import MD
 import importlib
 from pathlib import Path
 
@@ -18,26 +16,7 @@ def fun_globalizer(func_name):
     kernel_simulator = importlib.import_module('idenpy.kernel_simulator')
     setattr(kernel_simulator, func_name, lambda *args, **kwargs: globals()[func_name](*args, **kwargs))
 
-def run_mbdoe_md(design_settings, model_structure, modelling_settings, core_num, framework_settings, round):
-    """
-    Run the MBDOE_MD (Model Based Design of Experiments for Model Discrimination).
 
-    Parameters:
-    des_opt (dict): User provided - Design settings for the MBDOE.
-    system (dict): User provided - The model structure information.
-    models (dict): User provided - The settings for the modelling process.
-    core_num (int): Number of cores to use.
-    framework_settings (dict): User provided - Framework settings.
-    round (int): The current round of the design - conduction and identification procedure.
-
-    Returns:
-    tuple: Design decisions, model discrimination objective function value, and switching points.
-    """
-    design_settings_copy = copy.deepcopy(design_settings)
-    model_structure_copy = copy.deepcopy(model_structure)
-    modelling_settings_copy = copy.deepcopy(modelling_settings)
-    design_decisions, sum_squared_differences, swps = MD(design_settings_copy, model_structure_copy, modelling_settings_copy, core_num, framework_settings, round)
-    return design_decisions, sum_squared_differences, swps
 
 def read_excel(data_type):
     """
@@ -175,24 +154,37 @@ def save_to_jac(results, purpose):
     except Exception as e:
         print(f"[ERROR] Failed to save results: {e}")
 
-def load_from_jac(filename):
+def load_from_jac():
     """
-    Load results (produced from round data saved or screening-sensitivity analysis) from a .jac file.
-
-    Parameters:
-    filename (str): Path to the .jac file.
+    Attempt to load 'round_data.jac' and 'sensa_results.jac' if available in the current directory.
 
     Returns:
-    dict or None: Loaded results, or None if the file does not exist.
+    dict: Dictionary with keys 'iden' and 'sensa'. Each maps to the loaded object or None.
+          Returns None if neither file is found.
     """
-    # Check if the file exists before attempting to open it
-    if os.path.exists(filename):
-        with open(filename, 'rb') as file:
-            results = pickle.load(file)
-        return results
-    else:
-        print(f"File not found: {filename}")
-        return None
+    filenames = {
+        'iden': 'iden_results.jac',
+        'sensa': 'sensa_results.jac'
+    }
+
+    loaded_data = {}
+    found_any = False
+
+    for key, fname in filenames.items():
+        if os.path.exists(fname):
+            try:
+                with open(fname, 'rb') as f:
+                    loaded_data[key] = pickle.load(f)
+                found_any = True
+                print(f"Loaded: {fname}")
+            except Exception as e:
+                print(f"Error loading {fname}: {e}")
+                loaded_data[key] = None
+        else:
+            print(f"File not found: {fname}")
+            loaded_data[key] = None
+
+    return loaded_data if found_any else None
 
 def data_appender(df_combined, experiment_number, data_storage):
     """
@@ -239,3 +231,41 @@ def add_norm_par(modelling_settings):
         raise KeyError("The dictionary must contain 'theta_parameters' as a key.")
 
     return modelling_settings
+
+
+def save_sobol_results_to_excel(sensa):
+    """
+    Saves Sobol analysis results to 'sobol_results.xlsx' in the current working directory.
+
+    Parameters:
+    - sensa: Dictionary containing Sobol analysis results (must have a top-level 'analysis' key).
+    """
+    if not sensa or not isinstance(sensa, dict) or 'analysis' not in sensa:
+        print("Error: Sobol results are not available. No file will be created.")
+        return
+
+    file_path = os.path.join(os.getcwd(), "sobol_results.xlsx")
+    sobol_analysis = sensa['analysis']
+
+    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+        for model_name, model_data in sobol_analysis.items():
+            data = {'x_axis_steps': []}
+
+            # Determine if step data is a list or dict
+            steps = model_data.get(model_name)
+            if isinstance(steps, list):
+                for step_index, step_data in enumerate(steps):
+                    data['x_axis_steps'].append(step_index)
+                    for i, st_val in enumerate(step_data.get('ST', [])):
+                        col = f"Parameter_{i + 1}"
+                        data.setdefault(col, []).append(st_val)
+            elif isinstance(steps, dict):
+                for step, step_data in steps.items():
+                    data['x_axis_steps'].append(step)
+                    for i, st_val in enumerate(step_data.get('ST', [])):
+                        col = f"Parameter_{i + 1}"
+                        data.setdefault(col, []).append(st_val)
+
+            pd.DataFrame(data).to_excel(writer, sheet_name=model_name, index=False)
+
+    print(f"Sobol analysis results have been saved to: {file_path}")
