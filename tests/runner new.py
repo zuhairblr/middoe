@@ -416,67 +416,40 @@ def main():
         'parallel_sessions': 10 # number of parallel sessions to be used in the workflow
     }
 
-    framework_settings = { # Framework settings for saving the results
-        'path': 'C:\\datasim', # path to save the results
-        'case': 15 # case number as the name of subfolder to be created and getting used for restoring
-    }
-
     def run_framework(logic_settings, system, des_opt, models,
                       insilicos, iden_opt, gsa):
         """
         Run the entire framework for in-silico experiments, including initial rounds, MD rounds, and PP rounds.
-
-        Parameters:
-        framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
-        logic_settings (dict): User provided - Logic settings for the MBDOE process, including thresholds and maximum runs.
-        system (dict): User provided - Structure of the models, including variables and their properties.
-        des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
-        models (dict): User provided - Settings related to the modelling process, including theta parameters.
-        insilicos (dict): User provided - Settings for the simulator, including standard deviation and models name.
-        iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
-        gsa (dict): User provided - Settings for the Global Sensitivity Analysis (gsa), including whether to perform sensitivity analysis.
-
-        Returns:
-        None
         """
-        start_time = time.time()  # Track the starting time for measuring total runtime
-        data_storage = {}  # Storage for collected data in different rounds
-        round_data = {}  # Tracks results of identification per round of estimation
-        design_decisions = {}  # Tracks experimental des_opt decisions
-        winner_solver = None  # Tracks the solver with the highest discrimination performance
-        winner_solver_found = False  # Tracks if a winning solver is identified
+        start_time = time.time()
+        round_data = {}
+        design_decisions = {}
+        winner_solver = None
+        winner_solver_found = False
 
-        # Check if only one active solver exists; if true, no MD analysis needed
         if len(models['active_solvers']) == 1:
             winner_solver_found = True
             winner_solver = models['active_solvers'][0]
             print("There are no rival models for:", winner_solver)
 
-        # Perform Sobol Sensitivity Analysis if enabled in gsa settings
         if gsa['perform_sensitivity']:
             sobol_results = sensa(gsa, models, system)
             save_to_jac(sobol_results, purpose="sensa")
 
+        run_initial_round(system, models, insilicos, iden_opt, round_data, design_decisions)
 
-        # Run the initial round of experiments (Classic Design)
-        data_storage = run_initial_round(system, models, insilicos,
-                                         iden_opt, round_data, design_decisions, data_storage)
-
-        # If no winner identified, proceed with Model Discrimination rounds
         if not winner_solver_found:
-            winner_solver_found, winner_solver = run_md_rounds(system, models,
-                                                               insilicos, iden_opt, logic_settings,
-                                                               des_opt, logic_settings['parallel_sessions'],
-                                                               round_data, design_decisions, data_storage)
+            winner_solver_found, winner_solver = run_md_rounds(system, models, insilicos, iden_opt,
+                                                               logic_settings, des_opt,
+                                                               logic_settings['parallel_sessions'],
+                                                               round_data, design_decisions)
 
-        terminate_loop = False  # Tracks if the framework's termination condition is met
+        terminate_loop = False
 
-        # Proceed with Parameter Precision rounds if a winner is identified
         if winner_solver_found:
-            terminate_loop = run_pp_rounds(system, models, insilicos,
-                                           iden_opt, logic_settings, des_opt,
-                                           logic_settings['parallel_sessions'], winner_solver, round_data,
-                                           design_decisions, data_storage)
+            terminate_loop = run_pp_rounds(system, models, insilicos, iden_opt, logic_settings,
+                                           des_opt, logic_settings['parallel_sessions'],
+                                           winner_solver, round_data, design_decisions)
 
             if terminate_loop:
                 print("Loop terminated successfully.")
@@ -490,307 +463,128 @@ def main():
         # R2_prd, R2_val, parameters = validation(data_storage, system, models, iden_opt,
         #                                         Simula, round_data, framework_settings)
 
-        # --- Calculate and display total runtime
         end_time = time.time()
-        runtime = end_time - start_time
-        print(f"[INFO] Runtime of framework: {runtime:.2f} seconds")
+        print(f"[INFO] Runtime of framework: {end_time - start_time:.2f} seconds")
 
-        # --- Save results
         save_to_jac(round_data, purpose="iden")
 
-
-    def run_initial_round(system, models, insilicos,
-                          iden_opt, round_data, design_decisions, data_storage):
-        """
-        Run the initial round of in-silico experiments, joint with identification steps.
-
-        Parameters:
-        framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
-        system (dict): User provided - Structure of the models, including variables and their properties.
-        models (dict): User provided - Settings related to the modelling process, including theta parameters.
-        insilicos (dict): User provided - Settings for the simulator, including standard deviation and models name.
-        iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
-        round_data (dict): collection of saved data from each round of the experiment.
-        design_decisions (dict): Design decisions for the experiment, to be performed, insilico or in bench.
-        data_storage (dict): Storage for the experimental data observations
-
-        Returns:
-        None
-        """
-        # Loop through classic des_opt experiments defined in `insilicos`
+    def run_initial_round(system, models, insilicos, iden_opt, round_data, design_decisions):
+        """Run the initial round of in-silico experiments with parameter estimation and uncertainty analysis."""
         for i in range(len(insilicos['classic-des'])):
-            j = i + 1  # Round counter (starting from 1)
-            expr = i + 1  # Experiment ID
-
-            # Generate experimental data (insilico or from input profiles)
-            df_combined = expera(system, models,insilicos, design_decisions, expr)
-
-            # Write generated data to Excel and read it back for further processing
+            j = i + 1
+            expr = i + 1
+            expera(system, models, insilicos, design_decisions, expr)
             data = read_excel('indata')
-
-            # # Append data to the main storage for future analysis
-            # data_storage = data_appender(df_combined, expr, data)
-
-            # Perform parameter estimation using the available data
-            resultpr = parmest(system,models,iden_opt,data)
-
-            # Perform uncertainty analysis to compute confidence intervals, etc.
-            uncert_results = uncert(data, resultpr, system, models, iden_opt)
-
-            # Decompose as needed
-            resultun = uncert_results['results']
-            theta_parameters = uncert_results['theta_parameters']
-            solver_parameters = uncert_results['solver_parameters']
-            scaled_params = uncert_results['scaled_params']
-            obs = uncert_results['obs']
-
-            # ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun,system,models,iden_opt,j,data)
-            # Save results for this round, including estimates, uncertainties, and observations
-            trv = save_rounds(
-                round=j,
-                result=resultun,
-                theta_parameters=theta_parameters,
-                design_type='classic des_opt',
-                round_data=round_data,
-                models=models,
-                scaled_params=scaled_params,
-                iden_opt=iden_opt,
-                solver_parameters=solver_parameters,
-                obs=obs,
-                data_storage=data,
-                system=system,
-                # ranking=ranking,
-                # k_optimal_value=k_optimal_value,
-                # rCC_values=rCC_values,
-                # J_k_values=J_k_values
-            )
-
-        # Return the collected data for subsequent rounds
-        return data_storage
-
-    def run_md_rounds(system, models, insilicos, iden_opt,
-                      logic_settings, des_opt, num_parallel_runs,
-                      round_data, design_decisions, data_storage):
-        """
-        Run multiple rounds of Model-Based Design of Experiments (MBDOE) using the MD approach.
-
-        Parameters:
-        - framework_settings: Settings for framework paths and configurations.
-        - system: Defines the models's structure, variables, and configurations.
-        - models: Includes settings for theta parameters and active solvers.
-        - insilicos: Defines simulation settings for generating data.
-        - iden_opt: Settings for parameter estimation, solvers, and confidence checks.
-        - logic_settings: Control settings for MD and PP runs, maximum iteration limits, etc.
-        - des_opt: Design-specific settings for MD/PP methods and constraints.
-        - num_parallel_runs: Number of parallel processes for computational efficiency.
-        - round_data: Stores results for each experimental round.
-        - design_decisions: Tracks des_opt decisions for experiments.
-        - data_storage: Stores collected or generated experimental data.
-
-        Returns:
-        tuple: (winner_solver_found, winner_solver) - Boolean for success and name of winning solver.
-        """
-        winner_solver_found = False  # Flag to track if a winner models is found
-        winner_solver = None  # Placeholder for the identified winning solver
-        start_round = len(round_data) + 1  # Start counting from the next available round
-
-        # Iterate through MD rounds (maximum defined by logic_settings)
-        for i in range(logic_settings['max_MD_runs']):
-            j = start_round + i  # Current round index
-
-            # Run the MBDoE-MD procedure and retrieve results
-            result_md = mbdoe_md(
-                des_opt=des_opt,
-                system=system,
-                models=models,
-                round=j,
-                num_parallel_runs=num_parallel_runs
-            )
-
-            # Extract and store the optimal design
-            best_design_decisions = result_md['x']
-            best_md_obj = result_md['fun']
-            best_swps = result_md['swps']
-
-            # Update the overall design record
-            design_decisions.update(best_design_decisions)
-
-            #
-            #
-            # # Check optimization method for MBDoE-MD and apply appropriate logic
-            # if des_opt['optimization_methods']['mdopt_method'] == 'Local':
-            #     # Parallel execution using multiprocessing for speed improvement
-            #     with Pool(num_parallel_runs) as pool:
-            #         results_list = pool.starmap(run_mbdoe_md,
-            #                                     [(des_opt, system, models, core_num,
-            #                                       framework_settings, j) for core_num in range(num_parallel_runs)])
-            #     best_design_decisions, best_sum_squared_differences, best_swps = max(results_list, key=lambda x: x[1])
-            #     design_decisions.update(best_design_decisions)  # Update des_opt decisions with the best found
-            # elif des_opt['optimization_methods']['mdopt_method'] == 'Global':
-            #     core_num = 1
-            #     results_list = run_mbdoe_md(des_opt, system, models, core_num,
-            #                                 framework_settings, j)
-            #     best_design_decisions, best_sum_squared_differences, best_swps = results_list
-            #     design_decisions.update(best_design_decisions)
-
-
-
-            # Generate experiment data using updated des_opt decisions
-            expr = j
-            df_combined = expera(system, models, insilicos, design_decisions, expr, swps=best_swps)
-
-            data = read_excel('indata')  # Load data from the file
-
-            # Parameter Estimation and Uncertainty Analysis
             resultpr = parmest(system, models, iden_opt, data)
-
             uncert_results = uncert(data, resultpr, system, models, iden_opt)
+
             resultun = uncert_results['results']
             theta_parameters = uncert_results['theta_parameters']
             solver_parameters = uncert_results['solver_parameters']
             scaled_params = uncert_results['scaled_params']
             obs = uncert_results['obs']
 
+            # ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun, system, models, iden_opt, j, data)
 
-            # Check discrimination thresholds for solver selection
-            p_r_threshold = logic_settings['md_rej_tresh']  # Rejection threshold for solvers
-            p_a_threshold = logic_settings['md_conf_tresh']  # Acceptance threshold for solvers
+            save_rounds(j, resultun, theta_parameters, 'preliminary', round_data,
+                        models, scaled_params, iden_opt, solver_parameters, obs, data, system
+                        # , ranking=ranking,
+                        # k_optimal_value=k_optimal_value,
+                        # rCC_values=rCC_values,
+                        # J_k_values=J_k_values
+                        )
+
+    def run_md_rounds(system, models, insilicos, iden_opt, logic_settings, des_opt,
+                      num_parallel_runs, round_data, design_decisions):
+        """Run Model Discrimination (MD) rounds using MBDoE-MD."""
+        winner_solver_found = False
+        winner_solver = None
+        start_round = len(round_data) + 1
+
+        for i in range(logic_settings['max_MD_runs']):
+            j = start_round + i
+            designs = mbdoe_md(des_opt, system, models, j, num_parallel_runs)
+            design_decisions.update(designs)
+
+            expera(system, models, insilicos, design_decisions, j, swps=design_decisions['swps'])
+            data = read_excel('indata')
+            resultpr = parmest(system, models, iden_opt, data)
+            uncert_results = uncert(data, resultpr, system, models, iden_opt)
+
+            resultun = uncert_results['results']
+            theta_parameters = uncert_results['theta_parameters']
+            solver_parameters = uncert_results['solver_parameters']
+            scaled_params = uncert_results['scaled_params']
+            obs = uncert_results['obs']
+
+            p_r_thresh = logic_settings['md_rej_tresh']
+            p_a_thresh = logic_settings['md_conf_tresh']
+
+            to_remove = []
             for solver, solver_results in resultun.items():
-                if solver_results['P'] < p_r_threshold:  # Remove rejected solvers
-                    models['active_solvers'].remove(solver)
-                if solver_results['P'] > p_a_threshold:  # Identify accepted solver (winning models)
+                if solver_results['P'] < p_r_thresh:
+                    to_remove.append(solver)
+                if solver_results['P'] > p_a_thresh:
                     winner_solver = solver
                     winner_solver_found = True
                     break
 
-            # If this is the final iteration, pick the highest P-value models as the winner
-            if i == logic_settings['max_MD_runs'] - 1:
+            for solver in to_remove:
+                models['active_solvers'].remove(solver)
+
+            if i == logic_settings['max_MD_runs'] - 1 and not winner_solver_found:
                 highest_p_solver = max(resultun.items(), key=lambda x: x[1]['P'])[0]
-                highest_p_value = resultun[highest_p_solver]['P']
-                winner_solver_found = True
                 winner_solver = highest_p_solver
-                print(
-                    f"Model discrimination ended after {i + 1} iterations. Model '{winner_solver}' selected as winner based on P value = {highest_p_value}.")
+                winner_solver_found = True
+                print(f"Model discrimination ended. Winner: {winner_solver}, P = {resultun[winner_solver]['P']}")
 
-            # Save round data with key metrics and results
-            trv = save_rounds(
-                round=j,
-                result=resultun,
-                theta_parameters=theta_parameters,
-                design_type='MBDOE_MD des_opt',
-                round_data=round_data,
-                models=models,
-                scaled_params=scaled_params,
-                iden_opt=iden_opt,
-                solver_parameters=solver_parameters,
-                obs=obs,
-                data_storage=data,
-                system=system
-            )
+            save_rounds(j, resultun, theta_parameters, 'MBDOE_MD', round_data,
+                        models, scaled_params, iden_opt, solver_parameters, obs, data, system)
 
-            # Exit loop early if a winner is identified before max iterations
             if winner_solver_found:
                 break
 
         return winner_solver_found, winner_solver
 
-    def run_pp_rounds(system, models, insilicos, iden_opt,
-                      logic_settings, des_opt, num_parallel_runs,
-                      winner_solver, round_data, design_decisions, data_storage):
-        """
-        Run multiple rounds of Model-Based Design of Experiments (MBDOE) using the PP approach.
+    def run_pp_rounds(system, models, insilicos, iden_opt, logic_settings,
+                      des_opt, num_parallel_runs, winner_solver, round_data,
+                      design_decisions):
+        """Run Parameter Precision (PP) rounds using MBDoE-PP."""
+        terminate_loop = False
+        start_round = len(round_data) + 1
 
-        Parameters:
-        system (dict): User provided - Structure of the models, including variables and their properties.
-        models (dict): User provided - Settings related to the modelling process, including theta parameters.
-        insilicos (dict): User provided - Settings for the simulator, including standard deviation and models name.
-        iden_opt (dict): User provided - Settings for the estimation process, including active solvers and plotting options.
-        logic_settings (dict): User provided - Logic settings for the identification process, including thresholds and maximum runs.
-        des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
-        num_parallel_runs (int): Number of parallel runs to execute MBDOE-PP.
-        winner_solver (str): The name of the winning solver from the MD rounds.
-        round_data (dict): Collection of saved data from each round of the experiment.
-        design_decisions (dict): Design decisions for the experiment, to be performed in-silico or in-bench.
-        data_storage (dict): Storage for the experimental data observations.
-
-        Returns:
-        bool: Indicates if the loop was terminated based on the confidence threshold.
-        """
-        terminate_loop = False  # Flag to stop iterations if termination conditions are met
-        start_round = len(round_data) + 1  # Start round number for PP experiments
-
-        for i in range(logic_settings['max_PP_runs']):  # Iterate over maximum PP runs
-            j = start_round + i  # Round number tracking
-            round = j  # Alias for the round number
-
-            # Assign the winner solver as the only active solver for the PP round
+        for i in range(logic_settings['max_PP_runs']):
+            j = start_round + i
+            round = j
             models['active_solvers'] = [winner_solver]
 
-            # Run the MBDoE-PP procedure and retrieve results
-            result_pp = mbdoe_pp(
-                des_opt=des_opt,
-                system=system,
-                models=models,
-                round=round,
-                num_parallel_runs=num_parallel_runs
-            )
+            designs = mbdoe_pp(des_opt, system, models, round, num_parallel_runs)
+            design_decisions.update(designs)
 
-            # Extract and store the optimal design
-            best_design_decisions = result_pp['x']
-            best_pp_obj = result_pp['fun']
-            best_swps = result_pp['swps']
-
-            # Update the overall design record
-            design_decisions.update(best_design_decisions)
-
-            # Data generation and storage
-            expr = j  # Experiment ID
-            df_combined = expera(system, models, insilicos, design_decisions, expr, swps=best_swps)
-
-            data = read_excel('indata')  # Load data from the file
-            # data_storage = data_appender(df_combined, expr, data_storage)  # Append data to storage
-
-            # Parameter Estimation and Uncertainty Analysis
-            resultpr = parmest(system,models,iden_opt,data)
-
-            # Perform uncertainty analysis to compute confidence intervals, etc.
+            expera(system, models, insilicos, design_decisions, j, swps=design_decisions['swps'])
+            data = read_excel('indata')
+            resultpr = parmest(system, models, iden_opt, data)
             uncert_results = uncert(data, resultpr, system, models, iden_opt)
 
-            # Decompose as needed
             resultun = uncert_results['results']
             theta_parameters = uncert_results['theta_parameters']
             solver_parameters = uncert_results['solver_parameters']
             scaled_params = uncert_results['scaled_params']
             obs = uncert_results['obs']
 
-            # Save results for further analysis
+            trv = save_rounds(j, resultun, theta_parameters, 'MBDOE_PP', round_data,
+                              models, scaled_params, iden_opt, solver_parameters,
+                              obs, data, system)
 
-            trv = save_rounds(
-                round=j,
-                result=resultun,
-                theta_parameters=theta_parameters,
-                design_type='MBDOE_PP des_opt',
-                round_data=round_data,
-                models=models,
-                scaled_params=scaled_params,
-                iden_opt=iden_opt,
-                solver_parameters=solver_parameters,
-                obs=obs,
-                data_storage=data,
-                system=system,
-            )
-
-            # Check termination condition: all t-values must exceed threshold in resultun
             for solver, solver_results in resultun.items():
                 if all(t_value > trv[solver] for t_value in solver_results['t_values']):
-                    terminate_loop = True  # Set termination flag if condition met
+                    terminate_loop = True
                     break
 
-            if terminate_loop:  # Exit the loop if termination conditions are met
+            if terminate_loop:
                 break
 
         return terminate_loop
-
 
     run_framework(logic_settings, system, des_opt, models,
                   insilicos, iden_opt, gsa)

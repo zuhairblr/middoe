@@ -180,7 +180,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
 
-    return df_combined
+    # return df_combined
 
 
 def _construct_var(system, classic_des, j):

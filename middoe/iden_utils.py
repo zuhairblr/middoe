@@ -1149,17 +1149,17 @@ class Plotting_FinalResults:
             label_ = f'Round {round_num}'
             if label_ in roundc:
                 d_type = roundc[label_].get('design_type', '')
-                if d_type == 'classic design':
+                if d_type == 'preliminary':
                     ax1.axvspan(round_num - 0.5, round_num + 0.5, color='green', alpha=0.3)
-                elif d_type == 'MBDOE_MD design':
+                elif d_type == 'MBDOE_MD':
                     ax1.axvspan(round_num - 0.5, round_num + 0.5, color='red', alpha=0.3)
-                elif d_type == 'MBDOE_PP design':
+                elif d_type == 'MBDOE_PP':
                     ax1.axvspan(round_num - 0.5, round_num + 0.5, color='blue', alpha=0.3)
 
         # Legend patches
-        classic_patch = Patch(color='green', alpha=0.3, label='Classic design')
-        md_patch = Patch(color='red', alpha=0.3, label='MBDOE_MD design')
-        pp_patch = Patch(color='blue', alpha=0.3, label='MBDOE_PP design')
+        classic_patch = Patch(color='green', alpha=0.3, label='preliminary')
+        md_patch = Patch(color='red', alpha=0.3, label='MBDOE_MD')
+        pp_patch = Patch(color='blue', alpha=0.3, label='MBDOE_PP')
         ax1.legend(handles=[classic_patch, md_patch, pp_patch], loc='best')
 
         # Subplot 2: T values vs. TRV
@@ -1812,54 +1812,74 @@ def validation_params(parameters, ref_params, full_path):
         plt.show()
 
 
-def run_postprocessing(round_data, solvers, selected_rounds):
+def run_postprocessing(round_data, solvers, selected_rounds,
+                       plot_global_p_and_t=True,
+                       plot_confidence_spaces=True,
+                       plot_p_and_t_tests=True,
+                       export_excel_reports=True,
+                       plot_estimability=True):
     """
-    Run full post-processing analysis for multiple solvers and selected rounds.
+    Run post-processing analysis for specified solvers and rounds with plot/excel export options.
 
     Parameters
     ----------
     round_data : dict
-        Dictionary containing all round data (e.g., loaded from .jac).
+        Data containing results from parameter estimation rounds.
     solvers : list of str
-        List of solver/model names to process (e.g., ['f20', 'f21']).
+        Solvers to include in the post-analysis (e.g. ['f20', 'f21']).
     selected_rounds : list of int
-        List of round numbers to include in the analysis (e.g., [1, 2, 3]).
+        Rounds to include in the plots (e.g. [1, 2, 3]).
+    plot_global_p_and_t : bool
+        If True, generates global P and t comparison plots across all models and rounds.
+    plot_confidence_spaces : bool
+        If True, generates confidence space, ellipsoid volume, std dev, and parameter estimate plots.
+    plot_p_and_t_tests : bool
+        If True, generates P-value and t-value evolution plots over rounds per solver.
+    export_excel_reports : bool
+        If True, generates Excel files with experimental, simulation, and input data + summary.
+    plot_estimability : bool
+        If True, generates rCC vs k estimability plots per solver.
     """
     import os
 
     postprocessing_dir = os.path.join(os.getcwd(), "post_processing")
     os.makedirs(postprocessing_dir, exist_ok=True)
 
-    # Overall model comparison plots
-    pcomp_plot_instance = Plotting_FinalResults(round_data, None, [])
-    pcomp_plot_instance.pcomp_plot(postprocessing_dir)
-    pcomp_plot_instance.tcomp_plot(postprocessing_dir)
+    if plot_global_p_and_t:
+        overall_plotter = Plotting_FinalResults(round_data, None, [])
+        overall_plotter.pcomp_plot(postprocessing_dir)
+        overall_plotter.tcomp_plot(postprocessing_dir)
 
     for solver_name in solvers:
-        print(f"Processing solver: {solver_name}")
-        plotting = Plotting_FinalResults(round_data, solver_name, selected_rounds)
+        print(f"Post-processing solver: {solver_name}")
+        plotter = Plotting_FinalResults(round_data, solver_name, selected_rounds)
 
-        plotting.conf_plot(
-            filename=os.path.join(postprocessing_dir, f"{solver_name}_confint.png"),
-            ellipsoid_volume_filename=os.path.join(postprocessing_dir, f"{solver_name}_ellipsoid_volume.png"),
-            std_devs_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_std_devs.png"),
-            parameter_estimates_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_estimates.png"),
-        )
+        if plot_confidence_spaces:
+            plotter.conf_plot(
+                filename=os.path.join(postprocessing_dir, f"{solver_name}_confidence_space.png"),
+                ellipsoid_volume_filename=os.path.join(postprocessing_dir, f"{solver_name}_ellipsoid_volume.png"),
+                std_devs_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_std_devs.png"),
+                parameter_estimates_filename=os.path.join(postprocessing_dir, f"{solver_name}_parameter_estimates.png"),
+            )
 
-        plotting.pt_plot(
-            filename=os.path.join(postprocessing_dir, f"{solver_name}_tval.png"),
-            roundc=round_data
-        )
+        if plot_p_and_t_tests:
+            plotter.pt_plot(
+                filename=os.path.join(postprocessing_dir, f"{solver_name}_pt_tests.png"),
+                roundc=round_data
+            )
 
-        plotting.reporter(
-            filename=os.path.join(postprocessing_dir, f"{solver_name}_fit_plot")
-        )
+        if export_excel_reports:
+            plotter.reporter(
+                filename=os.path.join(postprocessing_dir, f"{solver_name}_report")
+            )
 
-        Plot_estimability(
-            round_data=round_data,
-            path=postprocessing_dir,
-            solver=solver_name
-        )
+        if plot_estimability:
+            Plot_estimability(
+                round_data=round_data,
+                path=postprocessing_dir,
+                solver=solver_name
+            )
 
     print(f"Post-processing completed for: {', '.join(solvers)}")
+
 

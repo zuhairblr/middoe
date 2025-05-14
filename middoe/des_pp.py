@@ -161,11 +161,7 @@ def mbdoe_pp(
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
 
-    return {
-        'x': best_design_decisions,
-        'fun': best_pp_obj,
-        'swps': best_swps
-    }
+    return best_design_decisions
 
 
 
