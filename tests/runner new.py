@@ -309,8 +309,8 @@ def main():
         # type of the model interface, 'pym' for middoe.krnl_models, 'gpr' for gPAS models, function name for globally defined functions, 'pys' for python standalone scripts
         'creds': {'f20': '@@TTmnoa698', 'f21': '@@TTmnoa698'},
         # credentials for gPAS models, if not needed, leave empty
-        'src': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py',
-                'f21': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py'},
+        'src': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model_semiconwet.py',
+                'f21': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model_semiconwet.py'},
         # for now for gPAS readable files, or python standalone scripts
         # 'ext_m': {'f17': f17}, # External functions (models) to be used in the experiment from global space
         # 'sim': {'f20': 'sci_file', 'f21':'sci_file'}, # select the simulator of each models (models should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
@@ -400,7 +400,7 @@ def main():
 
 
     iden_opt = { # Settings for the parameter estimation process
-        'meth': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
+        'meth': 'G',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
         'init': 'rand',   # use 'rand' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
         'eps': 1e-2,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         #usually 1e-3, or None to perform a mesh independency test, and auto adjustment
