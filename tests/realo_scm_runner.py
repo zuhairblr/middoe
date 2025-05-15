@@ -68,7 +68,7 @@ def main():
 
     modelling_settings = {
         'ext_func': {},
-        'active_solvers': ['f08','f09','f11','f12','f13','f14','f15','f16'],
+        'active_models': ['f08','f09','f11','f12','f13','f14','f15','f16'],
         'theta_parameters': {
             'f08': theta08,
             'f09': theta09,
@@ -168,9 +168,9 @@ def main():
         # winner_solver = None
         # winner_solver_found = False
 
-        if len(modelling_settings['active_solvers']) == 1:
+        if len(modelling_settings['active_models']) == 1:
             # winner_solver_found = True
-            winner_solver = modelling_settings['active_solvers'][0]
+            winner_solver = modelling_settings['active_models'][0]
             print("There are no rival models for:", winner_solver)
 
         if GSA_settings['perform_sensitivity']:
@@ -191,7 +191,7 @@ def main():
         #     if terminate_loop:
         #         print("Loop terminated successfully.")
         # else:
-        #     print("No winner solver found, exiting without termination loop.")
+        #     print("No winner model found, exiting without termination loop.")
         #
         # print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')

@@ -10,7 +10,7 @@ from middoe.sc_sensa import sensa
 from middoe.iden_parmest import parmest
 from middoe.iden_uncert import uncert
 from middoe.sc_estima import estima
-from middoe.krnl_simula import simula
+
 from middoe.iden_valida import validation
 from middoe.des_pp import mbdoe_pp
 from middoe.des_md import mbdoe_md
@@ -231,47 +231,47 @@ def main():
     system = {
         'tvi': {  # Time-variant input variables (models input: tvi), each key is a symbol nad key in tvi as well
             'T': {  # Temperature (K)
-                'swp': 3,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
+                'stps': 3,  # Number of switching times in CVPs (vector parametrisation resolution in time dimension):
                 # Must be a positive integer > 1. swps-1 is the number of steps
-                'constraints': 'dec',  # Constraint type: relative state of signal levels in CVPs
+                'const': 'dec',  # Constraint type: relative state of signal levels in CVPs
                 # 'rel' (relative) ensures relaxation, 'dec' (decreasing) ensures decreasing signal levels, 'inc' (increasing) ensures increasing signal levels
                 'max': 358.15,  # Maximum allowable signal level, des_opt space upper bound
                 'min': 298.15,  # Minimum allowable signal level, des_opt space lower bound
                 'cvp': 'LPF',  # Design CVP method (CPF - constant profile, LPF - linear profile)
-                'offsetl': 5,  # minimum allowed perturbation of signal (ratio)
-                'offsett': 300  # minimum allowed perturbation of time (ratio)
+                'offl': 5,  # minimum allowed perturbation of signal (ratio)
+                'offt': 300  # minimum allowed perturbation of time (ratio)
             },
             'P': {  # Pressure (bar)
-                'swp': 3,
-                'constraints': 'rel',
+                'stps': 3,
+                'const': 'rel',
                 'max': 0.18,
                 'min': 0.05,
                 'cvp': 'CPF',
-                'offsetl': 0.1,
-                'offsett': 300
+                'offl': 0.1,
+                'offt': 300
             }
         },
         'tvo': {  # Time-variant output variables (responses, measured or unmeasured)
             'y1': {  # response variable, here carbonation efficiency
-                'initials': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
-                'measured': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
+                'init': 0.001,  # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
+                'meas': True,  # Flag indicating if this variable is directly measurable, if False, it is a virtual output
                 'sp': 5,  # the amound of samples per each round (run)
                 'unc': 0.02,  # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
-                'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
-                'sampling': 1,  # Matching criterion for models prediction and data alignment
-                'fixedsps': [0, 1500],  # fixed sampling times
+                'offt': 150,  # minimum allowed perturbation of sampling times (ratio)
+                'samp_s': 1,  # Matching criterion for models prediction and data alignment
+                'samp_f': [0, 1500],  # fixed sampling times
             },
             'y2': {  # response variable, here carbonation efficiency
-                'initials': 0.001,
+                'init': 0.001,
                 # Initial value for the response variable, it can be a value, or 'variable' for case it is a des_opt decision (time-invariant input variable)
-                'measured': True,
+                'meas': True,
                 # Flag indicating if this variable is directly measurable, if False, it is a virtual output
                 'sp': 5,  # the amound of samples per each round (run)
                 'unc': 0.02,
                 # amount of noise (standard deviation) in the measurement, in case of insilico, this is used for simulating a normal distribution of noise to measurement (only measurement)
-                'offsett': 150,  # minimum allowed perturbation of sampling times (ratio)
-                'sampling': 2,  # Matching criterion for models prediction and data alignment
-                'fixedsps': [0, 1500],  # fixed sampling times
+                'offt': 150,  # minimum allowed perturbation of sampling times (ratio)
+                'samp_s': 2,  # Matching criterion for models prediction and data alignment
+                'samp_f': [0, 1500],  # fixed sampling times
             },
         },
         'tii': {  # Time-invariant input variables (tii)
@@ -288,32 +288,36 @@ def main():
         },
         't_s': [150, 7050],  # Time span  (600 s to 10,800 s), duration of numerical perturbations (the rest is precluded from des_opt)
         't_r': 15,  # Time resolution (10 s), minimum time steps for the simulation/des_opt/controls
+        't_d': 150
     }
 
     des_opt = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
-        'criteria': {
-            'MBDOE_MD_criterion': 'HR', # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
-            'MBDOE_PP_criterion': 'E'  # PP optimality criterion, 'D', 'A', 'E', 'ME'
-        },
-        'iteration_settings': {
-            'maxmd': 2, # maximum number of MD runs
+        'md_ob': 'HR',     # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
+        'pp_ob': 'E',  # PP optimality criterion, 'D', 'A', 'E', 'ME'
+        'itr': {
+            'maxmd': 5, # maximum number of MD runs
             'tolmd': 1, # tolerance for MD optimization
-            'maxpp':2 ,# maximum number of PP runs
+            'maxpp':30 ,# maximum number of PP runs
             'tolpp': 1, # tolerance for PP optimization
         }
     }
 
     models = { # Settings related to the rival models and their parameters
-        'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
-        'active_solvers': ['f20', 'f21'], # Active solvers (rival models) to be used in the experiment
-        'sim': {'f20': 'sci_file', 'f21':'sci_file'}, # select the simulator of each models (models should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
-        'exfiles': {
-            'credentials': {'f20': '@@TTmnoa698','f21': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
-            'connector': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py', 'f21': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py'},            # for now only for gPAS readable files, it is the path to zip file
-        },
+        'can_m': ['f20'],  # Active solvers (rival models) to be used in the experiment
+        'krt': {'f20': 'pys', 'f21': 'pys'},
+        # type of the model interface, 'pym' for middoe.krnl_models, 'gpr' for gPAS models, function name for globally defined functions, 'pys' for python standalone scripts
+        'creds': {'f20': '@@TTmnoa698', 'f21': '@@TTmnoa698'},
+        # credentials for gPAS models, if not needed, leave empty
+        'src': {'f20': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py',
+                'f21': 'C:/Users/Tadmin/PycharmProjects/middoe/tests/model.py'},
+        # for now for gPAS readable files, or python standalone scripts
+        # 'ext_m': {'f17': f17}, # External functions (models) to be used in the experiment from global space
+        # 'sim': {'f20': 'sci_file', 'f21':'sci_file'}, # select the simulator of each models (models should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
+        # 'krnl': {
+        # },
 
-        'theta_parameters': { # Theta parameters for each models
+        'theta': { # Theta parameters for each models
             'f05': theta05,
             'f06': theta06,
             'f07': theta07,
@@ -331,7 +335,7 @@ def main():
             'f21': theta21
 
         },
-        'bound_max': { # Maximum bounds for theta parameters (based on normalized to 1)
+        't_u': { # Maximum bounds for theta parameters (based on normalized to 1)
             'f05': theta05max,
             'f06': theta06max,
             'f07': theta07max,
@@ -348,7 +352,7 @@ def main():
             'f20': theta20maxs,
             'f21': theta21maxs
         },
-        'bound_min': { # Minimum bounds for theta parameters (based on normalized to 1)
+        't_l': { # Minimum bounds for theta parameters (based on normalized to 1)
             'f05': theta05min,
             'f06': theta06min,
             'f07': theta07min,
@@ -371,23 +375,22 @@ def main():
 
     # scms
     gsa = { # Settings for the Global Sensitivity Analysis (gsa)
-        'perform_sensitivity': False, # Perform sensitivity analysis
-        'phi_nom': [0.1, 300], # Nominal values for the time-invariant variables
-        'phit_nom': [300, 0.1], # Nominal values for the time-variant variables
-        'var_damping': False, # feasible space for variables, fload ratio: use as multiplier to nominals uniformly (e.g. 1.1), False: use system defined space
-        'par_damping': 1.1, # feasible space for parameters, fload ratio: use as multiplier to nominals uniformly(e.g. 1.1), False: use models defined space
-        'parallel': 0.7, # Perform gsa in parallel
-        'sampling': 2**10, # Sampling size for gsa, always 2**n
-        'var_sensitivity': True, # Perform sensitivity analysis for variables
-        'par_sensitivity': True   # Perform sensitivity analysis for parameters
+        'var_s': True,  # Perform sensitivity analysis for variables
+        'par_s': True,  # Perform sensitivity analysis for parameters
+        'var_d': False, # feasible space for variables, fload ratio: use as multiplier to nominals uniformly (e.g. 1.1), False: use system defined space
+        'par_d': 1.1,   # feasible space for parameters, fload ratio: use as multiplier to nominals uniformly(e.g. 1.1), False: use models defined space
+        'samp': 2 ** 10,  # Sampling size for gsa, always 2**n
+        'multi': 0.7,  # Perform gsa in parallel
+        'tii_n': [0.1, 300], # Nominal values for the time-invariant variables
+        'tvi_n': [300, 0.1], # Nominal values for the time-variant variables
     }
 
 
 
     # scms
     insilicos = { # Settings for the insilico data generation
-        'true_model': 'f20', # selected true models (with nominal values)
-        'classic-des': { # classic des_opt settings, sheet name is the round run name, each sheet contains the data for the round, iso space.
+        'tr_m': 'f20', # selected true models (with nominal values)
+        'prels': { # classic des_opt settings, sheet name is the round run name, each sheet contains the data for the round, iso space.
             '1': {'T': 308.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
             '2': {'T': 338.15, 'P': 0.1, 'aps': 200, 'slr': 0.1},
             # '3': {'T': 338.15, 'P': 0.17, 'aps': 350, 'slr': 0.1},
@@ -397,19 +400,19 @@ def main():
 
 
     iden_opt = { # Settings for the parameter estimation process
-        'method': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
-        'initialization': 'random',   # use 'random' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
+        'meth': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
+        'init': 'rand',   # use 'rand' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
         'eps': 1e-2,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         #usually 1e-3, or None to perform a mesh independency test, and auto adjustment
-        'objf': 'WLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'WLS': weighted least squares
-        'con_plot': False, # plot the confidence volumes
-        'fit_plot': True, # plot the fitting results
-        'logging': True # log the results
+        'ob': 'WLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'WLS': weighted least squares
+        'c_plt': False, # plot the confidence volumes
+        'f_plt': True, # plot the fitting results
+        'log': True # log the results
     }
 
     logic_settings = { # Logic settings for the workflow
-        'max_MD_runs': 1, # maximum number of MBDoE-MD runs
-        'max_PP_runs': 1, # maximum number of MBDoE-PP runs
+        'max_MD_runs': 2, # maximum number of MBDoE-MD runs
+        'max_PP_runs': 5, # maximum number of MBDoE-PP runs
         'md_conf_tresh': 85, # discrimination acceptance test:  minimum P-value of a models to get accepted (%)
         'md_rej_tresh': 15, # discrimination acceptance test:  maximum P-value of a models to get rejected (%)
         'pp_conf_threshold': 1, # precision acceptance test:  times the ref statistical T value in worst case scenario
@@ -424,44 +427,43 @@ def main():
         start_time = time.time()
         round_data = {}
         design_decisions = {}
-        winner_solver = None
-        winner_solver_found = False
+        winner_model = None
+        model_found = False
 
-        if len(models['active_solvers']) == 1:
-            winner_solver_found = True
-            winner_solver = models['active_solvers'][0]
-            print("There are no rival models for:", winner_solver)
+        if len(models['can_m']) == 1:
+            model_found = True
+            winner_model = models['can_m'][0]
+            print("There are no rival models for:", winner_model)
 
-        if gsa['perform_sensitivity']:
-            sobol_results = sensa(gsa, models, system)
-            save_to_jac(sobol_results, purpose="sensa")
+        # sobol_results = sensa(gsa, models, system)
+        # save_to_jac(sobol_results, purpose="sensa")
 
         run_initial_round(system, models, insilicos, iden_opt, round_data, design_decisions)
 
-        if not winner_solver_found:
-            winner_solver_found, winner_solver = run_md_rounds(system, models, insilicos, iden_opt,
+        if not model_found:
+            model_found, winner_model = run_md_rounds(system, models, insilicos, iden_opt,
                                                                logic_settings, des_opt,
                                                                logic_settings['parallel_sessions'],
                                                                round_data, design_decisions)
 
         terminate_loop = False
 
-        if winner_solver_found:
+        if model_found:
             terminate_loop = run_pp_rounds(system, models, insilicos, iden_opt, logic_settings,
                                            des_opt, logic_settings['parallel_sessions'],
-                                           winner_solver, round_data, design_decisions)
+                                           winner_model, round_data, design_decisions)
 
             if terminate_loop:
                 print("Loop terminated successfully.")
         else:
-            print("No winner solver found, exiting without termination loop.")
+            print("No winner model found, exiting without termination loop.")
 
         print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')
-
-        # # Perform final validation with cross-validation metrics
-        # R2_prd, R2_val, parameters = validation(data_storage, system, models, iden_opt,
-        #                                         Simula, round_data, framework_settings)
+        data = read_excel('indata')
+        # Perform final validation with cross-validation metrics
+        R2_prd, R2_val, parameters = validation(data, system, models, iden_opt,
+                                                round_data)
 
         end_time = time.time()
         print(f"[INFO] Runtime of framework: {end_time - start_time:.2f} seconds")
@@ -470,7 +472,7 @@ def main():
 
     def run_initial_round(system, models, insilicos, iden_opt, round_data, design_decisions):
         """Run the initial round of in-silico experiments with parameter estimation and uncertainty analysis."""
-        for i in range(len(insilicos['classic-des'])):
+        for i in range(len(insilicos['prels'])):
             j = i + 1
             expr = i + 1
             expera(system, models, insilicos, design_decisions, expr)
@@ -484,21 +486,21 @@ def main():
             scaled_params = uncert_results['scaled_params']
             obs = uncert_results['obs']
 
-            # ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun, system, models, iden_opt, j, data)
+            ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun, system, models, iden_opt, j, data)
 
             save_rounds(j, resultun, theta_parameters, 'preliminary', round_data,
                         models, scaled_params, iden_opt, solver_parameters, obs, data, system
-                        # , ranking=ranking,
-                        # k_optimal_value=k_optimal_value,
-                        # rCC_values=rCC_values,
-                        # J_k_values=J_k_values
+                        , ranking=ranking,
+                        k_optimal_value=k_optimal_value,
+                        rCC_values=rCC_values,
+                        J_k_values=J_k_values
                         )
 
     def run_md_rounds(system, models, insilicos, iden_opt, logic_settings, des_opt,
                       num_parallel_runs, round_data, design_decisions):
         """Run Model Discrimination (MD) rounds using MBDoE-MD."""
-        winner_solver_found = False
-        winner_solver = None
+        model_found = False
+        winner_model = None
         start_round = len(round_data) + 1
 
         for i in range(logic_settings['max_MD_runs']):
@@ -521,33 +523,33 @@ def main():
             p_a_thresh = logic_settings['md_conf_tresh']
 
             to_remove = []
-            for solver, solver_results in resultun.items():
+            for model, solver_results in resultun.items():
                 if solver_results['P'] < p_r_thresh:
-                    to_remove.append(solver)
+                    to_remove.append(model)
                 if solver_results['P'] > p_a_thresh:
-                    winner_solver = solver
-                    winner_solver_found = True
+                    winner_model = model
+                    model_found = True
                     break
 
-            for solver in to_remove:
-                models['active_solvers'].remove(solver)
+            for model in to_remove:
+                models['cand_m'].remove(model)
 
-            if i == logic_settings['max_MD_runs'] - 1 and not winner_solver_found:
+            if i == logic_settings['max_MD_runs'] - 1 and not model_found:
                 highest_p_solver = max(resultun.items(), key=lambda x: x[1]['P'])[0]
-                winner_solver = highest_p_solver
-                winner_solver_found = True
-                print(f"Model discrimination ended. Winner: {winner_solver}, P = {resultun[winner_solver]['P']}")
+                winner_model = highest_p_solver
+                model_found = True
+                print(f"Model discrimination ended. Winner: {winner_model}, P = {resultun[winner_model]['P']}")
 
             save_rounds(j, resultun, theta_parameters, 'MBDOE_MD', round_data,
                         models, scaled_params, iden_opt, solver_parameters, obs, data, system)
 
-            if winner_solver_found:
+            if model_found:
                 break
 
-        return winner_solver_found, winner_solver
+        return model_found, winner_model
 
     def run_pp_rounds(system, models, insilicos, iden_opt, logic_settings,
-                      des_opt, num_parallel_runs, winner_solver, round_data,
+                      des_opt, num_parallel_runs, winner_model, round_data,
                       design_decisions):
         """Run Parameter Precision (PP) rounds using MBDoE-PP."""
         terminate_loop = False
@@ -556,7 +558,7 @@ def main():
         for i in range(logic_settings['max_PP_runs']):
             j = start_round + i
             round = j
-            models['active_solvers'] = [winner_solver]
+            models['can_m'] = [winner_model]
 
             designs = mbdoe_pp(des_opt, system, models, round, num_parallel_runs)
             design_decisions.update(designs)
@@ -576,8 +578,8 @@ def main():
                               models, scaled_params, iden_opt, solver_parameters,
                               obs, data, system)
 
-            for solver, solver_results in resultun.items():
-                if all(t_value > trv[solver] for t_value in solver_results['t_values']):
+            for model, model_results in resultun.items():
+                if all(t_value > trv[model] for t_value in model_results['t_values']):
                     terminate_loop = True
                     break
 

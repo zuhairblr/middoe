@@ -4,7 +4,7 @@ from middoe.iden_parmest import parmest
 from middoe.iden_uncert import uncert
 
 
-def validation(data_storage, model_structure, modelling_settings, estimation_settings, Simula, round_data, framework_settings):
+def validation(data_storage, system, models, iden_opt, round_data):
     """
     Perform leave-one-out validation to evaluate the generalization of the parameter estimation.
 
@@ -35,50 +35,38 @@ def validation(data_storage, model_structure, modelling_settings, estimation_set
         print(f"Running validation fold {i + 1}/{n_sheets}...")
         print(f"Validation sheet: {validation_sheet}")
 
-        resultpr = parmest(
-            model_structure,
-            modelling_settings,
-            estimation_settings,
-            training_data,
-            Simula,
-        )
+        resultpr = parmest(system, models,iden_opt, training_data)
+        uncert_results_pred = uncert(training_data,resultpr,system,models,iden_opt)
+        resultun_pred = uncert_results_pred['results']
+        scaled_params_pred = uncert_results_pred['scaled_params']
 
-        resultun_pred, theta_parameters_pred, solver_parameters_pred, scaled_params_pred, obs_pred = uncert(
-            training_data,
-            resultpr,
-            model_structure,
-            modelling_settings,
-            estimation_settings,
-            Simula
-        )
+        # resultun_pred, theta_parameters_pred, solver_parameters_pred, scaled_params_pred, obs_pred = uncert(
+        #     training_data,
+        #     resultpr,
+        #     system,
+        #     models,
+        #     iden_opt
+        # )
 
-        resultun_val, theta_parameters_val, _, _, obs_val = uncert(
-            validation_data,
-            resultpr,
-            model_structure,
-            modelling_settings,
-            estimation_settings,
-            Simula
-        )
-        plotting1 = Plotting_Results(modelling_settings, framework_settings)  # Instantiate Plotting class
-        plotting1.fit_plot(validation_data, resultun_val, f'val{i+1}', model_structure)
+        uncert_results_val = uncert(validation_data,resultpr,system,models,iden_opt)
+        resultun_val = uncert_results_val['results']
+
+        # resultun_val, theta_parameters_val, _, _, obs_val = uncert(
+        #     validation_data,
+        #     resultpr,
+        #     system,
+        #     models,
+        #     iden_opt
+        # )
+        plotting1 = Plotting_Results(models, f'val{i+1}')  # Instantiate Plotting class
+        plotting1.fit_plot(validation_data, resultun_val, system)
         R2_prd[i+1], R2_val[i+1], parameters[i+1], R2_ref, ref_params, MSE_pred[i+1], MSE_val[i+1], MSE_ref = compute_validation_error(resultun_pred, resultun_val, scaled_params_pred, round_data)
 
-    base_path = framework_settings['path']
-    modelling_folder = str(framework_settings['case'])   # No leading backslash here
-
-    # Join the base path and modelling folder
-    filename = os.path.join(base_path, modelling_folder)
 
     # Ensure the 'modelling' directory exists
-    os.makedirs(filename, exist_ok=True)
-    base_path = filename  # Assuming filename contains the base path
-    modelling_folder = 'validation'
-    full_path = os.path.join(base_path, modelling_folder)
-    os.makedirs(full_path, exist_ok=True)
-    validation_R2(R2_prd, R2_val, R2_ref, full_path, case='R2')
-    validation_R2(MSE_pred, MSE_val, MSE_ref, full_path, case='MSE')
-    validation_params(parameters, ref_params, full_path)
+    validation_R2(R2_prd, R2_val, R2_ref, case='R2')
+    validation_R2(MSE_pred, MSE_val, MSE_ref, case='MSE')
+    validation_params(parameters, ref_params)
 
 
     return R2_prd, R2_val, parameters

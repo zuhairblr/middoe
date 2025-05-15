@@ -53,23 +53,52 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         tvi (dict): Scaled piecewise interpolated data {var_name: ndarray}
     """
 
-    # Determine model source
-    if model_name in models.get('ext_func', {}):
-        model = models['ext_func'][model_name]
-    else:
+    # # Determine model source
+    # if model_name in models.get('ext_func', {}):
+    #     model = models['ext_func'][model_name]
+    # else:
+    #     try:
+    #         krnl_models = importlib.import_module('middoe.krnl_models')
+    #         model = getattr(krnl_models, model_name)
+    #     except (ImportError, AttributeError):
+    #         try:
+    #             # Try to load from external file path (sci_file mode)
+    #             script_path = models['exfiles']['connector'][model_name]
+    #             spec = importlib.util.spec_from_file_location("external_model", script_path)
+    #             module = importlib.util.module_from_spec(spec)
+    #             spec.loader.exec_module(module)
+    #             model = getattr(module, 'solve_model')
+    #         except Exception as e:
+    #             raise KeyError(f"Model function '{model_name}' not found in 'ext_func', 'kernel_models', or external file. Error: {e}")
+
+    # Determine model source based on model type
+    model_type = models['krt'].get(model_name)
+
+    if model_type == 'pym':
+        # Load from MIDDoE internal kernel models
         try:
             krnl_models = importlib.import_module('middoe.krnl_models')
             model = getattr(krnl_models, model_name)
-        except (ImportError, AttributeError):
-            try:
-                # Try to load from external file path (sci_file mode)
-                script_path = models['exfiles']['connector'][model_name]
-                spec = importlib.util.spec_from_file_location("external_model", script_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                model = getattr(module, 'solve_model')
-            except Exception as e:
-                raise KeyError(f"Model function '{model_name}' not found in 'ext_func', 'kernel_models', or external file. Error: {e}")
+        except (ImportError, AttributeError) as e:
+            raise KeyError(f"Model '{model_name}' not found in middoe.krnl_models. Error: {e}")
+
+    elif model_type in ['pys', 'gpr']:
+        # Load from external file path (script-based or GPR models)
+        try:
+            script_path = models['src'][model_name]
+            spec = importlib.util.spec_from_file_location("external_model", script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            model = getattr(module, 'solve_model')
+        except Exception as e:
+            raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
+
+    else:
+        # Assume the model is already provided as a callable (e.g., function handle)
+        try:
+            model = models[model_name]
+        except KeyError:
+            raise KeyError(f"Model '{model_name}' not found or not callable. Check models dictionary.")
 
     tv_ophi, ti_ophi, phit = _backscal(
         t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac,
@@ -178,7 +207,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
     y0 = []
     for var in system['tvo'].keys():
         var_attrs = system['tvo'][var]
-        initial_val = var_attrs['initials']
+        initial_val = var_attrs['init']
         if initial_val == 'variable':
             # Use time-invariant variable with '_0' suffix
             y0.append(phi[var + '_0'])
@@ -189,7 +218,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
     # Scale the time vector
     t_scaled = (np.array(t) * utsc).tolist()
 
-    # Select the solver and perform the integration
+    # Select the model and perform the integration
     tv_ophi, ti_ophi, phit = solver_selector(model, t_scaled, y0, phi, phit, theta, models, model_name, system)
 
 
@@ -215,37 +244,13 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     retry_count = 0
     success = False
     tv_ophi, ti_ophi = {}, {}
-    sim_mode = models['sim'][model_name]
+    sim_mode = models['krt'][model_name]
 
-    if sim_mode == 'sci':
+    if sim_mode == 'pys':
         while not success and retry_count < max_retries:
             try:
-                from scipy.integrate import solve_ivp
-                result = solve_ivp(
-                    model,
-                    [min(t), max(t)],
-                    y0,
-                    method='LSODA',
-                    t_eval=t,
-                    args=(phi, phit, theta, t),
-                    rtol=1e-8,
-                    atol=1e-10,
-                )
-                if not result.success:
-                    raise RuntimeError(f"SciPy solver failed: {result.message}")
-                tv_ophi = {f'y{i+1}': result.y[i] for i in range(result.y.shape[0])}
-                ti_ophi = {}
-                success = True
-            except Exception as e:
-                retry_count += 1
-                print(f"SciPy simulation attempt {retry_count} for model '{model_name}' failed: {e}")
-                time.sleep(0.5)
-
-    elif sim_mode == 'sci_file':
-        while not success and retry_count < max_retries:
-            try:
-                # Load external solver dynamically
-                script_path = models['exfiles']['connector'][model_name]  # path to external .py file
+                # Load external model dynamically
+                script_path = models['src'][model_name]  # path to external .py file
 
                 spec = importlib.util.spec_from_file_location("external_model", script_path)
                 module = importlib.util.module_from_spec(spec)
@@ -265,14 +270,14 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
         if not success:
             print(f"All {max_retries} SciPy file-based simulation attempts failed for model '{model_name}'")
 
-    elif sim_mode == 'gp':
+    elif sim_mode == 'gpr':
 
         while not success and retry_count < max_retries:
             try:
                 ports = random.randint(10000, 90000)
                 with StartedConnected(port=str(ports), stdout=DEVNULL, stderr=DEVNULL) as client:
-                    client.open(str(models['exfiles']['connector'][model_name]),
-                                models['exfiles']['credentials'][model_name])
+                    client.open(str(models['src'][model_name]),
+                                models['creds'][model_name])
                     for key, value in phi.items():
                         client.set_input_value(key, value.tolist() if hasattr(value, 'tolist') else value)
                     for key, value in phit.items():
@@ -298,6 +303,27 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
             print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'")
 
     else:
-        raise ValueError(f"Unsupported simulation method '{sim_mode}' for model '{model_name}'")
+        while not success and retry_count < max_retries:
+            try:
+                from scipy.integrate import solve_ivp
+                result = solve_ivp(
+                    model,
+                    [min(t), max(t)],
+                    y0,
+                    method='LSODA',
+                    t_eval=t,
+                    args=(phi, phit, theta, t),
+                    rtol=1e-8,
+                    atol=1e-10,
+                )
+                if not result.success:
+                    raise RuntimeError(f"SciPy solver failed: {result.message}")
+                tv_ophi = {f'y{i+1}': result.y[i] for i in range(result.y.shape[0])}
+                ti_ophi = {}
+                success = True
+            except Exception as e:
+                retry_count += 1
+                print(f"SciPy simulation attempt {retry_count} for model '{model_name}' failed: {e}")
+                time.sleep(0.5)
 
     return tv_ophi, ti_ophi, phit

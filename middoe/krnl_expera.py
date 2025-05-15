@@ -68,15 +68,15 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
     # output_path.mkdir(parents=True, exist_ok=True)
 
     # Retrieve the model name and related simulation parameters
-    model_name = insilicos.get('true_model')
-    classic_des = insilicos['classic-des']
-    theta_parameters = models['theta_parameters']
+    model_name = insilicos.get('tr_m')
+    classic_des = insilicos['prels']
+    theta_parameters = models['theta']
 
     # Standard deviations for measured tv_ophi variables
     std_dev = {
         var: system['tvo'][var]['unc']
         for var in system['tvo'].keys()
-        if system['tvo'][var].get('measured', True)
+        if system['tvo'][var].get('meas', True)
     }
 
     # If no design decisions are provided, run the "initial" case
@@ -92,7 +92,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
             var: [float(tlin[np.argmin(np.abs(tlin - t))]) for t in
                   np.linspace(0, 1, system['tvo'][var]['sp'])]
             for var in system['tvo']
-            if system['tvo'][var].get('measured', True)
+            if system['tvo'][var].get('meas', True)
         }
 
         # Flatten all time points

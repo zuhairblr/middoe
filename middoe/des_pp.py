@@ -63,17 +63,17 @@ def mbdoe_pp(
                     * 'sync_sampling': bool
 
     models : dict
-        Model and solver settings:
-            - 'active_solvers' : List[str]
+        Model and model settings:
+            - 'active_models' : List[str]
                 Names of solvers to evaluate.
             - 'theta_parameters' : dict[str, List[float]]
-                Nominal parameter values for each solver.
+                Nominal parameter values for each model.
             - 'mutation' : dict[str, List[bool]]
                 Boolean masks for which parameters are to be optimised.
             - 'V_matrix' : dict[str, ndarray]
                 Prior covariance matrices for parameters.
             - 'ext_models' : dict[str, Callable]
-                Mapping of solver names to simulation functions.
+                Mapping of model names to simulation functions.
 
     round : int
         Current experimental design round. Used for conditional logic/logging.
@@ -262,17 +262,17 @@ def _run_single_pp(des_opt, system, models, core_number, round):
 
     # --------------------------- EXTRACT DATA --------------------------- #
     tf = system['t_s'][1]
-    ti = system['t_s'][0]
+    ti = system['t_d']
 
     # Time-variant inputs
     tv_iphi_vars = list(system['tvi'].keys())
     tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
     tv_iphi_min = [system['tvi'][var]['min'] for var in tv_iphi_vars]
-    tv_iphi_seg = [system['tvi'][var]['swp'] for var in tv_iphi_vars]
-    tv_iphi_const = [system['tvi'][var]['constraints'] for var in tv_iphi_vars]
-    tv_iphi_offsett = [system['tvi'][var]['offsett'] / tf for var in tv_iphi_vars]
+    tv_iphi_seg = [system['tvi'][var]['stps']+1 for var in tv_iphi_vars]
+    tv_iphi_const = [system['tvi'][var]['const'] for var in tv_iphi_vars]
+    tv_iphi_offsett = [system['tvi'][var]['offt'] / tf for var in tv_iphi_vars]
     tv_iphi_offsetl = [
-        system['tvi'][var]['offsetl'] / system['tvi'][var]['max']
+        system['tvi'][var]['offl'] / system['tvi'][var]['max']
         for var in tv_iphi_vars
     ]
     tv_iphi_cvp = {var: system['tvi'][var]['cvp'] for var in tv_iphi_vars}
@@ -285,29 +285,29 @@ def _run_single_pp(des_opt, system, models, core_number, round):
     # Time-variant outputs
     tv_ophi_vars = [
         var for var in system['tvo'].keys()
-        if system['tvo'][var].get('measured', True)
+        if system['tvo'][var].get('meas', True)
     ]
     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
-    tv_ophi_offsett_ophi = [system['tvo'][var]['offsett'] / tf for var in tv_ophi_vars]
-    tv_ophi_sampling = {var: system['tvo'][var]['sampling'] for var in tv_ophi_vars}
-    tv_ophi_forcedsamples = {var: [v / tf for v in system['tvo'][var]['fixedsps']] for var in tv_ophi_vars}
+    tv_ophi_offsett_ophi = [system['tvo'][var]['offt'] / tf for var in tv_ophi_vars]
+    tv_ophi_sampling = {var: system['tvo'][var]['samp_s'] for var in tv_ophi_vars}
+    tv_ophi_forcedsamples = {var: [v / tf for v in system['tvo'][var]['samp_f']] for var in tv_ophi_vars}
 
     # Time-invariant outputs
     ti_ophi_vars = [
         var for var in system['tio'].keys()
-        if system['tio'][var].get('measured', True)
+        if system['tio'][var].get('meas', True)
     ]
 
     # Solver and optimization settings
-    active_solvers = models['active_solvers']
+    active_solvers = models['can_m']
     estimations = models['normalized_parameters']
-    ref_thetas = models['theta_parameters']
+    ref_thetas = models['theta']
     theta_parameters = _par_update(ref_thetas, estimations)
 
     # Criterion, iteration, and penalty settings
-    design_criteria = des_opt['criteria']['MBDOE_PP_criterion']
-    maxpp = des_opt['iteration_settings']['maxpp']
-    tolpp = des_opt['iteration_settings']['tolpp']
+    design_criteria = des_opt['pp_ob']
+    maxpp = des_opt['itr']['maxpp']
+    tolpp = des_opt['itr']['tolpp']
     eps = des_opt['eps']
     mutation = models['mutation']
     V_matrix = models['V_matrix']
@@ -633,7 +633,7 @@ def _pp_runner(
     system : dict
         Model structure dictionary.
     models : dict
-        Additional solver settings.
+        Additional model settings.
 
     Returns
     -------
@@ -647,7 +647,7 @@ def _pp_runner(
         - t_values (list): Time values for the simulation.
         - tv_ophi (dict): Time-variant output results (solver_name -> {var -> array}).
         - ti_ophi (dict): Time-invariant output results (solver_name -> {var -> scalar}).
-        - phit_interp (dict): Interpolated piecewise data (last solver run).
+        - phit_interp (dict): Interpolated piecewise data (last model run).
     """
     # Convert x to list if not already
     if x is None:
@@ -697,7 +697,7 @@ def _pp_runner(
     )
     M = {}
 
-    # For returning solver results
+    # For returning model results
     tv_ophi = {}
     ti_ophi = {}
     phit_interp = {}
@@ -720,7 +720,7 @@ def _pp_runner(
         tsc = tf  # treat tf as a time-scaling factor
 
         # -----------------------------------------------------------------
-        # 3a) Run the solver for unperturbed (baseline) theta
+        # 3a) Run the model for unperturbed (baseline) theta
         # -----------------------------------------------------------------
         tv_out, ti_out, interp_data = simula(
             t_values, swps_data, ti_iphi_data,
@@ -765,7 +765,7 @@ def _pp_runner(
             modified_theta[para_idx] += eps
 
             # -------------------------------------------------------------
-            # 3b-i) Run solver with modified theta
+            # 3b-i) Run model with modified theta
             # -------------------------------------------------------------
             tv_out_mod, ti_out_mod, _ = simula(
                 t_values, swps_data, ti_iphi_data,
@@ -842,7 +842,7 @@ def _pp_runner(
     # 4) Evaluate design criterion
     # ---------------------------------------------------------------------
     pp_obj = None
-    solver_name = active_solvers[0]  # or whichever solver you want to measure
+    solver_name = active_solvers[0]  # or whichever model you want to measure
     if MBDOE_PP_criterion == 'D':
         pp_obj = np.linalg.det(M[solver_name])
     elif MBDOE_PP_criterion == 'A':
@@ -859,5 +859,5 @@ def _pp_runner(
     # ---------------------------------------------------------------------
     # 5) Return the relevant pieces
     # ---------------------------------------------------------------------
-    # phit_interp might hold data only for the last solver or each solver in a dict
+    # phit_interp might hold data only for the last model or each model in a dict
     return ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp

@@ -20,21 +20,21 @@ def sensa(gsa, models, system):
     Returns:
     tuple: A tuple containing the Sobol analysis results and the Sobol problem definition.
     """
-    phi_nom = gsa['phi_nom']  # Nominal values for time-invariant variables
-    phit_nom = gsa['phit_nom']  # Nominal values for time-variant variables
-    sampling = gsa['sampling']
-    var_sensitivity = gsa['var_sensitivity']
-    par_sensitivity = gsa['par_sensitivity']
-    active_solvers = models['active_solvers']
-    theta_parameters = models['theta_parameters']
-    thetamaxd= models['bound_max']
-    thetamind= models['bound_min']
+    phi_nom = gsa['tii_n']  # Nominal values for time-invariant variables
+    phit_nom = gsa['tvi_n']  # Nominal values for time-variant variables
+    sampling = gsa['samp']
+    var_sensitivity = gsa['var_s']
+    par_sensitivity = gsa['par_s']
+    active_solvers = models['can_m']
+    theta_parameters = models['theta']
+    thetamaxd= models['t_u']
+    thetamind= models['t_l']
     cvp_initial = {
-        var: system['tvi'][var]['initial_cvp']
+        var: 'no_CVP'
         for var in system['tvi'].keys()
     }
     # piecewise_func = system['tv_iphi']['initial_piecewise_func'][0]
-    parallel_value = gsa.get('parallel', False)
+    parallel_value = gsa.get('multi', False)
 
     # Retrieve time information from model structure and ensure it's an integer
     time_field = system['t_s'][1]
@@ -54,7 +54,7 @@ def sensa(gsa, models, system):
         # Use ProcessPoolExecutor for multiprocessing
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             for solver in active_solvers:
-                print(f'Running GSA-Sobol for solver (parallel): {solver}')
+                print(f'Running GSA-Sobol for model (parallel): {solver}')
                 theta = [float(val) for val in theta_parameters[solver]]
                 thetamax = [float(max_val) * float(theta_val) for max_val, theta_val in zip(thetamaxd[solver], theta)]
                 thetamin = [float(min_val) * float(theta_val) for min_val, theta_val in zip(thetamind[solver], theta)]
@@ -65,16 +65,16 @@ def sensa(gsa, models, system):
                 thetac = [1.0 for _ in theta]  # Parameter scaling factors
 
                 # Prepare variable bounds
-                if isinstance(gsa.get('var_damping'), float):
+                if isinstance(gsa.get('var_d'), float):
                     phi_bounds = [
-                        (gsa['phi_nom'][i] / gsa['var_damping'],
-                         gsa['phi_nom'][i] * gsa['var_damping'])
-                        for i in range(len(gsa['phi_nom']))
+                        (gsa['tii_n'][i] / gsa['var_d'],
+                         gsa['tvi_n'][i] * gsa['var_d'])
+                        for i in range(len(gsa['tii_n']))
                     ]
                     phit_bounds = [
-                        (gsa['phit_nom'][i] / gsa['var_damping'],
-                         gsa['phit_nom'][i] * gsa['var_damping'])
-                        for i in range(len(gsa['phit_nom']))
+                        (gsa['tii_n'][i] / gsa['var_d'],
+                         gsa['tvi_n'][i] * gsa['var_d'])
+                        for i in range(len(gsa['tvi_n']))
                     ]
                 else:
                     phi_bounds = [
@@ -84,8 +84,8 @@ def sensa(gsa, models, system):
                         (var_attrs['min'], var_attrs['max']) for var_attrs in system['tvi'].values()
                     ]
 
-                if isinstance(gsa.get('par_damping'), float):
-                    param_bounds = [(theta[i] / gsa['par_damping'], theta[i] * gsa['par_damping']) for i in range(len(theta))]
+                if isinstance(gsa.get('par_d'), float):
+                    param_bounds = [(theta[i] / gsa['par_d'], theta[i] * gsa['par_d']) for i in range(len(theta))]
                 else:
                     param_bounds = list(zip(thetamin, thetamax))
 
@@ -99,7 +99,7 @@ def sensa(gsa, models, system):
 
                 if var_sensitivity:
                     sobol_problem[solver]['num_vars'] += len(phi_nom) + len(phit_nom)
-                    # sobol_problem[solver]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
+                    # sobol_problem[model]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
                     sobol_problem[solver]['names'].extend(
                         list(system['tii'].keys()) + list(system['tvi'].keys()))
 
@@ -125,7 +125,7 @@ def sensa(gsa, models, system):
     else:
         # SINGLE-CORE EXECUTION
         for solver in active_solvers:
-            print(f'Running GSA-Sobol for solver (single-core): {solver}')
+            print(f'Running GSA-Sobol for model (single-core): {solver}')
             theta = [float(val) for val in theta_parameters[solver]]
             thetamax = [float(val) * theta[i] for i, val in enumerate(thetamax[solver])]
             thetamin = [float(val) * theta[i] for i, val in enumerate(thetamin[solver])]
@@ -134,13 +134,13 @@ def sensa(gsa, models, system):
             phitsc = {key: 1.0 for key in system['tvi'].keys()}  # Time-variant input scaling factors
             thetac = [1.0 for _ in theta]  # Parameter scaling factors
 
-            if isinstance(gsa.get('var_damping'), float):
+            if isinstance(gsa.get('var_d'), float):
                 phi_bounds = [
-                    (phi_nom[i] / gsa['var_damping'], phi_nom[i] * gsa['var_damping'])
+                    (phi_nom[i] / gsa['var_d'], phi_nom[i] * gsa['var_d'])
                     for i, _ in enumerate(system['tii'].keys())
                 ]
                 phit_bounds = [
-                    (phit_nom[i] / gsa['var_damping'], phit_nom[i] * gsa['var_damping'])
+                    (phit_nom[i] / gsa['var_d'], phit_nom[i] * gsa['var_d'])
                     for i, _ in enumerate(system['tvi'].keys())
                 ]
             else:
@@ -151,8 +151,8 @@ def sensa(gsa, models, system):
                     (attrs['min'], attrs['max']) for attrs in system['tvi'].values()
                 ]
 
-            if isinstance(gsa.get('par_damping'), float):
-                param_bounds = [(theta[i] / gsa['par_damping'], theta[i] * gsa['par_damping']) for i in range(len(theta))]
+            if isinstance(gsa.get('par_d'), float):
+                param_bounds = [(theta[i] / gsa['par_d'], theta[i] * gsa['par_d']) for i in range(len(theta))]
             else:
                 param_bounds = list(zip(thetamin, thetamax))
 
@@ -165,7 +165,7 @@ def sensa(gsa, models, system):
 
             if var_sensitivity:
                 sobol_problem[solver]['num_vars'] += len(phi_nom) + len(phit_nom)
-                # sobol_problem[solver]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
+                # sobol_problem[model]['names'].extend(system['ti_iphi']['var'] + system['tv_iphi']['var'])
                 sobol_problem[solver]['names'].extend(
                     list(system['tii'].keys()) + list(system['tvi'].keys()))
 
@@ -545,7 +545,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, t
 
     Parameters:
     sobol_sample_chunk (numpy.ndarray): Chunk of Sobol samples to process.
-    solver (function): Solver function to use for simulation.
+    model (function): Solver function to use for simulation.
     simulate (function): Simulation function to use.
     t (dictionary): Dictionary of time points for the simulation for each variable.
     phisc (dict): Dictionary of scaling factors for time-invariant variables.
@@ -600,10 +600,10 @@ def _process_results(solver, results, t, sobol_problem_solver):
     Process the results of Sobol sensitivity analysis.
 
     Parameters:
-    solver (str): The solver used for the analysis.
+    model (str): The model used for the analysis.
     results (list): List of simulation results for each set of parameters.
     t (list): List of time points for the simulation.
-    sobol_problem_solver (dict): Dictionary containing the Sobol problem definition for the solver.
+    sobol_problem_solver (dict): Dictionary containing the Sobol problem definition for the model.
     framework_settings (dict): Dictionary containing the settings for the framework.
 
     Returns:

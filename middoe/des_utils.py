@@ -218,7 +218,7 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     # Plot sampling times on the first subplot
     if isinstance(St, dict):
         # E.g. St = { 'y1': [times], 'y2': [times], ... }
-        # We'll guess the color by matching var_name in tv_ophi of the first solver
+        # We'll guess the color by matching var_name in tv_ophi of the first model
         # or just do a single color if that is simpler.
         first_solver = next(iter(tv_ophi)) if tv_ophi else None
         if first_solver:

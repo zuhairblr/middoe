@@ -18,12 +18,12 @@ rcParams['font.family'] = 'arial'
 
 def Plot_estimability(round_data, path, solver):
     """
-    Plot the estimability of parameters across different rounds for a given solver. Estimability plotter post analysis.
+    Plot the estimability of parameters across different rounds for a given model. Estimability plotter post analysis.
 
     Parameters:
     round_data (dict): Data related to each round of experiments.
     path (str): Base path where the plot will be saved.
-    solver (str): The name of the solver for which the estimability is being plotted.
+    model (str): The name of the model for which the estimability is being plotted.
 
     Returns:
     None
@@ -38,7 +38,7 @@ def Plot_estimability(round_data, path, solver):
         else:
             return offset
 
-    # Check if any round has valid rCC_values for the specified solver
+    # Check if any round has valid rCC_values for the specified model
     has_rcc_data = any(
         round_info.get('rCC_values') is not None and solver in round_info['rCC_values'] and
         round_info['rCC_values'][solver] is not None
@@ -69,7 +69,7 @@ def Plot_estimability(round_data, path, solver):
 
             # If rCC_values is None, replace with a list of zeros
             if rCC_values is None:
-                print(f"'rCC_values' for solver '{solver}' in {round_key} is None. Replacing with zeros.")
+                print(f"'rCC_values' for model '{solver}' in {round_key} is None. Replacing with zeros.")
                 rCC_values = [0] * len(round_info['rCC_values'].get(list(round_info['rCC_values'].keys())[0], []))
 
             # Replace NaN values with 0
@@ -91,7 +91,7 @@ def Plot_estimability(round_data, path, solver):
     # Configure the plot settings
     # plt.xlabel('number of selected parameters', fontsize=14)
     # plt.ylabel('corrected critical ratio', fontsize=14)
-    # plt.title(f'rCC vs k for All Rounds in model_{solver}', fontsize=16)
+    # plt.title(f'rCC vs k for All Rounds in model_{model}', fontsize=16)
     plt.xlabel('number of selected parameters')
     plt.ylabel('corrected critical ratio')
     plt.title(f'rCC vs k for All Rounds in model_{solver}')
@@ -132,14 +132,14 @@ def Plot_estimability(round_data, path, solver):
 
 def plot_rCC_vs_k(x_values, rCC_values, round, solver):
     """
-    Plot rCC values against k for a specific round and solver. Estimability plotter while analysis.
+    Plot rCC values against k for a specific round and model. Estimability plotter while analysis.
 
     Parameters:
     x_values (list): List of x values (k values).
     rCC_values (list): List of rCC values corresponding to x values.
     round (int): The round number.
     framework_settings (dict): Settings related to the framework, including paths and case information.
-    solver (str): The name of the solver for which the plot is being generated.
+    model (str): The name of the model for which the plot is being generated.
 
     Returns:
     None
@@ -152,7 +152,7 @@ def plot_rCC_vs_k(x_values, rCC_values, round, solver):
     #
     # # Ensure the 'estimability' directory exists
     # os.makedirs(full_path, exist_ok=True)
-    # filename = os.path.join(full_path, f'rCC vs k round_{str(round)} in model_{solver}.png')
+    # filename = os.path.join(full_path, f'rCC vs k round_{str(round)} in model_{model}.png')
 
     # Create path: ./estimability/
     estimability_dir = Path.cwd() / "estimability"
@@ -184,13 +184,13 @@ def plot_rCC_vs_k(x_values, rCC_values, round, solver):
 
 def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solver, response_key):
     """
-    Plot Sobol sensitivity analysis results for a given solver
+    Plot Sobol sensitivity analysis results for a given model
 
     Parameters:
     time_samples (list): List of time for samples (time span)
     sobol_analysis_results (dict): Results of the Sobol sensitivity analysis.
     sobol_problem (dict): Problem definition for the Sobol analysis.
-    solver (str): The name of the model for which the plot is being generated.
+    model (str): The name of the model for which the plot is being generated.
     response_key (str): The response key for which the sensitivities are plotted.
     framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
 
@@ -305,7 +305,7 @@ class Plotting_Results:
         symbols = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'd', '|', '_', '+', 'x', 'X', 'P', '8']  # Different markers for experimental data
 
         solver_colors = {}  # To store color mapping for each variable
-        variable_styles = {}  # To store line style for each solver
+        variable_styles = {}  # To store line style for each model
         filtered_data = {}
         # Loop through the data sheets
         for sheet_index, (sheet_name, sheet_data) in enumerate(data.items()):
@@ -350,7 +350,7 @@ class Plotting_Results:
 
             # Plot model data for different solvers and variables
             for solver_index, solver_name in enumerate(result.keys()):
-                # Assign line style for the solver (consistent across all variables)
+                # Assign line style for the model (consistent across all variables)
                 if solver_name not in variable_styles:
                     variable_styles[solver_name] = line_styles[solver_index % len(line_styles)]
 
@@ -377,7 +377,7 @@ class Plotting_Results:
             # Second subplot: Handle DOE or Classic case
             ax_list_2 = [ax2]
 
-            # Only take one solver for subplot 2
+            # Only take one model for subplot 2
             single_solver = next(iter(result.keys()))
 
             # if sheet_data['piecewise_func'].iloc[0] != 'none':
@@ -566,21 +566,21 @@ class Plotting_FinalResults:
     round_data : dict
         Data related to each round of identification (e.g. 'Round 1', 'Round 2', ...).
     winner_solver : str
-        The name of the winning model/solver (most probable).
+        The name of the winning model/model (most probable).
     selected_rounds : list of int
         Round numbers the user wants to include. If empty, all rounds are used.
     """
 
     def __init__(self, round_data, winner_solver, selected_rounds):
         """
-        Initialize Plotting_FinalResults with round data, winner solver, and selected rounds.
+        Initialize Plotting_FinalResults with round data, winner model, and selected rounds.
 
         Parameters
         ----------
         round_data : dict
             Data keyed by 'Round X' strings.
         winner_solver : str
-            The name of the winning solver/model.
+            The name of the winning model/model.
         selected_rounds : list of int
             The rounds to include. If empty, all rounds are considered.
         """
@@ -628,7 +628,7 @@ class Plotting_FinalResults:
         Parameters
         ----------
         exclude_broad_cov : bool, optional
-            If True, skip any round where the solver's covariance matrix is not positive-definite.
+            If True, skip any round where the model's covariance matrix is not positive-definite.
 
         Returns
         -------
@@ -666,7 +666,7 @@ class Plotting_FinalResults:
                   parameter_estimates_filename='parameter_estimates_across_rounds.png'):
         """
         Plot parameter PDFs (on the diagonal) and confidence ellipses (off-diagonal) for
-        the winning solver across selected rounds. Then call `conf_plot_metrics` and `accvsprec_plot`.
+        the winning model across selected rounds. Then call `conf_plot_metrics` and `accvsprec_plot`.
 
         Parameters
         ----------
@@ -705,13 +705,13 @@ class Plotting_FinalResults:
 
         if (dimension_round_label not in self.round_data or
                 self.winner_solver not in self.round_data[dimension_round_label]['result']):
-            logger.error("Cannot determine parameter dimension; no solver data found.")
+            logger.error("Cannot determine parameter dimension; no model data found.")
             logger.warning("Aborting conf_plot.")
             return
 
         solver_data_dim = self.round_data[dimension_round_label]['result'][self.winner_solver]
         if 'optimization_result' not in solver_data_dim:
-            logger.error(f"No 'optimization_result' in {dimension_round_label} for solver {self.winner_solver}.")
+            logger.error(f"No 'optimization_result' in {dimension_round_label} for model {self.winner_solver}.")
             return
 
         # Extract dimension and parameter names
@@ -755,7 +755,7 @@ class Plotting_FinalResults:
             # Retrieve 'mutation' from round-level data
             mutation_dict = rd.get('mutation', {})
             if self.winner_solver not in mutation_dict:
-                logger.info(f"Skipping {round_label}: no mutation info for solver {self.winner_solver}.")
+                logger.info(f"Skipping {round_label}: no mutation info for model {self.winner_solver}.")
                 return None
 
             mut_settings = mutation_dict[self.winner_solver]
@@ -907,7 +907,7 @@ class Plotting_FinalResults:
         ref_label = round_list[0][1]
         solver_data = self.round_data[ref_label]['result'].get(self.winner_solver, {})
         if 'optimization_result' not in solver_data:
-            logger.warning(f"Missing solver optimization_result in {ref_label}. Cannot plot metrics.")
+            logger.warning(f"Missing model optimization_result in {ref_label}. Cannot plot metrics.")
             return
 
         theta_ref = solver_data['optimization_result'].x
@@ -1110,7 +1110,7 @@ class Plotting_FinalResults:
             t_vals_all.append(solver_data['t_values'])
 
             trv_data = self.round_data[lbl].get('trv', {})
-            # Check if TRV is given for this solver
+            # Check if TRV is given for this model
             if self.winner_solver in trv_data:
                 val = trv_data[self.winner_solver]
                 if isinstance(val, float):
@@ -1235,12 +1235,12 @@ class Plotting_FinalResults:
     #
     #         solvers_data = self.round_data[round_label].get('result', {})
     #         if self.winner_solver not in solvers_data:
-    #             logger.info(f"Skipping {round_label}: solver {self.winner_solver} not found.")
+    #             logger.info(f"Skipping {round_label}: model {self.winner_solver} not found.")
     #             continue
     #
     #         solver_info = solvers_data[self.winner_solver]
     #         if 'data' not in solver_info:
-    #             logger.info(f"Skipping {round_label}: no 'data' key in solver info.")
+    #             logger.info(f"Skipping {round_label}: no 'data' key in model info.")
     #             continue
     #
     #         exp_data_dict = solver_info['data']
@@ -1249,7 +1249,7 @@ class Plotting_FinalResults:
     #
     #         # Check if 'tv_output_m' is available
     #         if 'tv_output_m' not in solver_info:
-    #             logger.info(f"Skipping {round_label}: no 'tv_output_m' found in solver info.")
+    #             logger.info(f"Skipping {round_label}: no 'tv_output_m' found in model info.")
     #             continue
     #
     #         # Build data for each experiment
@@ -1349,12 +1349,12 @@ class Plotting_FinalResults:
 
             solvers_data = self.round_data[round_label].get('result', {})
             if self.winner_solver not in solvers_data:
-                logger.info(f"Skipping {round_label}: solver {self.winner_solver} not found.")
+                logger.info(f"Skipping {round_label}: model {self.winner_solver} not found.")
                 continue
 
             solver_info = solvers_data[self.winner_solver]
             if 'data' not in solver_info:
-                logger.info(f"Skipping {round_label}: no 'data' key in solver info.")
+                logger.info(f"Skipping {round_label}: no 'data' key in model info.")
                 continue
 
             exp_data_dict = solver_info['data']
@@ -1363,7 +1363,7 @@ class Plotting_FinalResults:
 
             # Check if 'tv_output_m' is available
             if 'tv_output_m' not in solver_info:
-                logger.info(f"Skipping {round_label}: no 'tv_output_m' found in solver info.")
+                logger.info(f"Skipping {round_label}: no 'tv_output_m' found in model info.")
                 continue
 
             # Build data for each experiment
@@ -1622,33 +1622,33 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
     keys_to_check = ['original_positions', 'masked_positions']
     if any(key not in modelling_settings for key in keys_to_check) or 'x0' not in estimation_settings:
         # Generate x0_dict with random initialization within bounds
-        if estimation_settings['initialization'] == 'random':
+        if estimation_settings['init'] == 'rand':
             x0_dict = {
                 solver: np.array([
                     np.random.uniform(
-                        modelling_settings['bound_min'][solver][i],
-                        modelling_settings['bound_max'][solver][i]
+                        modelling_settings['t_l'][solver][i],
+                        modelling_settings['t_u'][solver][i]
                     )
                     for i in range(len(params))
                 ])
-                for solver, params in modelling_settings['theta_parameters'].items()
-                if solver in modelling_settings['bound_min'] and solver in modelling_settings['bound_max']
+                for solver, params in modelling_settings['theta'].items()
+                if solver in modelling_settings['t_l'] and solver in modelling_settings['t_u']
             }
         else:
             x0_dict = {
                 solver: [1] * len(params)  # Replace all elements in the list with 1
-                for solver, params in modelling_settings['theta_parameters'].items()
-                if solver in modelling_settings['bound_min'] and solver in modelling_settings['bound_max']
+                for solver, params in modelling_settings['theta'].items()
+                if solver in modelling_settings['t_l'] and solver in modelling_settings['t_u']
             }
 
         # Populate original_positions and masked_positions
         original_positions = {
             solver: list(range(len(params)))
-            for solver, params in modelling_settings['theta_parameters'].items()
+            for solver, params in modelling_settings['theta'].items()
         }
         masked_positions = {
             solver: list(range(len(params)))
-            for solver, params in modelling_settings['theta_parameters'].items()
+            for solver, params in modelling_settings['theta'].items()
         }
 
         # Remove any existing empty placeholders and update with generated values
@@ -1665,7 +1665,7 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
     mutation_dict = modelling_settings.get('mutation', {})
 
     # Loop through each theta in 'theta_parameters'
-    for key, theta_values in modelling_settings['theta_parameters'].items():
+    for key, theta_values in modelling_settings['theta'].items():
         length = len(theta_values)
 
         # Create V_matrix if not available
@@ -1681,15 +1681,15 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
     modelling_settings['mutation'] = mutation_dict
 
 
-def validation_R2(prediction_metric, validation_metric, reference_metric, full_path, case):
+def validation_R2(prediction_metric, validation_metric, reference_metric, case):
     """
-    Plot R² prediction, R² validation, and R² reference for each solver as an envelope plot.
-    Also, create a bar plot with average R² values for prediction, validation, and all the data for each solver.
+    Plot R² prediction, R² validation, and R² reference for each model as an envelope plot.
+    Also, create a bar plot with average R² values for prediction, validation, and all the data for each model.
 
     Parameters:
-    prediction_R2 (dict): Dictionary containing R² prediction values for each fold and solver.
-    validation_R2 (dict): Dictionary containing R² validation values for each fold and solver.
-    R2_ref (dict): Dictionary containing R² reference values for each solver.
+    prediction_R2 (dict): Dictionary containing R² prediction values for each fold and model.
+    validation_R2 (dict): Dictionary containing R² validation values for each fold and model.
+    R2_ref (dict): Dictionary containing R² reference values for each model.
 
     Returns:
     None
@@ -1720,6 +1720,9 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, full_p
         plt.legend()
         # plt.grid(True)
         plt.tight_layout()
+        validation_dir = os.path.join(os.getcwd(), 'validation')
+        os.makedirs(validation_dir, exist_ok=True)
+        full_path = validation_dir
         plot_filename = os.path.join(full_path, f'{label} of validation for {solver}.png')
         plt.savefig(plot_filename, dpi=300)
         plt.show()
@@ -1763,13 +1766,13 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, full_p
         plt.show()
 
 
-def validation_params(parameters, ref_params, full_path):
+def validation_params(parameters, ref_params):
     """
-    Plot normalized parameters for each solver in each fold, divided by the corresponding member in ref_params.
+    Plot normalized parameters for each model in each fold, divided by the corresponding member in ref_params.
 
     Parameters:
-    parameters (dict): Dictionary containing parameter values for each fold and solver. (one data out at a time based cross-validation)
-    ref_params (dict): Dictionary containing reference parameter values for each solver. (all data used estimation)
+    parameters (dict): Dictionary containing parameter values for each fold and model. (one data out at a time based cross-validation)
+    ref_params (dict): Dictionary containing reference parameter values for each model. (all data used estimation)
 
     Returns:
     None
@@ -1807,6 +1810,9 @@ def validation_params(parameters, ref_params, full_path):
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
+        validation_dir = os.path.join(os.getcwd(), 'validation')
+        os.makedirs(validation_dir, exist_ok=True)
+        full_path = validation_dir
         plot_filename = os.path.join(full_path, f'Normalized Parameter Trends for {solver}.png')
         plt.savefig(plot_filename, dpi=300)
         plt.show()
@@ -1834,11 +1840,11 @@ def run_postprocessing(round_data, solvers, selected_rounds,
     plot_confidence_spaces : bool
         If True, generates confidence space, ellipsoid volume, std dev, and parameter estimate plots.
     plot_p_and_t_tests : bool
-        If True, generates P-value and t-value evolution plots over rounds per solver.
+        If True, generates P-value and t-value evolution plots over rounds per model.
     export_excel_reports : bool
         If True, generates Excel files with experimental, simulation, and input data + summary.
     plot_estimability : bool
-        If True, generates rCC vs k estimability plots per solver.
+        If True, generates rCC vs k estimability plots per model.
     """
     import os
 
@@ -1851,7 +1857,7 @@ def run_postprocessing(round_data, solvers, selected_rounds,
         overall_plotter.tcomp_plot(postprocessing_dir)
 
     for solver_name in solvers:
-        print(f"Post-processing solver: {solver_name}")
+        print(f"Post-processing model: {solver_name}")
         plotter = Plotting_FinalResults(round_data, solver_name, selected_rounds)
 
         if plot_confidence_spaces:

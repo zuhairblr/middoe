@@ -205,7 +205,7 @@ def main():
 
     modelling_settings = { # Settings related to the rival models and their parameters
         'ext_func': {'f17': f17}, # External functions (models) to be used in the experiment from global space
-        'active_solvers': ['f11'], # Active solvers (rival models) to be used in the experiment
+        'active_models': ['f11'], # Active solvers (rival models) to be used in the experiment
         'sim': {'f11': 'gp'}, # select the simulator of each model (model should be defined in the simulator, sci means in your python environment, gp means gPAS extracted gPROSMs models)
         'gpmodels': {
             'credentials': {'f11': '@@TTmnoa698'},  # credentials for gPAS models, if not needed, leave empty
@@ -333,13 +333,13 @@ def main():
         data_storage = {}  # Storage for collected data in different rounds
         round_data = {}  # Tracks results of identification per round of estimation
         design_decisions = {}  # Tracks experimental design decisions
-        winner_solver = None  # Tracks the solver with the highest discrimination performance
-        winner_solver_found = False  # Tracks if a winning solver is identified
+        winner_solver = None  # Tracks the model with the highest discrimination performance
+        winner_solver_found = False  # Tracks if a winning model is identified
 
-        # Check if only one active solver exists; if true, no MD analysis needed
-        if len(modelling_settings['active_solvers']) == 1:
+        # Check if only one active model exists; if true, no MD analysis needed
+        if len(modelling_settings['active_models']) == 1:
             winner_solver_found = True
-            winner_solver = modelling_settings['active_solvers'][0]
+            winner_solver = modelling_settings['active_models'][0]
             print("There are no rival models for:", winner_solver)
 
         # Perform Sobol Sensitivity Analysis if enabled in GSA settings
@@ -371,7 +371,7 @@ def main():
             if terminate_loop:
                 print("Loop terminated successfully.")
         else:
-            print("No winner solver found, exiting without termination loop.")
+            print("No winner model found, exiting without termination loop.")
 
         print(f"Round keys: {round_data.keys()}")
         print('---------------------------------------------')
@@ -502,10 +502,10 @@ def main():
         - data_storage: Stores collected or generated experimental data.
 
         Returns:
-        tuple: (winner_solver_found, winner_solver) - Boolean for success and name of winning solver.
+        tuple: (winner_solver_found, winner_solver) - Boolean for success and name of winning model.
         """
         winner_solver_found = False  # Flag to track if a winner model is found
-        winner_solver = None  # Placeholder for the identified winning solver
+        winner_solver = None  # Placeholder for the identified winning model
         start_round = len(round_data) + 1  # Start counting from the next available round
         case = 'doe'  # Design of Experiment identifier
 
@@ -546,13 +546,13 @@ def main():
 
             ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None  # Default placeholders
 
-            # Check discrimination thresholds for solver selection
+            # Check discrimination thresholds for model selection
             p_r_threshold = logic_settings['md_rej_tresh']  # Rejection threshold for solvers
             p_a_threshold = logic_settings['md_conf_tresh']  # Acceptance threshold for solvers
             for solver, solver_results in resultun.items():
                 if solver_results['P'] < p_r_threshold:  # Remove rejected solvers
-                    modelling_settings['active_solvers'].remove(solver)
-                if solver_results['P'] > p_a_threshold:  # Identify accepted solver (winning model)
+                    modelling_settings['active_models'].remove(solver)
+                if solver_results['P'] > p_a_threshold:  # Identify accepted model (winning model)
                     winner_solver = solver
                     winner_solver_found = True
                     break
@@ -592,7 +592,7 @@ def main():
         logic_settings (dict): User provided - Logic settings for the identification process, including thresholds and maximum runs.
         des_opt (dict): User provided - Design settings for the experiment, including mutation and crossover rates.
         num_parallel_runs (int): Number of parallel runs to execute MBDOE-PP.
-        winner_solver (str): The name of the winning solver from the MD rounds.
+        winner_solver (str): The name of the winning model from the MD rounds.
         round_data (dict): Collection of saved data from each round of the experiment.
         design_decisions (dict): Design decisions for the experiment, to be performed in-silico or in-bench.
         data_storage (dict): Storage for the experimental data observations.
@@ -608,8 +608,8 @@ def main():
             j = start_round + i  # Round number tracking
             round = j  # Alias for the round number
 
-            # Assign the winner solver as the only active solver for the PP round
-            modelling_settings['active_solvers'] = [winner_solver]
+            # Assign the winner model as the only active model for the PP round
+            modelling_settings['active_models'] = [winner_solver]
             method = design_settings['optimization_methods']['ppopt_method']
 
             if method in ['L', 'G_P']:

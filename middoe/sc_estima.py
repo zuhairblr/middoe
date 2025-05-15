@@ -16,7 +16,7 @@ def estima(result, system, models, iden_opt, round, data):
     round (int): The current round of the design - conduction and identification procedure.
     framework_settings (dict): User provided - The settings for the framework.
     data (dict): prior information for estimability analysis (observations, inputs, etc.).
-    run_solver (function): The function to run the solver (simulator-bridger).
+    run_solver (function): The function to run the model (simulator-bridger).
 
     Returns:
     tuple: A tuple containing rankings, rCC values (corrected critical ratios), and J_k values (objectives of weighted least square method based optimization).
@@ -25,7 +25,7 @@ def estima(result, system, models, iden_opt, round, data):
     k_optimal_values = {}
     rCC_values = {}
     J_k_values = {}
-    iden_opt['logging']= False
+    iden_opt['log']= False
     print (f"Estimability analysis for round {round} is running")
     for solver, res in result.items():
         Z = res['LSA']
@@ -44,7 +44,7 @@ def estima(result, system, models, iden_opt, round, data):
         k_optimal_values[solver] = k_optimal
         rCC_values[solver] = rCC
         J_k_values[solver] = J_k
-    iden_opt['logging']= True
+    iden_opt['log']= True
 
     return rankings, k_optimal_values, rCC_values, J_k_values
 
@@ -91,7 +91,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     solvera (str): The name of the model(s).
     round (int): The current round of the design - conduction and identification procedure.
     data (dict): prior information for estimability analysis (observations, inputs, etc.).
-    run_solver (function): The function to run the solver (simulator-bridger).
+    run_solver (function): The function to run the model (simulator-bridger).
 
     Returns:
     tuple: A tuple containing the optimal number of parameters for estimation in the ranking, rCC values (corrected critical ratios), and J_k values (objectives of weighted least square method based optimization).
@@ -99,7 +99,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     rCC_values = []
     J_k_values = []
     original_mutation = models['mutation'][solvera].copy()
-    models['mutation'][solvera] = [True] * len(models['theta_parameters'][solvera])
+    models['mutation'][solvera] = [True] * len(models['theta'][solvera])
 
     results_all_params = parmest(
         system,

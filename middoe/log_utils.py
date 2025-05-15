@@ -59,7 +59,7 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     models (dict): User provided - The settings for the modelling process.
     scaled_params (dict): Estimated parameters scaled to the original scale for each model-round observations.
     iden_opt (dict): Settings for the estimation process, including active solvers and plotting options.
-    solver_parameters (dict): Parameters for the solver.
+    solver_parameters (dict): Parameters for the model.
     framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
     obs (int): Number of observations.
     case (str): Case identifier, used for naming files and directories.
@@ -70,8 +70,8 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     dict: Reference t-value for each model-round observation.
     """
     round_key = f'Round {round}'
-    dof = {solver: obs - len(theta_parameters[solver]) for solver in models['active_solvers']}
-    trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['active_solvers']}
+    dof = {solver: obs - len(theta_parameters[solver]) for solver in models['can_m']}
+    trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['can_m']}
     round_data[round_key] = {
         'ranking': ranking,
         'k_optimal_value': k_optimal_value,
@@ -93,7 +93,7 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
         round_data[round_key]['mutation'][solver] = mutation
 
     # Save original positions information, if it exists
-    for solver in models['active_solvers']:
+    for solver in models['can_m']:
         if solver in models.get('original_positions', {}):
             round_data[round_key]['original_positions'][solver] = models['original_positions'][solver]
         else:
@@ -102,28 +102,28 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     if round == 1:
         add_norm_par(models)
     else:
-        for solver in models['active_solvers']:
+        for solver in models['can_m']:
             # Initialize 'normalized_parameters' if it doesn't exist
             if 'normalized_parameters' not in models:
                 models['normalized_parameters'] = {}
 
-            # Create the entry for the solver if it doesn't exist
+            # Create the entry for the model if it doesn't exist
             if solver not in models['normalized_parameters']:
                 models['normalized_parameters'][solver] = []
 
-            # Update the normalized parameters for the solver
+            # Update the normalized parameters for the model
             models['normalized_parameters'][solver] = result[solver]['estimations_normalized']
 
     # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-    for solver in models['active_solvers']:
+    for solver in models['can_m']:
         models['V_matrix'][solver] = result[solver]['V_matrix']
 
-    solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['active_solvers']}
-    solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['active_solvers']}
+    solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
+    solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
     plotting1 = Plotting_Results(models, round)  # Instantiate Plotting class
-    if iden_opt['con_plot'] == True:
+    if iden_opt['c_plt'] == True:
         plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals)
-    if iden_opt['fit_plot'] == True:
+    if iden_opt['f_plt'] == True:
         plotting1.fit_plot(data_storage, result, system)
 
     return trv
@@ -218,10 +218,10 @@ def add_norm_par(modelling_settings):
     KeyError: If 'theta_parameters' is not present in the modelling settings.
     """
     # Check if 'theta_parameters' is present in models
-    if 'theta_parameters' in modelling_settings:
+    if 'theta' in modelling_settings:
         # Create 'normalized_parameters' as a dictionary with lists of ones
         modelling_settings['normalized_parameters'] = {
-            key: [1] * len(value) for key, value in modelling_settings['theta_parameters'].items()
+            key: [1] * len(value) for key, value in modelling_settings['theta'].items()
         }
     else:
         raise KeyError("The dictionary must contain 'theta_parameters' as a key.")

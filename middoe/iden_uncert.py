@@ -34,7 +34,7 @@ def uncert(data, resultpr, system, models, iden_opt):
     tuple
         (resultun2, theta_parameters, solver_parameters, scaled_params, observed_values)
 
-        Where resultun2 is a dictionary keyed by solver name, containing:
+        Where resultun2 is a dictionary keyed by model name, containing:
           'LS', 'MLE', 'MSE', 'Chi', 'LSA', 'JWLS', 'R2_responses', etc.
     """
     import numpy as np
@@ -44,11 +44,11 @@ def uncert(data, resultpr, system, models, iden_opt):
     ti_iphi_vars = list(system.get('tii', {}).keys())
     tv_ophi_vars = [
         var for var in system.get('tvo', {}).keys()
-        if system['tvo'][var].get('measured', True)
+        if system['tvo'][var].get('meas', True)
     ]
     ti_ophi_vars = [
         var for var in system.get('tio', {}).keys()
-        if system['tio'][var].get('measured', True)
+        if system['tio'][var].get('meas', True)
     ]
 
     # Attempt to retrieve standard deviations for each measured variable.
@@ -56,13 +56,13 @@ def uncert(data, resultpr, system, models, iden_opt):
     # (Although we don't use them directly here, we show how you'd gather them.)
     std_dev = {}
     for var in system.get('tvo', {}):
-        if system['tvo'][var].get('measured', True):
+        if system['tvo'][var].get('meas', True):
             sigma = system['tvo'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
     for var in system.get('tio', {}):
-        if system['tio'][var].get('measured', True):
+        if system['tio'][var].get('meas', True):
             sigma = system['tio'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
@@ -70,11 +70,11 @@ def uncert(data, resultpr, system, models, iden_opt):
 
     # Estimation settings
     eps = iden_opt.get('eps', None)
-    logging = iden_opt.get('logging', False)
+    logging = iden_opt.get('log', False)
 
     # Modelling settings
     mutation = models.get('mutation', {})
-    theta_parameters = models.get('theta_parameters', {})
+    theta_parameters = models.get('theta', {})
 
     resultun = {}
 
@@ -264,14 +264,14 @@ def _uncert_metrics(
     # -------------------------------------------------------------------------
     std_dev = {}
     for var in system.get('tvo', {}):
-        if system['tvo'][var].get('measured', True):
+        if system['tvo'][var].get('meas', True):
             sigma = system['tvo'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
             std_dev[var] = sigma
 
     for var in system.get('tio', {}):
-        if system['tio'][var].get('measured', True):
+        if system['tio'][var].get('meas', True):
             sigma = system['tio'][var].get('unc', None)
             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
                 sigma = 1.0
@@ -369,7 +369,7 @@ def _uncert_metrics(
             t_valuese = np.array(sheet_data["X:all"])[~np.isnan(sheet_data["X:all"])]
             t_valuese = np.unique(t_valuese)  # ensure unique & sorted
 
-            # Run solver
+            # Run model
             tv_ophi_sim, ti_ophi_sim, phit_interp = simula(
                 t_valuese,
                 swps_data,
@@ -386,7 +386,7 @@ def _uncert_metrics(
                 models
             )
 
-            # Filter solver outputs at the measurement times for TV outputs
+            # Filter model outputs at the measurement times for TV outputs
             indices = {}
             tv_ophi_filtered = {}
             for var in tv_ophi_vars:
@@ -482,7 +482,7 @@ def _uncert_metrics(
                 modified_theta = theta.copy()
                 modified_theta[param_idx] += eps
 
-                # Run solver with the perturbed parameter
+                # Run model with the perturbed parameter
                 tv_ophi_mod, ti_ophi_mod, _ = simula(
                     t_valuese,
                     swps_data,
@@ -709,9 +709,9 @@ def _report(result, mutation, theta_parameters, models, logging):
     result : dict
         Dictionary containing the results of the optimization.
     mutation : dict
-        Dictionary indicating which parameters are to be optimized for each solver.
+        Dictionary indicating which parameters are to be optimized for each model.
     theta_parameters : dict
-        Dictionary of theta parameters for each solver.
+        Dictionary of theta parameters for each model.
     models : dict
         User-provided dictionary containing the modelling settings.
     logging : bool
@@ -746,7 +746,7 @@ def _report(result, mutation, theta_parameters, models, logging):
             print(f"True parameters of {solver}: {theta_parameters[solver]}")
             print(f"LS objective function value for {solver}: {solver_results['LS']}")
 
-        # Update modelling settings with V_matrix for the solver
+        # Update modelling settings with V_matrix for the model
         models['V_matrix'][solver] = solver_results['V_matrix']
 
         # Map CI, t-values, and CI ratios to their original parameter positions
@@ -759,7 +759,7 @@ def _report(result, mutation, theta_parameters, models, logging):
 
         # Log t-values if requested
         if logging:
-            print(f"T-values of solver {solver}: {solver_results['t_values']}")
+            print(f"T-values of model {solver}: {solver_results['t_values']}")
 
         # Store parameters, covariance matrices, and confidence intervals
         solver_parameters[solver] = solver_results['optimization_result'].x
@@ -771,7 +771,7 @@ def _report(result, mutation, theta_parameters, models, logging):
         if 'R2_responses' in solver_results:
             r2_responses = solver_results['R2_responses']
             if logging:
-                print(f"R2 values for responses in solver {solver}:")
+                print(f"R2 values for responses in model {solver}:")
                 for var, r2_value in r2_responses.items():
                     print(f"  {var}: {r2_value:.4f}")
 
@@ -789,7 +789,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     Parameters:
     theta (list): Initial parameter estimates.
     thetac (list): Scaling factors for parameters.
-    solver (str): Solver name.
+    model (str): Solver name.
     system (dict): Model structure.
     models (dict): Modelling settings.
     run_solver (function): Simulator function to run the model.
@@ -802,7 +802,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     Returns:
     float: Optimal epsilon value for sensitivity analysis.
     """
-    logger.info(f"Performing FDM mesh dependency test for solver {solver}.")
+    logger.info(f"Performing FDM mesh dependency test for model {solver}.")
     eps_values = np.logspace(-8, -1, 20)
     determinant_changes = []
 
@@ -837,7 +837,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     stable_region = np.where(np.isfinite(determinant_changes))[0]
 
     if stable_region.size == 0:
-        raise ValueError(f"Could not determine a stable epsilon region for solver {solver}.")
+        raise ValueError(f"Could not determine a stable epsilon region for model {solver}.")
 
     lowest_variation_index = None
     min_variation = np.inf
@@ -853,7 +853,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
             lowest_variation_index = stable_region[i]
 
     optimal_eps = eps_values[lowest_variation_index]
-    logger.info(f"Optimal epsilon selected for solver {solver}: {optimal_eps}")
+    logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps}")
 
     return optimal_eps
 

@@ -70,35 +70,35 @@ def _run_single_md(des_opt, system, models, core_id, round):
     tv_iphi_vars = list(system['tvi'].keys())
     tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
     tv_iphi_min = [system['tvi'][var]['min'] for var in tv_iphi_vars]
-    tv_iphi_seg = [system['tvi'][var]['swp'] for var in tv_iphi_vars]
-    tv_iphi_const = [system['tvi'][var]['constraints'] for var in tv_iphi_vars]
-    tv_iphi_offsett = [system['tvi'][var]['offsett'] / tf for var in tv_iphi_vars]
-    tv_iphi_offsetl = [system['tvi'][var]['offsetl'] / system['tvi'][var]['max'] for var in tv_iphi_vars]
+    tv_iphi_seg = [system['tvi'][var]['stps']+1 for var in tv_iphi_vars]
+    tv_iphi_const = [system['tvi'][var]['const'] for var in tv_iphi_vars]
+    tv_iphi_offsett = [system['tvi'][var]['offt'] / tf for var in tv_iphi_vars]
+    tv_iphi_offsetl = [system['tvi'][var]['offl'] / system['tvi'][var]['max'] for var in tv_iphi_vars]
     tv_iphi_cvp = {var: system['tvi'][var]['cvp'] for var in tv_iphi_vars}
 
     ti_iphi_vars = list(system['tii'].keys())
     ti_iphi_max = [system['tii'][var]['max'] for var in ti_iphi_vars]
     ti_iphi_min = [system['tii'][var]['min'] for var in ti_iphi_vars]
 
-    tv_ophi_vars = [var for var in system['tvo'].keys() if system['tvo'][var].get('measured', True)]
+    tv_ophi_vars = [var for var in system['tvo'].keys() if system['tvo'][var].get('meas', True)]
     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
-    tv_ophi_offsett_ophi = [system['tvo'][var]['offsett'] / tf for var in tv_ophi_vars]
-    tv_ophi_sampling = {var: system['tvo'][var].get('sampling', 'default_group') for var in tv_ophi_vars}
+    tv_ophi_offsett_ophi = [system['tvo'][var]['offt'] / tf for var in tv_ophi_vars]
+    tv_ophi_sampling = {var: system['tvo'][var].get('samp_s', 'default_group') for var in tv_ophi_vars}
     tv_ophi_forcedsamples = {
-        var: [v / tf for v in system['tvo'][var].get('fixedsps', [])]
+        var: [v / tf for v in system['tvo'][var].get('samp_f', [])]
         for var in tv_ophi_vars
     }
 
-    ti_ophi_vars = [var for var in system['tio'].keys() if system['tio'][var].get('measured', True)]
+    ti_ophi_vars = [var for var in system['tio'].keys() if system['tio'][var].get('meas', True)]
 
-    active_solvers = models['active_solvers']
+    active_solvers = models['can_m']
     estimations = models['normalized_parameters']
-    ref_thetas = models['theta_parameters']
+    ref_thetas = models['theta']
     theta_parameters = _par_update(ref_thetas, estimations)
 
-    design_criteria = des_opt['criteria']['MBDOE_MD_criterion']
-    maxmd = des_opt['iteration_settings']['maxmd']
-    tolmd = des_opt['iteration_settings']['tolmd']
+    design_criteria = des_opt['md_ob']
+    maxmd = des_opt['itr']['maxmd']
+    tolmd = des_opt['itr']['tolmd']
     eps = des_opt['eps']
     mutation = models['mutation']
 

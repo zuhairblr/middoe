@@ -25,13 +25,13 @@ def parmest(system, models, iden_opt, data, case=None):
     # Unpack design settings
     _initialize_dictionaries(models, iden_opt)
 
-    active_solvers = models['active_solvers']
-    theta_parameters = models['theta_parameters']
-    bound_max = models['bound_max']
-    bound_min = models['bound_min']
+    active_models = models['can_m']
+    theta_parameters = models['theta']
+    bound_max = models['t_u']
+    bound_min = models['t_l']
     mutation = models['mutation']
-    method = iden_opt['method']
-    objf = iden_opt['objf']
+    method = iden_opt['meth']
+    objf = iden_opt['ob']
 
 
     if case is None:
@@ -42,11 +42,11 @@ def parmest(system, models, iden_opt, data, case=None):
             x0_dict = iden_opt['x0']
     elif case == 'freeze':
         x0_dict = iden_opt['x0']
-    logging= iden_opt['logging']
+    logging= iden_opt['log']
 
     # Call runner function
     results = _runner(
-        active_solvers, theta_parameters, bound_max, bound_min, mutation,
+        active_models, theta_parameters, bound_max, bound_min, mutation,
         objf, x0_dict, method, data, system, models
     )
 
@@ -58,7 +58,7 @@ def parmest(system, models, iden_opt, data, case=None):
 def _objective(
     theta,
     data,
-    active_solvers,
+    active_models,
     x0,
     thetac,
     thetas,
@@ -75,7 +75,7 @@ def _objective(
         List of parameters to optimize.
     data : dict
         Dictionary containing the data for optimization.
-    active_solvers : list
+    active_models : list
         List of active solvers.
     x0 : list
         Initial guess for the parameters.
@@ -143,11 +143,11 @@ def _objective(
     ti_iphi_vars = list(system['tii'].keys())
     tv_ophi_vars = [
         var for var in system['tvo'].keys()
-        if system['tvo'][var].get('measured', True)
+        if system['tvo'][var].get('meas', True)
     ]
     ti_ophi_vars = [
         var for var in system['tio'].keys()
-        if system['tio'][var].get('measured', True)
+        if system['tio'][var].get('meas', True)
     ]
 
     # -------------------------------------------------------------------------
@@ -160,14 +160,14 @@ def _objective(
     std_dev = {}
     # TV outputs
     for var in system['tvo'].keys():
-        if system['tvo'][var].get('measured', True):
+        if system['tvo'][var].get('meas', True):
             sigma = system['tvo'][var].get('unc', None)
             if sigma is None or np.isnan(sigma):
                 sigma = 1.0
             std_dev[var] = sigma
     # TI outputs
     for var in system['tio'].keys():
-        if system['tio'][var].get('measured', True):
+        if system['tio'][var].get('meas', True):
             sigma = system['tio'][var].get('unc', None)
             if sigma is None or np.isnan(sigma):
                 sigma = 1.0
@@ -175,7 +175,7 @@ def _objective(
 
     # -------------------------------------------------------------------------
     # Initialize scaling factors for time-variant and time-invariant inputs
-    # (used when calling the solver).
+    # (used when calling the model).
     # -------------------------------------------------------------------------
     phisc = {var: 1 for var in ti_iphi_vars}   # Scaling for TI inputs
     phitsc = {var: 1 for var in tv_iphi_vars}  # Scaling for TV inputs
@@ -240,8 +240,8 @@ def _objective(
                 raise ValueError(f"Missing '{cvp_col}' column in sheet: {sheet_name}")
             cvp[var] = sheet_data[cvp_col].iloc[0]
 
-        # We'll use the first solver in active_solvers, or you could loop over them.
-        solver_name = active_solvers[0]
+        # We'll use the first model in active_models, or you could loop over them.
+        solver_name = active_models[0]
 
         if solver_name:
             if "X:all" not in sheet_data:
@@ -251,7 +251,7 @@ def _objective(
             t_valuese = np.array(sheet_data["X:all"])[~np.isnan(sheet_data["X:all"])]
             t_valuese = np.unique(t_valuese)  # ensure unique & sorted
 
-            # Run solver
+            # Run model
             tv_ophi_sim, ti_ophi_sim, phit_interp = simula(
                 t_valuese,
                 swps_data,
@@ -268,7 +268,7 @@ def _objective(
                 models
             )
 
-            # Filter solver outputs at the measurement times for each tv_ophi_vars
+            # Filter model outputs at the measurement times for each tv_ophi_vars
             tv_ophi_filtered = {}
             indices = {}
             for var in tv_ophi_vars:
@@ -461,14 +461,14 @@ def _objective(
     return data, metrics
 
 
-def _objective_function(theta, data, solver, x0, thetac, objf, thetas, system, models):
+def _objective_function(theta, data, model, x0, thetac, objf, thetas, system, models):
     """
     Wrapper function for the objective function to be used in optimization.
 
     Parameters:
     theta (list): List of parameters to optimize.
     data (dict): Dictionary containing the experimental data for optimization.
-    solver (str): Name of the model to be used.
+    model (str): Name of the model to be used.
     x0 (list): Initial guess for the parameters.
     thetac (list): List of parameter scalors.
     nd (int): Number of data points, for time spanning.
@@ -483,11 +483,11 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, system, m
     start_time = time.time()  # Start timer
     # Call the objective function
     optimized_data, metrics = _objective(
-        theta, data, [solver], x0, thetac, thetas, system, models
+        theta, data, [model], x0, thetac, thetas, system, models
     )
     end_time = time.time()  # End timer
     elapsed_time = end_time - start_time
-    print(f"Objective function '{objf}' evaluation for solver '{solver}' took {elapsed_time:.4f} seconds.")
+    print(f"Objective function '{objf}' evaluation for model '{model}' took {elapsed_time:.4f} seconds.")
 
 
     # Extract the metrics needed for the optimization
@@ -506,31 +506,31 @@ def _objective_function(theta, data, solver, x0, thetac, objf, thetas, system, m
         raise ValueError(f"Unknown objective function: {objf}")
 
 
-def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, system, models):
+def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, system, models):
     """
     Runner function to perform optimization using different solvers.
 
     Parameters:
-    active_solvers (list): List of active models.
-    theta_parameters (dict): Dictionary of theta parameters for each solver.
-    bound_max (dict): Dictionary of maximum bounds for parameters of each solver.
-    bound_min (dict): Dictionary of minimum bounds for parameters of each solver.
-    mutation (dict): Dictionary indicating which parameters are to be optimized for each solver.
+    active_models (list): List of active models.
+    theta_parameters (dict): Dictionary of theta parameters for each model.
+    bound_max (dict): Dictionary of maximum bounds for parameters of each model.
+    bound_min (dict): Dictionary of minimum bounds for parameters of each model.
+    mutation (dict): Dictionary indicating which parameters are to be optimized for each model.
     nd2 (int): Number of data points, for time spanning.
     objf (str): Objective function to minimize.
-    x0_dict (dict): Dictionary of initial guesses for each solver.
+    x0_dict (dict): Dictionary of initial guesses for each model.
     method (str): Optimization method ('Local' or 'Global').
     data (dict): Dictionary containing the data for optimization.
     design_variables (dict): Dictionary containing design variables.
     run_solver (function): Model simulator function.
 
     Returns:
-    dict: Results of the optimization for each solver.
+    dict: Results of the optimization for each model.
     """
     results = {}
-    x0 = {solver: x0_dict[solver] for solver in active_solvers}
+    x0 = {model: x0_dict[model] for model in active_models}
 
-    for solver in active_solvers:
+    for solver in active_models:
         thetac = theta_parameters[solver]
         thetamax = bound_max[solver]
         thetamin = bound_min[solver]
@@ -581,7 +581,7 @@ def _runner(active_solvers, theta_parameters, bound_max, bound_min, mutation, ob
                 disp=False
             )
 
-        # Store results for each solver
+        # Store results for each model
         results[solver] = {
             'optimization_result': result,
         }
