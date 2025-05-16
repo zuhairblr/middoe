@@ -37,7 +37,7 @@ def uncert(data, resultpr, system, models, iden_opt):
         Where resultun2 is a dictionary keyed by model name, containing:
           'LS', 'MLE', 'MSE', 'Chi', 'LSA', 'JWLS', 'R2_responses', etc.
     """
-    import numpy as np
+
 
     # Gather variable names
     tv_iphi_vars = list(system.get('tvi', {}).keys())
@@ -81,7 +81,7 @@ def uncert(data, resultpr, system, models, iden_opt):
     # We'll keep a placeholder to store the last-run 'observed_values'
     # so that we can return it at the end.
     observed_values = None
-
+    epsf = {solver: eps for solver in resultpr.keys()}
     # Loop over solvers in the results dictionary
     for solver, solver_results in resultpr.items():
 
@@ -91,19 +91,8 @@ def uncert(data, resultpr, system, models, iden_opt):
 
         # If eps is not provided, perform (optional) FDM mesh dependency test
         # in your own custom function:
-        if eps is None:
-            eps = _perform_fdm_mesh_dependency_test(
-                initial_x0,
-                thetac,
-                solver,
-                system,
-                models,
-                tv_iphi_vars,
-                ti_iphi_vars,
-                tv_ophi_vars,
-                ti_ophi_vars,
-                data
-            )
+        if epsf[solver] is None:
+            epsf[solver] = _perform_fdm_mesh_dependency_test(initial_x0,thetac,solver,system,models,tv_iphi_vars,ti_iphi_vars,tv_ophi_vars,ti_ophi_vars,data)
 
         # ---------------------------------------------------------------------
         # Call the core metrics function (updated to handle Weighted LS, MLE, etc.)
@@ -132,7 +121,7 @@ def uncert(data, resultpr, system, models, iden_opt):
             [solver],
             initial_x0,
             thetac,
-            eps,
+            epsf,
             thetas,
             ti_iphi_vars,
             tv_iphi_vars,
@@ -162,7 +151,7 @@ def uncert(data, resultpr, system, models, iden_opt):
             'tv_output_m': tv_output_m,
             'ti_output_m': ti_output_m,
             'estimations_normalized': initial_x0,
-            'found_eps': eps
+            'found_eps': epsf
         }
 
     # Summarize results for all solvers
@@ -480,7 +469,7 @@ def _uncert_metrics(
 
             for i, param_idx in enumerate(np.where(param_mask)[0]):
                 modified_theta = theta.copy()
-                modified_theta[param_idx] += eps
+                modified_theta[param_idx] += eps[solver_name]
 
                 # Run model with the perturbed parameter
                 tv_ophi_mod, ti_ophi_mod, _ = simula(
@@ -525,7 +514,7 @@ def _uncert_metrics(
                 # Sensitivity: (f(theta+eps) - f(theta)) / eps
                 LSAe[:, i] = (
                     np.array(y_model_modified_combined) - np.array(y_model_combined)
-                ) / eps
+                ) / eps[solver_name]
 
             # Append to global LSA
             LSA = np.vstack([LSA, LSAe])
@@ -766,6 +755,7 @@ def _report(result, mutation, theta_parameters, models, logging):
         solver_cov_matrices[solver] = solver_results['V_matrix']
         solver_confidence_intervals[solver] = CI_mapped
         solver_results['P'] = ((1 / (solver_results['Chi']) ** 2) / sum_of_chi_squared) * 100
+        print(f"P-value of model:{solver} is {solver_results['P']} for model discrimination")
 
         # Log R² for responses
         if 'R2_responses' in solver_results:
@@ -826,7 +816,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     plt.yscale('log')
     plt.xlabel('Epsilon')
     plt.ylabel('Determinant of Variance-Covariance Matrix')
-    plt.title(f'Epsilon Dependency Test for Solver {solver}')
+    plt.title(f'Epsilon Dependency Test for model {solver}')
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend()
     plt.tight_layout()

@@ -120,12 +120,18 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
 
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
-    plotting1 = Plotting_Results(models, round)  # Instantiate Plotting class
+    plotting1 = Plotting_Results(models, iden_opt['c_plt'], round)  # Instantiate Plotting class
     if iden_opt['c_plt'] == True:
         plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals)
     if iden_opt['f_plt'] == True:
         plotting1.fit_plot(data_storage, result, system)
 
+    for solver in models['can_m']:
+        print(f'reference t value for model {solver} and round {round}: {trv[solver]}')
+        print (f'estimated t values for model {solver} and round {round}: {result[solver]["t_values"]}')
+        print (f'P-value for model {solver} and round {round}: {result[solver]["P"]}')
+        print (f'eps for model {solver} and round {round}: {result[solver]["found_eps"][solver]}')
+    print()
     return trv
 
 def save_to_jac(results, purpose):
@@ -228,39 +234,93 @@ def add_norm_par(modelling_settings):
 
     return modelling_settings
 
-def save_sobol_results_to_excel(sensa):
+# def save_sobol_results_to_excel(sensa):
+#     """
+#     Saves Sobol analysis results to 'sobol_results.xlsx' in the current working directory.
+#
+#     Parameters:
+#     - sensa: Dictionary containing Sobol analysis results (must have a top-level 'analysis' key).
+#     """
+#     if not sensa or not isinstance(sensa, dict) or 'analysis' not in sensa:
+#         print("Error: Sobol results are not available. No file will be created.")
+#         return
+#
+#     file_path = os.path.join(os.getcwd(), "sobol_results.xlsx")
+#     sobol_analysis = sensa['analysis']
+#
+#     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+#         for model_name, model_data in sobol_analysis.items():
+#             data = {'x_axis_steps': []}
+#
+#             # Determine if step data is a list or dict
+#             steps = model_data.get(model_name)
+#             if isinstance(steps, list):
+#                 for step_index, step_data in enumerate(steps):
+#                     data['x_axis_steps'].append(step_index)
+#                     for i, st_val in enumerate(step_data.get('ST', [])):
+#                         col = f"Parameter_{i + 1}"
+#                         data.setdefault(col, []).append(st_val)
+#             elif isinstance(steps, dict):
+#                 for step, step_data in steps.items():
+#                     data['x_axis_steps'].append(step)
+#                     for i, st_val in enumerate(step_data.get('ST', [])):
+#                         col = f"Parameter_{i + 1}"
+#                         data.setdefault(col, []).append(st_val)
+#
+#             pd.DataFrame(data).to_excel(writer, sheet_name=model_name, index=False)
+#
+#     print(f"Sobol analysis results have been saved to: {file_path}")
+
+
+def save_to_xlsx(sensa):
     """
-    Saves Sobol analysis results to 'sobol_results.xlsx' in the current working directory.
+    Save Sobol analysis results to 'sobol_results.xlsx' in the current directory.
 
     Parameters:
-    - sensa: Dictionary containing Sobol analysis results (must have a top-level 'analysis' key).
+    - sensa: dict, with structure sensa['analysis'][model][response] = list of time-point dicts
+    - sobol_problem: dict, with sobol_problem[model]['names'] = list of parameter names
     """
     if not sensa or not isinstance(sensa, dict) or 'analysis' not in sensa:
-        print("Error: Sobol results are not available. No file will be created.")
+        print("Error: Sobol results not available. No file written.")
         return
 
     file_path = os.path.join(os.getcwd(), "sobol_results.xlsx")
     sobol_analysis = sensa['analysis']
+    sheets_to_write = {}
+
+    for model_name, response_dict in sobol_analysis.items():
+        for response_key, step_data_list in response_dict.items():
+            if not isinstance(step_data_list, list) or not step_data_list:
+                print(f"Skipping {model_name}-{response_key}: no data.")
+                continue
+
+            num_params = len(step_data_list[0].get('ST', []))
+            time = list(range(len(step_data_list)))
+
+            try:
+                names = sobol_problem[model_name]['names']
+            except Exception:
+                names = [f'Param_{i+1}' for i in range(num_params)]
+
+            df_data = {'Time': time}
+            for i in range(num_params):
+                col_name = names[i] if i < len(names) else f'Param_{i+1}'
+                df_data[col_name] = [step.get('ST', [0]*num_params)[i] for step in step_data_list]
+
+            df = pd.DataFrame(df_data)
+
+            sheet_name = f"{model_name}_{response_key}"
+            if len(sheet_name) > 31:
+                sheet_name = sheet_name[:31]
+
+            sheets_to_write[sheet_name] = df
+
+    if not sheets_to_write:
+        print("No valid sheets found. No Excel file created.")
+        return
 
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        for model_name, model_data in sobol_analysis.items():
-            data = {'x_axis_steps': []}
+        for sheet_name, df in sheets_to_write.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-            # Determine if step data is a list or dict
-            steps = model_data.get(model_name)
-            if isinstance(steps, list):
-                for step_index, step_data in enumerate(steps):
-                    data['x_axis_steps'].append(step_index)
-                    for i, st_val in enumerate(step_data.get('ST', [])):
-                        col = f"Parameter_{i + 1}"
-                        data.setdefault(col, []).append(st_val)
-            elif isinstance(steps, dict):
-                for step, step_data in steps.items():
-                    data['x_axis_steps'].append(step)
-                    for i, st_val in enumerate(step_data.get('ST', [])):
-                        col = f"Parameter_{i + 1}"
-                        data.setdefault(col, []).append(st_val)
-
-            pd.DataFrame(data).to_excel(writer, sheet_name=model_name, index=False)
-
-    print(f"Sobol analysis results have been saved to: {file_path}")
+    print(f"Sobol results saved to: {file_path}")

@@ -47,7 +47,7 @@ def parmest(system, models, iden_opt, data, case=None):
     # Call runner function
     results = _runner(
         active_models, theta_parameters, bound_max, bound_min, mutation,
-        objf, x0_dict, method, data, system, models
+        objf, x0_dict, method, data, system, models, logging
     )
 
     # Report results
@@ -461,7 +461,7 @@ def _objective(
     return data, metrics
 
 
-def _objective_function(theta, data, model, x0, thetac, objf, thetas, system, models):
+def _objective_function(theta, data, model, x0, thetac, objf, thetas, system, models, logging):
     """
     Wrapper function for the objective function to be used in optimization.
 
@@ -487,7 +487,9 @@ def _objective_function(theta, data, model, x0, thetac, objf, thetas, system, mo
     )
     end_time = time.time()  # End timer
     elapsed_time = end_time - start_time
-    print(f"Objective function '{objf}' evaluation for model '{model}' took {elapsed_time:.4f} seconds.")
+
+    if logging:
+        print(f"Objective function: '{objf}'| model '{model}' | CPU time {elapsed_time:.4f} seconds.")
 
 
     # Extract the metrics needed for the optimization
@@ -506,7 +508,7 @@ def _objective_function(theta, data, model, x0, thetac, objf, thetas, system, mo
         raise ValueError(f"Unknown objective function: {objf}")
 
 
-def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, system, models):
+def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, objf, x0_dict, method, data, system, models, logging):
     """
     Runner function to perform optimization using different solvers.
 
@@ -547,7 +549,7 @@ def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, obj
             result = minimize(
                 _objective_function,
                 initial_x0,
-                args=(data, solver, initial_x0, thetac, objf, thetas, system, models),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system, models, logging),
                 method='SLSQP',
                 bounds=bounds,
                 options={'maxiter': 10000000, 'disp': False},
@@ -558,7 +560,7 @@ def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, obj
             result = minimize(
                 _objective_function,
                 initial_x0,
-                args=(data, solver, initial_x0, thetac, objf, thetas, system,  models),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system,  models, logging),
                 method='Nelder-Mead',
                 options={'maxiter': 100000, 'disp': False, 'fatol': 1e-6}
             )
@@ -568,7 +570,7 @@ def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, obj
             result = differential_evolution(
                 _objective_function,
                 bounds=bounds,
-                args=(data, solver, initial_x0, thetac, objf, thetas, system, models),
+                args=(data, solver, initial_x0, thetac, objf, thetas, system, models, logging),
                 maxiter=1000,
                 popsize=18,
                 tol=1e-6,
@@ -598,9 +600,7 @@ def _report_optimization_results(results, logging):
     """
     if logging:
         for solver, solver_results in results.items():
-            print(f"Optimization results for {solver}:")
-            # print("Optimal Parameters:", solver_results['optimization_result'].x)
-            print("Optimization Success:", solver_results['optimization_result'].success)
+            print(f"parameter estimation for model {solver} concluded- success: {solver_results['optimization_result'].success}")
             print()
 
 

@@ -1,11 +1,11 @@
-from middoe.log_utils import load_from_jac, save_sobol_results_to_excel
+from middoe.log_utils import load_from_jac, save_to_xlsx
 from middoe.iden_utils import run_postprocessing
 
 results = load_from_jac()
 iden = results['iden']
 sensa = results['sensa']
 
-save_sobol_results_to_excel(sensa)
+save_to_xlsx(sensa)
 
 run_postprocessing(
     round_data=results['iden'],

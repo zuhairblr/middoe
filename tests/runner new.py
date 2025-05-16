@@ -304,7 +304,7 @@ def main():
     }
 
     models = { # Settings related to the rival models and their parameters
-        'can_m': ['f20'],  # Active solvers (rival models) to be used in the experiment
+        'can_m': ['f20', 'f21'],  # Active solvers (rival models) to be used in the experiment
         'krt': {'f20': 'pys', 'f21': 'pys'},
         # type of the model interface, 'pym' for middoe.krnl_models, 'gpr' for gPAS models, function name for globally defined functions, 'pys' for python standalone scripts
         'creds': {'f20': '@@TTmnoa698', 'f21': '@@TTmnoa698'},
@@ -379,10 +379,11 @@ def main():
         'par_s': True,  # Perform sensitivity analysis for parameters
         'var_d': False, # feasible space for variables, fload ratio: use as multiplier to nominals uniformly (e.g. 1.1), False: use system defined space
         'par_d': 1.1,   # feasible space for parameters, fload ratio: use as multiplier to nominals uniformly(e.g. 1.1), False: use models defined space
-        'samp': 2 ** 10,  # Sampling size for gsa, always 2**n
+        'samp': 2 ** 6,  # Sampling size for gsa, always 2**n
         'multi': 0.7,  # Perform gsa in parallel
         'tii_n': [0.1, 300], # Nominal values for the time-invariant variables
         'tvi_n': [300, 0.1], # Nominal values for the time-variant variables
+        'plt': False,  # Plot the results
     }
 
 
@@ -407,6 +408,7 @@ def main():
         'ob': 'WLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'WLS': weighted least squares
         'c_plt': False, # plot the confidence volumes
         'f_plt': True, # plot the fitting results
+        'plt_s': True, # show plots while saving
         'log': True # log the results
     }
 

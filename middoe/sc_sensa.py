@@ -25,6 +25,7 @@ def sensa(gsa, models, system):
     sampling = gsa['samp']
     var_sensitivity = gsa['var_s']
     par_sensitivity = gsa['par_s']
+    plt_show = gsa['plt']
     active_solvers = models['can_m']
     theta_parameters = models['theta']
     thetamaxd= models['t_u']
@@ -42,8 +43,7 @@ def sensa(gsa, models, system):
     # t = {key: list(np.linspace(0, 1, 305)) for key in system['tv_iphi'].keys()}
     tsc = int(time_field)  # Ensure `tsc` is an integer
     sobol_problem = {}
-    sobol_analysis_results = {}
-    sobol_analysis_results_excluded = {}
+    sa = {}
 
     if isinstance(parallel_value, float):
         # MULTI-CORE EXECUTION
@@ -54,7 +54,7 @@ def sensa(gsa, models, system):
         # Use ProcessPoolExecutor for multiprocessing
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             for solver in active_solvers:
-                print(f'Running GSA-Sobol for model (parallel): {solver}')
+                print(f'Running GSA-Sobol for model: {solver} in parallel')
                 theta = [float(val) for val in theta_parameters[solver]]
                 thetamax = [float(max_val) * float(theta_val) for max_val, theta_val in zip(thetamaxd[solver], theta)]
                 thetamin = [float(min_val) * float(theta_val) for min_val, theta_val in zip(thetamind[solver], theta)]
@@ -120,12 +120,12 @@ def sensa(gsa, models, system):
                 for future in futures:
                     results.extend(future.result())
 
-                sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver])
+                sa[solver] = _process_results(solver, results, t, sobol_problem[solver], plt_show)
 
     else:
         # SINGLE-CORE EXECUTION
         for solver in active_solvers:
-            print(f'Running GSA-Sobol for model (single-core): {solver}')
+            print(f'Running GSA-Sobol for model: {solver} in single-core')
             theta = [float(val) for val in theta_parameters[solver]]
             thetamax = [float(val) * theta[i] for i, val in enumerate(thetamax[solver])]
             thetamin = [float(val) * theta[i] for i, val in enumerate(thetamin[solver])]
@@ -177,11 +177,11 @@ def sensa(gsa, models, system):
             # Process samples in single-core mode (no parallel processing)
             results = _process_sample_chunk(sobol_samples, solver, t, phisc, phitsc, theta, thetac, cvp_initial, tsc, sobol_problem[solver], phi_nom, phit_nom, system, var_sensitivity, par_sensitivity, models)
 
-            sobol_analysis_results[solver], sobol_analysis_results_excluded[solver] = _process_results(solver, results, t, sobol_problem[solver])
+            sa[solver] = _process_results(solver, results, t, sobol_problem[solver], plt_show)
 
     # Construct return dictionary
     sobol_output = {
-        'analysis': sobol_analysis_results_excluded,
+        'analysis': sa,
         'problem': sobol_problem
     }
 
@@ -222,7 +222,9 @@ def _sobol_analysis(
     else:
         raise RuntimeError("Sample mismatch between the model outputs and settings")
 
-    model_outputs = (model_outputs - model_outputs.mean()) / model_outputs.std()
+    with np.errstate(divide='ignore', invalid='ignore'):
+        model_outputs = (model_outputs - model_outputs.mean()) / model_outputs.std()
+
     A, B, AB, BA = _split_output_values(model_outputs, num_params, num_samples, calc_2nd_order)
 
     resample_indices = rng(num_samples, size=(num_samples, resamples))
@@ -595,7 +597,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, t
     return results
 
 
-def _process_results(solver, results, t, sobol_problem_solver):
+def _process_results(solver, results, t, sobol_problem_solver, plt_show):
     """
     Process the results of Sobol sensitivity analysis.
 
@@ -610,6 +612,7 @@ def _process_results(solver, results, t, sobol_problem_solver):
     tuple: A tuple containing the Sobol analysis results and the Sobol analysis results excluding the first time point.
     """
     sobol_analysis_results = {}
+    SA = {}
     sobol_analysis_results_excluded = {}
 
     for response_key in results[0].keys():
@@ -618,7 +621,7 @@ def _process_results(solver, results, t, sobol_problem_solver):
         sobol_analysis_results[solver] = [_sobol_analysis(sobol_problem_solver, response_values[:, j]) for j in range(len(t))]
         t_excluded = t[1:]
         sobol_analysis_results_excluded[solver] = sobol_analysis_results[solver][1:]
-
-        plot_sobol_results(t_excluded, sobol_analysis_results_excluded[solver], sobol_problem_solver, solver, response_key)
-
-    return sobol_analysis_results, sobol_analysis_results_excluded
+        if plt_show:
+            plot_sobol_results(t_excluded, sobol_analysis_results_excluded[solver], sobol_problem_solver, solver, response_key)
+        SA[response_key] = sobol_analysis_results_excluded[solver]
+    return SA

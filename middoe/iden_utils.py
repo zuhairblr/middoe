@@ -200,11 +200,6 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
     num_samples = len(time_samples)
     num_keys = sobol_problem['num_vars']
     names = sobol_problem['names']
-    # base_path = framework_settings['path']
-    # modelling_folder = str(framework_settings['case'])
-    # path = os.path.join(base_path, modelling_folder)
-    # os.makedirs(path, exist_ok=True)
-    # Use current working directory directly
     path = Path.cwd()
     filename = os.path.join(path, f'Sobol_SIs_response_{response_key} for model_{solver}.png')
 
@@ -247,8 +242,8 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
                                  total_order_sensitivities[:, idx] + total_order_conf[:, idx], alpha=0.2)
 
     # Customize the plot - titles, gridlines, labels
-    axes[0].set_title(f'S1 - First-order Sobol Sensitivity: Response:{response_key} - Model:{solver}', fontsize=10)
-    axes[1].set_title(f'ST - Total-order Sobol Sensitivity: Response:{response_key} - Model:{solver}', fontsize=10)
+    axes[0].set_title(f'S1 : Response:{response_key} - Model:{solver}', fontsize=10)
+    axes[1].set_title(f'ST : Response:{response_key} - Model:{solver}', fontsize=10)
 
     for ax in axes:
         ax.set_xlabel('Time', fontsize=12)
@@ -263,6 +258,7 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
     plt.close()
 
 
+
 class Plotting_Results:
     """
     A class to handle plotting of results while analysis.
@@ -273,7 +269,7 @@ class Plotting_Results:
     mutation_settings (dict): Settings related to mutation in the modelling process.
     modelling_folder (str): Folder name for storing modelling results.
     """
-    def __init__(self, models, round=None):
+    def __init__(self, models,  pltshow, round=None):
         """
         Initialize the Plotting_Results class with modelling settings.
 
@@ -288,6 +284,7 @@ class Plotting_Results:
         self.confidence_folder = self.base_path / 'confidence'
         self.modelling_folder.mkdir(parents=True, exist_ok=True)
         self.confidence_folder.mkdir(parents=True, exist_ok=True)
+        self.pltshow= pltshow
 
 
     def fit_plot(self, data, result, system):
@@ -475,11 +472,13 @@ class Plotting_Results:
 
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)
+            if self.pltshow:
+                plt.show()
 
             # Close the plot
             plt.close()
 
-    def conf_plot(self, parameters, cov_matrices, confidence_intervals, round):
+    def conf_plot(self, parameters, cov_matrices, confidence_intervals):
         """
         Generate and save a confidence ellipsoid plot for estimated parameters, across different rounds of identification for different models.
 
@@ -494,7 +493,7 @@ class Plotting_Results:
             param_indices = np.where(self.mutation_settings[solver])[0]  # Get indices where mutation is True
             m = len(param_indices)
             fig, axs = plt.subplots(m, m, figsize=(12, 12))
-            fig.suptitle(f'Confidence for {solver} in round {round}', fontsize=16)
+            fig.suptitle(f'Confidence for {solver} in round {self.round}', fontsize=16)
 
             for i in range(m):
                 for j in range(m):
@@ -548,10 +547,12 @@ class Plotting_Results:
 
             plt.tight_layout()
 
-            filename = self.confidence_folder / f"{round}_th_round_{solver}.png"
+            filename = self.confidence_folder / f"{self.round}_th_round_{solver}.png"
 
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)
+            if self.pltshow:
+                plt.show()
 
             # Close the plot
             plt.close()

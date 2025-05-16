@@ -180,6 +180,20 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
 
+    # Return Excel path and DataFrame, with summary print
+    print(f"\n[✓] In-silico data saved to: {excel_path}")
+    print(f"[INFO] Model used         : {model_name}")
+    print(f"[INFO] Design case        : {'classic/preliminary' if case == 'initial' else 'MBDoE'}")
+    print(f"[INFO] Responses simulated:")
+
+    for response in system.get('tvo', {}):
+        meas = system['tvo'][response].get('meas', True)
+        unc = system['tvo'][response].get('unc', 'N/A')
+        status = "measurable" if meas else "non-measurable"
+        print(f"   - {response:<10} | {status:<15} | std.dev = {unc}")
+
+    return excel_path, df_combined
+
     # return df_combined
 
 
