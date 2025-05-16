@@ -160,7 +160,12 @@ def mbdoe_pp(
             )
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
-
+        print("Design your experiment based on:")
+        print("  tii   :", best_design_decisions['tii'])
+        print("  tvi   :", best_design_decisions['tvi'])
+        print("  swps  :", best_design_decisions['swps'])
+        print("  St    :", best_design_decisions['St'])
+        print("  pp_obj:", best_design_decisions['pp_obj'])
     return best_design_decisions
 
 

@@ -52,6 +52,12 @@ def mbdoe_md(
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
 
+        print("Design your experiment based on:")
+        print("  tii   :", best_design_decisions['tii'])
+        print("  tvi   :", best_design_decisions['tvi'])
+        print("  swps  :", best_design_decisions['swps'])
+        print("  St    :", best_design_decisions['St'])
+        print("  md_obj:", best_design_decisions['md_obj'])
     return best_design_decisions
 
 def _safe_run_md(args):
@@ -160,6 +166,7 @@ def _run_single_md(des_opt, system, models, core_id, round):
         'md_obj': md_obj,
         't_values': t_values
     }
+
 
     return design_decisions, md_obj, swps
 
