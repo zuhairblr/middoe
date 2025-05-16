@@ -284,7 +284,7 @@ class Plotting_Results:
         self.confidence_folder = self.base_path / 'confidence'
         self.modelling_folder.mkdir(parents=True, exist_ok=True)
         self.confidence_folder.mkdir(parents=True, exist_ok=True)
-        self.pltshow= pltshow
+        self.pltshowing= pltshow
 
 
     def fit_plot(self, data, result, system):
@@ -472,7 +472,7 @@ class Plotting_Results:
 
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)
-            if self.pltshow:
+            if self.pltshowing == True:
                 plt.show()
 
             # Close the plot
@@ -551,7 +551,7 @@ class Plotting_Results:
 
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)
-            if self.pltshow:
+            if self.pltshowing == True:
                 plt.show()
 
             # Close the plot

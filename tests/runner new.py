@@ -295,6 +295,7 @@ def main():
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         'md_ob': 'HR',     # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
         'pp_ob': 'E',  # PP optimality criterion, 'D', 'A', 'E', 'ME'
+        'plt': True,  # Plot the results
         'itr': {
             'pps': 20, # population size
             'maxmd': 5, # maximum number of MD runs

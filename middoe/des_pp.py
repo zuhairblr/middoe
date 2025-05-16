@@ -343,9 +343,11 @@ def _run_single_pp(des_opt, system, models, core_number, round):
     design_criteria = des_opt['pp_ob']
     maxpp = des_opt['itr']['maxpp']
     tolpp = des_opt['itr']['tolpp']
+    population_size = des_opt['itr']['pps']
     eps = des_opt['eps']
     mutation = models['mutation']
     V_matrix = models['V_matrix']
+    pltshow= des_opt['plt']
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
 
@@ -357,7 +359,7 @@ def _run_single_pp(des_opt, system, models, core_number, round):
         ti_ophi_vars,
         tf, ti,
         active_solvers, theta_parameters,
-        eps, maxpp, tolpp,
+        eps, maxpp, tolpp,population_size,
         mutation, V_matrix, design_criteria,
         system, models
     )
@@ -401,7 +403,7 @@ def _run_single_pp(des_opt, system, models, core_number, round):
         ti_iphi_vars, ti_iphi_max,
         tf,
         design_criteria,
-        round,
+        round, pltshow,
         core_number
     )
 
@@ -426,7 +428,7 @@ def _optimiser(
     ti_ophi_vars,
     tf, ti,
     active_models, theta_parameters,
-    eps, maxpp, tolpp,
+    eps, maxpp, tolpp,population_size,
     mutation, V_matrix, design_criteria,
     system, models
 ):
@@ -629,7 +631,7 @@ def _optimiser(
             out['G'] = np.array(g, dtype=np.float64)
 
     problem = DEProblem()
-    algo = DE(pop_size=50, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+    algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
 
     res_de = pymoo_minimize(
         problem,
@@ -964,7 +966,9 @@ def _pp_runner(
         condition_number = np.linalg.cond(M[solver_name])
         pp_obj = -condition_number
 
-    print(f"\rmbdoe-PP:{MBDOE_PP_criterion} is running with {pp_obj}", end='', flush=True)
+    print(f"mbdoe-PP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}", end='')
+    print()
+
 
     # ---------------------------------------------------------------------
     # 5) Return the relevant pieces

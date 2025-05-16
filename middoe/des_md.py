@@ -107,6 +107,8 @@ def _run_single_md(des_opt, system, models, core_id, round):
     tolmd = des_opt['itr']['tolmd']
     eps = des_opt['eps']
     mutation = models['mutation']
+    population_size = des_opt['itr']['pps']
+    pltshow = des_opt['plt']
 
     result, index_dict = _optimiser_md(
         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -116,7 +118,7 @@ def _run_single_md(des_opt, system, models, core_id, round):
         ti_ophi_vars,
         tf, ti,
         active_solvers, theta_parameters,
-        eps, maxmd, tolmd,
+        eps, maxmd, tolmd,population_size,
         mutation, design_criteria,
         system, models
     )
@@ -154,7 +156,7 @@ def _run_single_md(des_opt, system, models, core_id, round):
         ti_iphi_vars, ti_iphi_max,
         tf,
         design_criteria,
-        round,
+        round, pltshow,
         core_id
     )
 
@@ -178,7 +180,7 @@ def _optimiser_md(
     ti_ophi_vars,
     tf, ti,
     active_solvers, theta_parameters,
-    eps, maxmd, tolmd,
+    eps, maxmd, tolmd,population_size,
     mutation, design_criteria,
     system, models
 ):
@@ -306,7 +308,7 @@ def _optimiser_md(
             out['G'] = np.array(g, dtype=np.float64)
 
     problem = DEProblem()
-    algo = DE(pop_size=50, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+    algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
 
     res_de = pymoo_minimize(
         problem,
@@ -489,6 +491,8 @@ def _runner_md(
                 diff_vec = y_values_dict[solver_name][var][mask]
                 md_obj += diff_vec @ (J_reg @ diff_vec)
 
-    print(f"\rmbdoe-MD:{design_criteria} is running with {md_obj}", end='', flush=True)
+    print(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}", end='')
+    print()
+
 
     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp

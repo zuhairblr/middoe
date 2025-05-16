@@ -120,7 +120,7 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
 
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
-    plotting1 = Plotting_Results(models, iden_opt['c_plt'], round)  # Instantiate Plotting class
+    plotting1 = Plotting_Results(models, iden_opt['plt_s'], round)  # Instantiate Plotting class
     if iden_opt['c_plt'] == True:
         plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals)
     if iden_opt['f_plt'] == True:
@@ -129,7 +129,7 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     for solver in models['can_m']:
         print(f'reference t value for model {solver} and round {round}: {trv[solver]}')
         print (f'estimated t values for model {solver} and round {round}: {result[solver]["t_values"]}')
-        print (f'P-value for model {solver} and round {round}: {result[solver]["P"]}')
+        print (f'P-value for model {solver} and round {round}: {result[solver]['P']}')
         print (f'eps for model {solver} and round {round}: {result[solver]["found_eps"][solver]}')
     print()
     return trv

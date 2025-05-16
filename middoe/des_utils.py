@@ -62,7 +62,7 @@ def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
 def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi,
               tv_iphi_vars, tv_iphi_max,
               ti_iphi_vars, ti_iphi_max,
-              tf, design_criteria, round, core_number):
+              tf, design_criteria, round, pltshow, core_number):
     """
     Report the design results by scaling variables, plotting designs, and saving the plots.
     """
@@ -120,7 +120,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
     # 6) Plot results using the `_plot_designs` function
     ########################################################################
     _plot_designs(phi, phit, swps, St, performance_metric_value, t,
-                  tv_ophi, ti_ophi, design_criteria, round, core_number)
+                  tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow)
 
     ########################################################################
     # 7) Convert `tii` and `tvi` back to lists for returning
@@ -145,7 +145,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
     return phi, phit, swps, St
 
 def _plot_designs(phi, phit, swps, St, performance_metric, t,
-                  tv_ophi, ti_ophi, design_criteria, round, core_number):
+                  tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow):
     """
     Plot MBDoE (model-based design of experiments) results with multiple y-axes
     for time-variant outputs and inputs, including color-coded switching and sampling times.
@@ -339,6 +339,8 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     final_filename = design_folder / f"{round} (round) by {core_number} core.png"
 
     plt.savefig(final_filename, dpi=300)
+    if pltshow == True:
+        plt.show()
     plt.close()
 
 def _par_update(theta_parameters, estimations):
