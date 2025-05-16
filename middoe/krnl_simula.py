@@ -2,8 +2,6 @@ import numpy as np
 from scipy.interpolate import interp1d
 import importlib
 from subprocess import DEVNULL
-from pygpas.evaluate import evaluate
-from pygpas.server import StartedConnected
 import time
 import random
 import importlib.util
@@ -271,7 +269,14 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
             print(f"All {max_retries} SciPy file-based simulation attempts failed for model '{model_name}'")
 
     elif sim_mode == 'gpr':
-
+        try:
+            from pygpas.evaluate import evaluate
+            from pygpas.server import StartedConnected
+        except ModuleNotFoundError:
+            raise ImportError(
+                "The 'pygpas' module is required for gPROMS-based simulations. "
+                "Please install it manually or ensure it's available in your environment."
+            )
         while not success and retry_count < max_retries:
             try:
                 ports = random.randint(10000, 90000)

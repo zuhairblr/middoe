@@ -166,6 +166,36 @@ def mbdoe_pp(
 
 
 def _safe_run(args):
+    """
+    Executes a function safely and captures any exceptions that occur during execution.
+
+    This function is intended to execute a single function call with specified
+    arguments within a safe environment. If an exception is raised during
+    execution, the exception is handled by printing an error message with the
+    failed core number, followed by the traceback. In such cases, the function
+    returns `None`.
+
+    Parameters
+    ----------
+    args : tuple
+        A tuple containing the following elements:
+        - des_opt : Any
+            Descriptor optimization information.
+        - system : Any
+            The system to be processed.
+        - models : Any
+            Models or configurations associated with the process.
+        - core_num : int
+            An identifier for the core running this execution.
+        - round : Any
+            The round or iteration related to the execution.
+
+    Returns
+    -------
+    Any or None
+        Returns the result of the `_run_single_pp` call if successful, or `None`
+        if an exception is encountered during execution.
+    """
     des_opt, system, models, core_num, round = args
     try:
         return _run_single_pp(des_opt, system, models, core_num, round)
@@ -390,11 +420,86 @@ def _optimiser(
     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
     ti_ophi_vars,
     tf, ti,
-    active_solvers, theta_parameters,
+    active_models, theta_parameters,
     eps, maxpp, tolpp,
     mutation, V_matrix, design_criteria,
     system, models
 ):
+    """
+    Optimizes given variables using a differential evolution (DE) optimization algorithm, constrained by specified bounds
+    and properties. This function dynamically computes bounds and constraints for multiple variable groups, segments,
+    and constraints. It initializes the DE problem, sets constraints, and solves for the optimal variable configuration
+    via the DE algorithm.
+
+    Parameters
+    ----------
+    tv_iphi_vars : list[str]
+        List of variable names for temporal variables in phi-space.
+    tv_iphi_seg : list[int]
+        Number of segments per temporal variable in phi-space.
+    tv_iphi_max : list[float]
+        List of maximum allowable values for temporal variables in phi-space.
+    tv_iphi_min : list[float]
+        List of minimum allowable values for temporal variables in phi-space.
+    tv_iphi_const : list[str]
+        Constraints applied to temporal variables in phi-space.
+    tv_iphi_offsett : list[float]
+        Offset values for time-based constraints in phi-space.
+    tv_iphi_offsetl : list[float]
+        Offset values for level-based constraints in phi-space.
+    tv_iphi_cvp : dict[str, float]
+        Constant values pertaining to temporal variables in phi-space.
+    ti_iphi_vars : list[str]
+        Names of initial condition variables in phi-space.
+    ti_iphi_max : list[float]
+        Maximum allowable values for initial condition variables in phi-space.
+    ti_iphi_min : list[float]
+        Minimum allowable values for initial condition variables in phi-space.
+    tv_ophi_vars : list[str]
+        Names of output variables in phi-space.
+    tv_ophi_seg : list[int]
+        Number of segments for each output variable in phi-space.
+    tv_ophi_offsett_ophi : list[float]
+        Offset values for time-based constraints in output variables.
+    tv_ophi_sampling : dict[str, str]
+        Sampling group mapping for output variables in phi-space.
+    tv_ophi_forcedsamples : dict[str, list]
+        Predefined values for forced samples of output variables.
+    ti_ophi_vars : list[str]
+        Names of initial condition variables for output variables.
+    tf : float
+        Final time for optimization.
+    ti : float
+        Initial time for optimization.
+    active_models : list[str]
+        List of active solvers used in model evaluations.
+    theta_parameters : dict
+        Dictionary of theta parameters used in calculations.
+    eps : float
+        Epsilon, a small convergence factor for optimization.
+    maxpp : int
+        Maximum number of generations for the DE optimizer.
+    tolpp : float
+        Tolerance for constraint satisfaction in the DE optimizer.
+    mutation : float
+        Mutation factor for the DE algorithm.
+    V_matrix : numpy.ndarray
+        Matrix used for design evaluation and optimization.
+    design_criteria : dict
+        Criteria for evaluating the design performance.
+    system : object
+        Representation of the system being optimized, including its properties and state.
+    models : list
+        Collection of models associated with system evaluation.
+
+    Returns
+    -------
+    res_de : pymoo.optimize.Result
+        Result of the differential evolution optimization containing the optimal solution, objective values, and
+        performance metrics.
+    index_dict : dict
+        Dictionary mapping variable names to their corresponding indices or groups in the optimization process.
+    """
     bounds = []
     x0 = []
     index_dict = {
@@ -484,7 +589,7 @@ def _optimiser(
         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
         tv_ophi_sampling=tv_ophi_sampling,
-        active_solvers=active_solvers, theta_parameters=theta_parameters,
+        active_solvers=active_models, theta_parameters=theta_parameters,
         tf=tf, eps=eps, mutation=mutation,
         V_matrix=V_matrix, design_criteria=design_criteria,
         index_dict=index_dict, system=system, models=models
