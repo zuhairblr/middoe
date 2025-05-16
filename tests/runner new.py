@@ -296,6 +296,7 @@ def main():
         'md_ob': 'HR',     # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
         'pp_ob': 'E',  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         'itr': {
+            'pps': 20, # population size
             'maxmd': 5, # maximum number of MD runs
             'tolmd': 1, # tolerance for MD optimization
             'maxpp':30 ,# maximum number of PP runs
