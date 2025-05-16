@@ -799,7 +799,7 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     for eps in eps_values:
         try:
             result = _uncert_metrics(
-                theta, data, [solver], theta, thetac, eps, [True] * len(theta),
+                theta, data, [solver], theta, thetac, {solver: eps}, [True] * len(theta),
                 ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models
             )
             V_matrix = result[5]  # Adjust index based on the correct position of V_matrix in the returned tuple

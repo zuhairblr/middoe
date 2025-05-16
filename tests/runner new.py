@@ -402,9 +402,9 @@ def main():
 
 
     iden_opt = { # Settings for the parameter estimation process
-        'meth': 'G',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
+        'meth': 'Ls',  # optimisation method, 'G': Global Differential Evolution, 'Ls': Local SLSQP, 'Ln': Local Nelder-Mead
         'init': 'rand',   # use 'rand' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
-        'eps': 1e-2,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
+        'eps': None,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
         #usually 1e-3, or None to perform a mesh independency test, and auto adjustment
         'ob': 'WLS',  #loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'WLS': weighted least squares
         'c_plt': False, # plot the confidence volumes
@@ -489,14 +489,14 @@ def main():
             scaled_params = uncert_results['scaled_params']
             obs = uncert_results['obs']
 
-            ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun, system, models, iden_opt, j, data)
+            # ranking, k_optimal_value, rCC_values, J_k_values = estima(resultun, system, models, iden_opt, j, data)
 
             save_rounds(j, resultun, theta_parameters, 'preliminary', round_data,
                         models, scaled_params, iden_opt, solver_parameters, obs, data, system
-                        , ranking=ranking,
-                        k_optimal_value=k_optimal_value,
-                        rCC_values=rCC_values,
-                        J_k_values=J_k_values
+                        # , ranking=ranking,
+                        # k_optimal_value=k_optimal_value,
+                        # rCC_values=rCC_values,
+                        # J_k_values=J_k_values
                         )
 
     def run_md_rounds(system, models, insilicos, iden_opt, logic_settings, des_opt,
