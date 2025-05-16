@@ -9,6 +9,9 @@ import traceback
 from middoe.krnl_simula import simula
 from collections import defaultdict
 import numpy as np
+import logging
+
+
 
 from typing import Dict, Any, Union
 
@@ -491,8 +494,8 @@ def _runner_md(
                 diff_vec = y_values_dict[solver_name][var][mask]
                 md_obj += diff_vec @ (J_reg @ diff_vec)
 
-    print(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}", end='')
-    print()
+    logging.basicConfig(level=logging.INFO, force=True)
+    logging.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
 
 
     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp

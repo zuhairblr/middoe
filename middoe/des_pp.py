@@ -1,3 +1,5 @@
+import logging
+
 from middoe.des_utils import _slicer, _reporter, _par_update
 from middoe.krnl_simula import simula
 from collections import defaultdict
@@ -966,8 +968,10 @@ def _pp_runner(
         condition_number = np.linalg.cond(M[solver_name])
         pp_obj = -condition_number
 
-    print(f"mbdoe-PP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}", end='')
-    print()
+
+
+    logging.basicConfig(level=logging.INFO, force=True)
+    logging.info(f"mbdoe-PP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
 
 
     # ---------------------------------------------------------------------
