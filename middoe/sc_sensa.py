@@ -6,6 +6,9 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 from middoe.krnl_simula import simula
 from middoe.iden_utils import plot_sobol_results
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 
 def sensa(gsa, models, system):
     """
@@ -222,8 +225,7 @@ def _sobol_analysis(
     else:
         raise RuntimeError("Sample mismatch between the model outputs and settings")
 
-    with np.errstate(divide='ignore', invalid='ignore'):
-        model_outputs = (model_outputs - model_outputs.mean()) / model_outputs.std()
+    model_outputs = (model_outputs - model_outputs.mean()) / model_outputs.std()
 
     A, B, AB, BA = _split_output_values(model_outputs, num_params, num_samples, calc_2nd_order)
 
