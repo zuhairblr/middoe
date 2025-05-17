@@ -5,6 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 import math
 import pandas as pd
+from pathlib import Path
 
 
 # Configure the logger
@@ -895,7 +896,7 @@ def _fdm_mesh_independency(theta, thetac, solver, system, models,
     determinant_changes = np.array(determinant_changes)
 
     # Plot determinant variations
-    folder = Path.cwd() / "sensitivity_plots"
+    folder = Path.cwd() / "meshindep_plots"
     folder.mkdir(exist_ok=True)
     filename_base = folder / f"{solver}_eps_dependency_test"
 
