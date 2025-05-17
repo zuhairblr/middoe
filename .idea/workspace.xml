@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 13">
+      <change afterPath="$PROJECT_DIR$/tests/monod example/monod 4 models.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,6 +84,9 @@
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests" />
     </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\monod example" />
+    </key>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -131,6 +136,9 @@
       <workItem from="1747418484988" duration="632000" />
       <workItem from="1747419724401" duration="28000" />
       <workItem from="1747478881133" duration="523000" />
+      <workItem from="1747479840754" duration="587000" />
+      <workItem from="1747494524810" duration="1928000" />
+      <workItem from="1747502508390" duration="43000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />

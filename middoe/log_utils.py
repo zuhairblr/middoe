@@ -128,9 +128,9 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
 
     for solver in models['can_m']:
         print(f'reference t value for model {solver} and round {round}: {trv[solver]}')
-        print (f'estimated t values for model {solver} and round {round}: {result[solver]["t_values"]}')
-        print (f'P-value for model {solver} and round {round}: {result[solver]['P']}')
-        print (f'eps for model {solver} and round {round}: {result[solver]["found_eps"][solver]}')
+        print(f'estimated t values for model {solver} and round {round}: {result[solver]["t_values"]}')
+        print(f'P-value for model {solver} and round {round}: {result[solver]["P"]}')
+        print(f'eps for model {solver} and round {round}: {result[solver]["found_eps"][solver]}')
     print()
     return trv
 
