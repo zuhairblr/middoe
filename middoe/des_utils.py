@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+import sys
 
 def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
     """
