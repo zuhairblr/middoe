@@ -342,6 +342,8 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
 
     plt.savefig(final_filename, dpi=300)
     if pltshow == True:
+        from IPython.display import Image, display
+        display(Image(final_filename))
         plt.show()
     plt.close()
 
@@ -378,13 +380,16 @@ def get_var_info(var, var_groups):
     raise ValueError(f"Variable '{var}' not found in any var list!")
 
 
-def configure_logger(level=logging.INFO):
-    logger = logging.getLogger()
+def configure_logger(name=None, level=logging.INFO):
+    logger = logging.getLogger(name)
     logger.setLevel(level)
-    for h in logger.handlers[:]:
-        logger.removeHandler(h)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-    logger.addHandler(handler)
 
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(levelname)s: %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    logger.propagate = False
+    return logger
 

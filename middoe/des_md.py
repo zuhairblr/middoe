@@ -30,7 +30,6 @@ def mbdoe_md(
     Orchestrates parallel or single-core optimisation runs, filters out failures,
     and returns a dictionary containing the best design and associated metrics.
     """
-    configure_logger()
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
@@ -65,6 +64,7 @@ def mbdoe_md(
 
 def _safe_run_md(args):
     des_opt, system, models, core_num, round = args
+    configure_logger()
     try:
         return _run_single_md(des_opt, system, models, core_num, round)
     except Exception as e:

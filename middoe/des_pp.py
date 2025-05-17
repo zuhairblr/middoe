@@ -138,7 +138,7 @@ def mbdoe_pp(
     >>> print("Design variables:", result['x'])
 
     """
-    configure_logger()
+
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
@@ -204,6 +204,7 @@ def _safe_run(args):
         if an exception is encountered during execution.
     """
     des_opt, system, models, core_num, round = args
+    configure_logger()
     try:
         return _run_single_pp(des_opt, system, models, core_num, round)
     except Exception as e:
