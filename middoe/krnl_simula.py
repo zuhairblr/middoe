@@ -69,11 +69,10 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
     #         except Exception as e:
     #             raise KeyError(f"Model function '{model_name}' not found in 'ext_func', 'kernel_models', or external file. Error: {e}")
 
-    # Determine model source based on model type
     model_type = models['krt'].get(model_name)
 
     if model_type == 'pym':
-        # Load from MIDDoE internal kernel models
+        # Load from kernel models
         try:
             krnl_models = importlib.import_module('middoe.krnl_models')
             model = getattr(krnl_models, model_name)
@@ -81,7 +80,7 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
             raise KeyError(f"Model '{model_name}' not found in middoe.krnl_models. Error: {e}")
 
     elif model_type in ['pys', 'gpr']:
-        # Load from external file path (script-based or GPR models)
+        # Load from external script or gPROMS
         try:
             script_path = models['src'][model_name]
             spec = importlib.util.spec_from_file_location("external_model", script_path)
@@ -91,12 +90,41 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         except Exception as e:
             raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
 
+    elif callable(model_type):
+        # ✅ This is your case: model is directly passed as a function
+        model = model_type
+
     else:
-        # Assume the model is already provided as a callable (e.g., function handle)
-        try:
-            model = models[model_name]
-        except KeyError:
-            raise KeyError(f"Model '{model_name}' not found or not callable. Check models dictionary.")
+        raise KeyError(f"Model type for '{model_name}' not recognized or not callable.")
+
+    # # Determine model source based on model type
+    # model_type = models['krt'].get(model_name)
+    #
+    # if model_type == 'pym':
+    #     # Load from MIDDoE internal kernel models
+    #     try:
+    #         krnl_models = importlib.import_module('middoe.krnl_models')
+    #         model = getattr(krnl_models, model_name)
+    #     except (ImportError, AttributeError) as e:
+    #         raise KeyError(f"Model '{model_name}' not found in middoe.krnl_models. Error: {e}")
+    #
+    # elif model_type in ['pys', 'gpr']:
+    #     # Load from external file path (script-based or GPR models)
+    #     try:
+    #         script_path = models['src'][model_name]
+    #         spec = importlib.util.spec_from_file_location("external_model", script_path)
+    #         module = importlib.util.module_from_spec(spec)
+    #         spec.loader.exec_module(module)
+    #         model = getattr(module, 'solve_model')
+    #     except Exception as e:
+    #         raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
+    #
+    # else:
+    #     # Assume the model is already provided as a callable (e.g., function handle)
+    #     try:
+    #         model = models[model_name]
+    #     except KeyError:
+    #         raise KeyError(f"Model '{model_name}' not found or not callable. Check models dictionary.")
 
     tv_ophi, ti_ophi, phit = _backscal(
         t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac,
