@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
 
 def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
     """
@@ -374,5 +375,15 @@ def get_var_info(var, var_groups):
             i = group_data["vars"].index(var)
             return group_key, i
     raise ValueError(f"Variable '{var}' not found in any var list!")
+
+
+def configure_logger(level=logging.INFO):
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    for h in logger.handlers[:]:
+        logger.removeHandler(h)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    logger.addHandler(handler)
 
 

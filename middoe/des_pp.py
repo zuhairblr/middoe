@@ -1,6 +1,6 @@
 import logging
 
-from middoe.des_utils import _slicer, _reporter, _par_update
+from middoe.des_utils import _slicer, _reporter, _par_update, configure_logger
 from middoe.krnl_simula import simula
 from collections import defaultdict
 from functools import partial
@@ -138,7 +138,7 @@ def mbdoe_pp(
     >>> print("Design variables:", result['x'])
 
     """
-
+    configure_logger()
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(

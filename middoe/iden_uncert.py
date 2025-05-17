@@ -70,6 +70,10 @@ def uncert(data, resultpr, system, models, iden_opt):
 
     # Estimation settings
     eps = iden_opt.get('eps', None)
+    if isinstance(eps, dict):
+        epsf = eps.copy()  # user provided dict
+    else:
+        epsf = {solver: eps for solver in resultpr}  # use same float for all
     logging = iden_opt.get('log', False)
 
     # Modelling settings
@@ -81,7 +85,7 @@ def uncert(data, resultpr, system, models, iden_opt):
     # We'll keep a placeholder to store the last-run 'observed_values'
     # so that we can return it at the end.
     observed_values = None
-    epsf = {solver: eps for solver in resultpr.keys()}
+
     # Loop over solvers in the results dictionary
     for solver, solver_results in resultpr.items():
 
@@ -92,7 +96,8 @@ def uncert(data, resultpr, system, models, iden_opt):
         # If eps is not provided, perform (optional) FDM mesh dependency test
         # in your own custom function:
         if epsf[solver] is None:
-            epsf[solver] = _perform_fdm_mesh_dependency_test(initial_x0,thetac,solver,system,models,tv_iphi_vars,ti_iphi_vars,tv_ophi_vars,ti_ophi_vars,data)
+            epsf[solver] = _fdm_mesh_independency(initial_x0, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data)
+
 
         # ---------------------------------------------------------------------
         # Call the core metrics function (updated to handle Weighted LS, MLE, etc.)
@@ -154,6 +159,7 @@ def uncert(data, resultpr, system, models, iden_opt):
             'found_eps': epsf
         }
 
+    iden_opt['eps'] = epsf
     # Summarize results for all solvers
     (
         scaled_params,
@@ -772,27 +778,103 @@ def _report(result, mutation, theta_parameters, models, logging):
 
     return scaled_params, solver_parameters, solver_cov_matrices, solver_confidence_intervals, result
 
-def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
+# def _fdm_mesh_independency(theta, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
+#     """
+#     Perform FDM mesh dependency test to determine a suitable epsilon for sensitivity analysis.
+#
+#     Parameters:
+#     theta (list): Initial parameter estimates.
+#     thetac (list): Scaling factors for parameters.
+#     model (str): Solver name.
+#     system (dict): Model structure.
+#     models (dict): Modelling settings.
+#     run_solver (function): Simulator function to run the model.
+#     tv_iphi_vars (list): List of time-variant input variables.
+#     ti_iphi_vars (list): List of time-invariant input variables.
+#     tv_ophi_vars (list): List of time-variant output variables.
+#     ti_ophi_vars (list): List of time-invariant output variables.
+#     data (dict): Experimental data.
+#
+#     Returns:
+#     float: Optimal epsilon value for sensitivity analysis.
+#     """
+#     logger.info(f"Performing FDM mesh dependency test for model {solver}.")
+#     eps_values = np.logspace(-8, -1, 20)
+#     determinant_changes = []
+#
+#     for eps in eps_values:
+#         try:
+#             result = _uncert_metrics(
+#                 theta, data, [solver], theta, thetac, {solver: eps}, [True] * len(theta),
+#                 ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models
+#             )
+#             V_matrix = result[5]  # Adjust index based on the correct position of V_matrix in the returned tuple
+#             determinant_changes.append(np.linalg.det(V_matrix))
+#         except np.linalg.LinAlgError:
+#             determinant_changes.append(np.nan)
+#
+#     determinant_changes = np.array(determinant_changes)
+#
+#     # Plot determinant variations
+#     plt.figure(figsize=(8, 6))
+#     plt.plot(eps_values, determinant_changes, marker='o', label='Det(V_matrix)')
+#     plt.xscale('log')
+#     plt.yscale('log')
+#     plt.xlabel('Epsilon')
+#     plt.ylabel('Determinant of Variance-Covariance Matrix')
+#     plt.title(f'Epsilon Dependency Test for model {solver}')
+#     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+#     plt.legend()
+#     plt.tight_layout()
+#     plt.savefig(f"{solver}_eps_dependency_test.png", dpi=300)
+#     plt.show()
+#
+#     # Find epsilon with the lowest variation compared to neighbors
+#     stable_region = np.where(np.isfinite(determinant_changes))[0]
+#
+#     if stable_region.size == 0:
+#         raise ValueError(f"Could not determine a stable epsilon region for model {solver}.")
+#
+#     lowest_variation_index = None
+#     min_variation = np.inf
+#
+#     for i in range(1, len(stable_region) - 1):
+#         prev_val = determinant_changes[stable_region[i - 1]]
+#         current_val = determinant_changes[stable_region[i]]
+#         next_val = determinant_changes[stable_region[i + 1]]
+#
+#         variation = abs(current_val - prev_val) + abs(current_val - next_val)
+#         if variation < min_variation:
+#             min_variation = variation
+#             lowest_variation_index = stable_region[i]
+#
+#     optimal_eps = eps_values[lowest_variation_index]
+#     logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps}")
+#
+#     return optimal_eps
+
+def _fdm_mesh_independency(theta, thetac, solver, system, models,
+                           tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
     """
     Perform FDM mesh dependency test to determine a suitable epsilon for sensitivity analysis.
 
     Parameters:
     theta (list): Initial parameter estimates.
     thetac (list): Scaling factors for parameters.
-    model (str): Solver name.
+    solver (str): Solver name.
     system (dict): Model structure.
     models (dict): Modelling settings.
-    run_solver (function): Simulator function to run the model.
-    tv_iphi_vars (list): List of time-variant input variables.
-    ti_iphi_vars (list): List of time-invariant input variables.
-    tv_ophi_vars (list): List of time-variant output variables.
-    ti_ophi_vars (list): List of time-invariant output variables.
+    tv_iphi_vars (list): Time-variant input variable names.
+    ti_iphi_vars (list): Time-invariant input variable names.
+    tv_ophi_vars (list): Time-variant output variable names.
+    ti_ophi_vars (list): Time-invariant output variable names.
     data (dict): Experimental data.
 
     Returns:
     float: Optimal epsilon value for sensitivity analysis.
     """
     logger.info(f"Performing FDM mesh dependency test for model {solver}.")
+
     eps_values = np.logspace(-8, -1, 20)
     determinant_changes = []
 
@@ -802,14 +884,20 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
                 theta, data, [solver], theta, thetac, {solver: eps}, [True] * len(theta),
                 ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models
             )
-            V_matrix = result[5]  # Adjust index based on the correct position of V_matrix in the returned tuple
-            determinant_changes.append(np.linalg.det(V_matrix))
+            V_matrix = result[5]  # Adjust index if needed
+            det_val = np.linalg.det(V_matrix)
+            determinant_changes.append(det_val)
         except np.linalg.LinAlgError:
+            logger.warning(f"LinAlgError at eps={eps:.1e} for {solver}")
             determinant_changes.append(np.nan)
 
     determinant_changes = np.array(determinant_changes)
 
     # Plot determinant variations
+    folder = Path.cwd() / "sensitivity_plots"
+    folder.mkdir(exist_ok=True)
+    filename_base = folder / f"{solver}_eps_dependency_test"
+
     plt.figure(figsize=(8, 6))
     plt.plot(eps_values, determinant_changes, marker='o', label='Det(V_matrix)')
     plt.xscale('log')
@@ -820,10 +908,19 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"{solver}_eps_dependency_test.png")
-    plt.show()
+    plt.savefig(f"{filename_base}.png", dpi=300)
+    if plt.get_backend() != 'agg':  # Show only in interactive environments
+        plt.show()
+    plt.close()
 
-    # Find epsilon with the lowest variation compared to neighbors
+    # Save data to Excel
+    df = pd.DataFrame({
+        'Epsilon': eps_values,
+        'Determinant': determinant_changes
+    })
+    df.to_excel(f"{filename_base}.xlsx", index=False)
+
+    # Determine optimal epsilon based on stability in the determinant
     stable_region = np.where(np.isfinite(determinant_changes))[0]
 
     if stable_region.size == 0:
@@ -843,7 +940,6 @@ def _perform_fdm_mesh_dependency_test(theta, thetac, solver, system, models, tv_
             lowest_variation_index = stable_region[i]
 
     optimal_eps = eps_values[lowest_variation_index]
-    logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps}")
+    logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps:.2e}")
 
     return optimal_eps
-

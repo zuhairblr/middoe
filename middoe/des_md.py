@@ -1,4 +1,4 @@
-from middoe.des_utils import _slicer, _reporter, _par_update
+from middoe.des_utils import _slicer, _reporter, _par_update, configure_logger
 from functools import partial
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
@@ -30,7 +30,7 @@ def mbdoe_md(
     Orchestrates parallel or single-core optimisation runs, filters out failures,
     and returns a dictionary containing the best design and associated metrics.
     """
-
+    configure_logger()
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
