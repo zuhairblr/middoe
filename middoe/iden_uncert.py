@@ -4,6 +4,7 @@ import scipy.stats as stats
 import logging
 import matplotlib.pyplot as plt
 import math
+import pandas as pd
 
 
 # Configure the logger
