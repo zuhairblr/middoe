@@ -34,7 +34,7 @@ def mbdoe_md(
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
                 _safe_run_md,
-                [(des_opt, system, models, core_num, round) for core_num in range(num_parallel_runs)]
+                [(des_opt, system, models, core_number, round) for core_number in range(num_parallel_runs)]
             )
 
         successful = [res for res in results_list if res is not None]
@@ -49,7 +49,7 @@ def mbdoe_md(
     else:
         try:
             best_design_decisions, best_md_obj, best_swps = _run_single_md(
-                des_opt, system, models, core_id=0, round=round
+                des_opt, system, models, core_number=0, round=round
             )
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
@@ -64,7 +64,7 @@ def mbdoe_md(
 
 def _safe_run_md(args):
     des_opt, system, models, core_num, round = args
-    configure_logger()
+
     try:
         return _run_single_md(des_opt, system, models, core_num, round)
     except Exception as e:
@@ -72,7 +72,7 @@ def _safe_run_md(args):
         traceback.print_exc()
         return None
 
-def _run_single_md(des_opt, system, models, core_id, round):
+def _run_single_md(des_opt, system, models, core_number=0, round=round):
     tf = system['t_s'][1]
     ti = system['t_s'][0]
 
@@ -145,7 +145,7 @@ def _run_single_md(des_opt, system, models, core_id, round):
         )
     except ValueError as e:
         if "MBDoE optimiser kernel was unsuccessful" in str(e):
-            print(f"[INFO] Kernel infeasibility in core {core_id}, round {round}. Skipping.")
+            print(f"[INFO] Kernel infeasibility in core {core_number}, round {round}. Skipping.")
             return None
         else:
             raise
@@ -160,7 +160,7 @@ def _run_single_md(des_opt, system, models, core_id, round):
         tf,
         design_criteria,
         round, pltshow,
-        core_id
+        core_number
     )
 
     design_decisions = {
@@ -494,8 +494,8 @@ def _runner_md(
                 diff_vec = y_values_dict[solver_name][var][mask]
                 md_obj += diff_vec @ (J_reg @ diff_vec)
 
-    logging.basicConfig(level=logging.INFO, force=True)
-    logging.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
+    logger = configure_logger()
+    logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
 
 
     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp

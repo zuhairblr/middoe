@@ -384,11 +384,15 @@ def configure_logger(name=None, level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter('%(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # Remove existing handlers to prevent duplication
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # Add a handler that goes to stdout (not stderr)
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter('%(levelname)s: %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     logger.propagate = False
     return logger

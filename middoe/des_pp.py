@@ -143,7 +143,7 @@ def mbdoe_pp(
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
                 _safe_run,
-                [(des_opt, system, models, core_num, round) for core_num in range(num_parallel_runs)]
+                [(des_opt, system, models, core_number, round) for core_number in range(num_parallel_runs)]
             )
 
         successful = [res for res in results_list if res is not None]
@@ -158,7 +158,7 @@ def mbdoe_pp(
     else:
         try:
             best_design_decisions, best_pp_obj, best_swps = _run_single_pp(
-                des_opt, system, models, core_id=0, round=round
+                des_opt, system, models, core_number=0, round=round
             )
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
@@ -213,7 +213,7 @@ def _safe_run(args):
         return None
 
 
-def _run_single_pp(des_opt, system, models, core_number, round):
+def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     """
     Perform Model-Based Design of Experiments for Parameter Precision (MBDOE-PP).
 
@@ -970,11 +970,8 @@ def _pp_runner(
         pp_obj = -condition_number
 
 
-
-    logging.basicConfig(level=logging.INFO, force=True)
-    logging.info(f"mbdoe-PP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
-
-
+    logger = configure_logger()
+    logger.info(f"mbdoe-MPP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
     # ---------------------------------------------------------------------
     # 5) Return the relevant pieces
     # ---------------------------------------------------------------------

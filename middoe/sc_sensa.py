@@ -130,8 +130,8 @@ def sensa(gsa, models, system):
         for solver in active_solvers:
             print(f'Running GSA-Sobol for model: {solver} in single-core')
             theta = [float(val) for val in theta_parameters[solver]]
-            thetamax = [float(val) * theta[i] for i, val in enumerate(thetamax[solver])]
-            thetamin = [float(val) * theta[i] for i, val in enumerate(thetamin[solver])]
+            thetamax = [float(max_val) * float(theta_val) for max_val, theta_val in zip(thetamaxd[solver], theta)]
+            thetamin = [float(min_val) * float(theta_val) for min_val, theta_val in zip(thetamind[solver], theta)]
 
             phisc = {key: 1.0 for key in system['tii'].keys()}  # Time-invariant input scaling factors
             phitsc = {key: 1.0 for key in system['tvi'].keys()}  # Time-variant input scaling factors

@@ -13,8 +13,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Set Times New Roman font globally for all elements
-rcParams['font.family'] = 'arial'
+# # Set Times New Roman font globally for all elements
+# rcParams['font.family'] = 'arial'
 
 def Plot_estimability(round_data, path, solver):
     """
