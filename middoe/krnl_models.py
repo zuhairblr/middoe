@@ -315,8 +315,8 @@ def f11(t, y, phi, phit, theta, te):
     T = np.interp(t, te_array, phit['T'])
 
     # Physical constants
-    rho = phi['rho']  # Density [kg/m^3]
-    cac = phi['cac']  # Fraction of active CaO in mineral wt%
+    rho = 2468.3  # Density [kg/m^3]
+    cac = 14.58  # Fraction of active CaO in mineral wt%
     aps = phi['aps']  # Particle average diameter [m]
     k, Ea, AK = theta[0], theta[1], theta[2]  # k (rate constant), Ea (activation energy), AK (decay ratio)
     R = 8.314  # Universal gas constant (J/mol·K)
@@ -374,8 +374,8 @@ def f12(t, y, phi, phit, theta, te):
     T = np.interp(t, te_array, phit['T'])
 
     # Physical constants
-    rho = phi['rho']  # Density [kg/m^3]
-    cac = phi['cac']  # Fraction of active CaO in mineral wt%
+    rho = 2468.3  # Density [kg/m^3]
+    cac = 14.58  # Fraction of active CaO in mineral wt%
     aps = phi['aps']  # Particle average diameter [m]
     k, Ea, AK = theta[0], theta[1], theta[2]  # k (rate constant), Ea (activation energy), AK (decay ratio)
     R = 8.314  # Universal gas constant (J/mol·K)
@@ -434,8 +434,8 @@ def f13(t, y, phi, phit, theta, te):
     T = np.interp(t, te_array, phit['T'])
 
     # Physical constants
-    rho = phi['rho']  # Density [kg/m^3]
-    cac = phi['cac']  # Fraction of active CaO in mineral wt%
+    rho = 2468.3  # Density [kg/m^3]
+    cac = 14.58  # Fraction of active CaO in mineral wt%
     aps = phi['aps']  # Particle average diameter [m]
     k, Ea, AK = theta[0], theta[1], theta[2]  # k (rate constant), Ea (activation energy), AK (decay ratio)
     R = 8.314  # Universal gas constant (J/mol·K)

@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 16">
-      <change afterPath="$PROJECT_DIR$/tests/monod example 2/runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/monod example/monod 4 models.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/monod example/monod 4 models.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -146,6 +144,9 @@
       <workItem from="1747520183635" duration="8000" />
       <workItem from="1747520203194" duration="1916000" />
       <workItem from="1747560315771" duration="16000" />
+      <workItem from="1747586104348" duration="585000" />
+      <workItem from="1747587147651" duration="587000" />
+      <workItem from="1747652261959" duration="633000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
