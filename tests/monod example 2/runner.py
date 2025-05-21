@@ -200,32 +200,32 @@ def main():
         }
     }
 
-    gsa = { # Settings for the Global Sensitivity Analysis (gsa)
-        'var_s': False,  # Perform sensitivity analysis for variables
-        'par_s': True,  # Perform sensitivity analysis for parameters
-        'var_d': False, # feasible space for variables, fload ratio: use as multiplier to nominals uniformly (e.g. 1.1), False: use system defined space
-        'par_d': False,   # feasible space for parameters, fload ratio: use as multiplier to nominals uniformly(e.g. 1.1), False: use models defined space
-        'samp': 2 ** 6,  # Sampling size for gsa, always 2**n
-        'multi': None,  # Perform gsa in parallel
-        'tii_n': [1], # Nominal values for the time-invariant variables
-        'tvi_n': [0.05, 30], # Nominal values for the time-variant variables
-        'plt': True,  # Plot the results
-    }
-
-
-
-    from middoe.sc_sensa import sensa
-    sobol_results = sensa(gsa, models, system)
-
-
-    from middoe.log_utils import save_to_jac
-    save_to_jac(sobol_results, purpose="sensa")
-
-    from middoe.log_utils import load_from_jac, save_to_xlsx
-
-    results = load_from_jac()
-    sensa = results['sensa']
-    save_to_xlsx(sensa)
+    # gsa = { # Settings for the Global Sensitivity Analysis (gsa)
+    #     'var_s': False,  # Perform sensitivity analysis for variables
+    #     'par_s': True,  # Perform sensitivity analysis for parameters
+    #     'var_d': False, # feasible space for variables, fload ratio: use as multiplier to nominals uniformly (e.g. 1.1), False: use system defined space
+    #     'par_d': False,   # feasible space for parameters, fload ratio: use as multiplier to nominals uniformly(e.g. 1.1), False: use models defined space
+    #     'samp': 2 ** 6,  # Sampling size for gsa, always 2**n
+    #     'multi': None,  # Perform gsa in parallel
+    #     'tii_n': [1], # Nominal values for the time-invariant variables
+    #     'tvi_n': [0.05, 30], # Nominal values for the time-variant variables
+    #     'plt': True,  # Plot the results
+    # }
+    #
+    #
+    #
+    # from middoe.sc_sensa import sensa
+    # sobol_results = sensa(gsa, models, system)
+    #
+    #
+    # from middoe.log_utils import save_to_jac
+    # save_to_jac(sobol_results, purpose="sensa")
+    #
+    # from middoe.log_utils import load_from_jac, save_to_xlsx
+    #
+    # results = load_from_jac()
+    # sensa = results['sensa']
+    # save_to_xlsx(sensa)
 
 
     insilicos = { # Settings for the insilico data generation
@@ -280,7 +280,7 @@ def main():
 
     des_opt = { # Design settings for the experiment
         'eps': 1e-3, #perturbation size of parameters in SA FDM method (in a normalized to 1 space)
-        'md_ob': 'HR',     # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
+        'md_ob': 'BFF',     # MD optimality criterion, 'HR': Hunter and Reiner, 'BFF': Buzzi-Ferraris and Forzatti
         'pp_ob': 'E',  # PP optimality criterion, 'D', 'A', 'E', 'ME'
         'plt': True,  # Plot the results
         'itr': {
@@ -293,11 +293,10 @@ def main():
     }
 
     models['can_m'].remove('MIV')
-    models['can_m'].remove('MII')
     models['can_m'].remove('MIII')
 
-    from middoe.des_pp import mbdoe_pp
-    designs = mbdoe_pp(des_opt, system, models, round=2, num_parallel_runs=1)
+    from middoe.des_md import mbdoe_md
+    designs = mbdoe_md(des_opt, system, models, round=2, num_parallel_runs=1)
 
 
 

@@ -465,20 +465,6 @@ def _runner_md(
                     y_i_values_dict[solver_name][var] - y_values_dict[solver_name][var]
                 ) / eps
 
-        solver_LSA_list = []
-        for var in indices:
-            row_for_var = [LSA[var][solver_name][i] for i in free_params_indices]
-            row_summed = np.array([arr.mean() for arr in row_for_var])
-            solver_LSA_list.append(row_summed)
-        solver_LSA = np.array(solver_LSA_list)
-        J_transpose = solver_LSA.T
-        J_dot_matrix = np.dot(J_transpose, solver_LSA)
-
-        if J_dot[solver_name].shape != (solver_LSA.shape[1], solver_LSA.shape[1]):
-            J_dot[solver_name] = np.zeros((solver_LSA.shape[1], solver_LSA.shape[1]))
-
-        J_dot[solver_name] += J_dot_matrix
-
     md_obj = 0.0
     if design_criteria == 'HR':
         for i, s1 in enumerate(active_solvers):
@@ -487,12 +473,64 @@ def _runner_md(
                     y1 = y_values_dict[s1][var]
                     y2 = y_values_dict[s2][var]
                     md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
+
     elif design_criteria == 'BFF':
-        for solver_name in active_solvers:
-            J_reg = J_dot[solver_name] + 1e-10 * np.eye(J_dot[solver_name].shape[0])
-            for var, mask in indices.items():
-                diff_vec = y_values_dict[solver_name][var][mask]
-                md_obj += diff_vec @ (J_reg @ diff_vec)
+        std_dev = {var: system['tvo'][var]['unc'] for var in tv_ophi_vars}
+        Sigma_y = np.diag([std_dev[var] ** 2 for var in tv_ophi_vars])
+        for i, s1 in enumerate(active_solvers):
+            for s2 in active_solvers[i+1:]:
+                for t_idx, t in enumerate(t_values):
+                    y1 = np.array([y_values_dict[s1][var][t_idx] for var in tv_ophi_vars])
+                    y2 = np.array([y_values_dict[s2][var][t_idx] for var in tv_ophi_vars])
+                    diff = y1 - y2
+
+                    free_s1 = [i for i, v in enumerate(mutation[s1]) if v]
+                    thetac_s1 = np.array(theta_parameters[s1])[free_s1]
+                    V1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in tv_ophi_vars])
+                    Sigma_theta_s1_inv = np.diag(1 / (thetac_s1 ** 2 + 1e-50))
+                    W1 = V1 @ Sigma_theta_s1_inv @ V1.T
+
+                    free_s2 = [i for i, v in enumerate(mutation[s2]) if v]
+                    thetac_s2 = np.array(theta_parameters[s2])[free_s2]
+                    V2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in tv_ophi_vars])
+                    Sigma_theta_s2_inv = np.diag(1 / (thetac_s2 ** 2 + 1e-50))
+                    W2 = V2 @ Sigma_theta_s2_inv @ V2.T
+
+                    try:
+                        S = Sigma_y + W1 + W2
+                        md_obj += diff.T @ np.linalg.inv(S) @ diff
+                    except np.linalg.LinAlgError:
+                        md_obj += 1e6  # Penalise ill-conditioned cases
+
+    #
+    #     solver_LSA_list = []
+    #     for var in indices:
+    #         row_for_var = [LSA[var][solver_name][i] for i in free_params_indices]
+    #         row_summed = np.array([arr.mean() for arr in row_for_var])
+    #         solver_LSA_list.append(row_summed)
+    #     solver_LSA = np.array(solver_LSA_list)
+    #     J_transpose = solver_LSA.T
+    #     J_dot_matrix = np.dot(J_transpose, solver_LSA)
+    #
+    #     if J_dot[solver_name].shape != (solver_LSA.shape[1], solver_LSA.shape[1]):
+    #         J_dot[solver_name] = np.zeros((solver_LSA.shape[1], solver_LSA.shape[1]))
+    #
+    #     J_dot[solver_name] += J_dot_matrix
+    #
+    # md_obj = 0.0
+    # if design_criteria == 'HR':
+    #     for i, s1 in enumerate(active_solvers):
+    #         for s2 in active_solvers[i+1:]:
+    #             for var, mask in indices.items():
+    #                 y1 = y_values_dict[s1][var]
+    #                 y2 = y_values_dict[s2][var]
+    #                 md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
+    # elif design_criteria == 'BFF':
+    #     for solver_name in active_solvers:
+    #         J_reg = J_dot[solver_name] + 1e-10 * np.eye(J_dot[solver_name].shape[0])
+    #         for var, mask in indices.items():
+    #             diff_vec = y_values_dict[solver_name][var][mask]
+    #             md_obj += diff_vec @ (J_reg @ diff_vec)
 
     logger = configure_logger()
     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
