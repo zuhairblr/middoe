@@ -380,8 +380,8 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         for t in var_times:
             closest_idx = np.argmin(np.abs(np.array(t_valuesc) * tsc - t))
             original_val = tv_ophi[dep_var][closest_idx]
-            sigma = abs(std_dev[dep_var] * original_val)
-            noisy_val = np.random.normal(original_val, sigma)
+            sigma = std_dev[dep_var]  # absolute standard deviation
+            noisy_val = np.random.normal(loc=original_val, scale=sigma)
             var_results.append([t, noisy_val])
 
         df_var = pd.DataFrame(var_results, columns=[f"MES_X:{dep_var}", f"MES_Y:{dep_var}"])

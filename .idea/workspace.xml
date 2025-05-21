@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 16">
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 19">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -66,7 +66,7 @@
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;full.screen.before.presentation.mode&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Tadmin/PycharmProjects/middoe/tests&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Tadmin/PycharmProjects/middoe/tests/semiconwet&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
@@ -81,6 +81,8 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\semiconwet" />
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\mineralisationkin" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -147,6 +149,9 @@
       <workItem from="1747586104348" duration="585000" />
       <workItem from="1747587147651" duration="587000" />
       <workItem from="1747652261959" duration="633000" />
+      <workItem from="1747653245928" duration="5157000" />
+      <workItem from="1747675440774" duration="2058000" />
+      <workItem from="1747726512240" duration="3295000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -308,7 +313,31 @@
       <option name="project" value="LOCAL" />
       <updated>1747508383862</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="final polishing 17">
+      <option name="closed" value="true" />
+      <created>1747653413275</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1747653413275</updated>
+    </task>
+    <task id="LOCAL-00024" summary="final polishing 18">
+      <option name="closed" value="true" />
+      <created>1747657612004</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1747657612004</updated>
+    </task>
+    <task id="LOCAL-00025" summary="final polishing 19">
+      <option name="closed" value="true" />
+      <created>1747659440310</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1747659440310</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -346,7 +375,10 @@
     <MESSAGE value="final polishing 14" />
     <MESSAGE value="final polishing 15" />
     <MESSAGE value="final polishing 16" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 16" />
+    <MESSAGE value="final polishing 17" />
+    <MESSAGE value="final polishing 18" />
+    <MESSAGE value="final polishing 19" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 19" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
