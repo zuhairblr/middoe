@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 19">
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 20">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/monod example 2/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/monod example 2/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -153,7 +152,11 @@
       <workItem from="1747652261959" duration="633000" />
       <workItem from="1747653245928" duration="5157000" />
       <workItem from="1747675440774" duration="2058000" />
-      <workItem from="1747726512240" duration="8375000" />
+      <workItem from="1747726512240" duration="8730000" />
+      <workItem from="1747841873553" duration="836000" />
+      <workItem from="1747898365593" duration="671000" />
+      <workItem from="1747914862076" duration="579000" />
+      <workItem from="1747919377364" duration="1364000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -347,7 +350,15 @@
       <option name="project" value="LOCAL" />
       <updated>1747830028825</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL-00027" summary="final polishing 20">
+      <option name="closed" value="true" />
+      <created>1747841444379</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1747841444379</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -388,7 +399,8 @@
     <MESSAGE value="final polishing 17" />
     <MESSAGE value="final polishing 18" />
     <MESSAGE value="final polishing 19" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 19" />
+    <MESSAGE value="final polishing 20" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 20" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

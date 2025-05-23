@@ -70,7 +70,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
     # Retrieve the model name and related simulation parameters
     model_name = insilicos.get('tr_m')
     classic_des = insilicos['prels']
-    theta_parameters = models['theta']
+    theta_parameters = insilicos['theta']
 
     # Standard deviations for measured tv_ophi variables
     std_dev = {
