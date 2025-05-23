@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 20">
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 21">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -156,7 +155,7 @@
       <workItem from="1747841873553" duration="836000" />
       <workItem from="1747898365593" duration="671000" />
       <workItem from="1747914862076" duration="579000" />
-      <workItem from="1747919377364" duration="1364000" />
+      <workItem from="1747919377364" duration="2278000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -358,7 +357,15 @@
       <option name="project" value="LOCAL" />
       <updated>1747841444379</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="final polishing 21">
+      <option name="closed" value="true" />
+      <created>1748018637896</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1748018637896</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -400,7 +407,8 @@
     <MESSAGE value="final polishing 18" />
     <MESSAGE value="final polishing 19" />
     <MESSAGE value="final polishing 20" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 20" />
+    <MESSAGE value="final polishing 21" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 21" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

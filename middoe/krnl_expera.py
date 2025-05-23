@@ -271,7 +271,7 @@ def _construct_par(model_name, theta_parameters):
         If parameters cannot be constructed or accessed.
     """
     try:
-        thetac = theta_parameters.get(model_name, [])
+        thetac = theta_parameters
         theta = [1] * len(thetac)
         return theta, thetac
     except Exception as e:
