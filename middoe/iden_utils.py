@@ -1605,7 +1605,7 @@ class Plotting_FinalResults:
             logger.info(f"T values plot for {round_label} saved to {save_file_path}.")
 
 
-def _initialize_dictionaries(modelling_settings, estimation_settings):
+def _initialize_dictionaries(models, iden_opt):
     """
     Initialize dictionaries for modelling settings and estimation settings.
 
@@ -1621,52 +1621,52 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
     """
     # Check if keys are missing in models and iden_opt
     keys_to_check = ['original_positions', 'masked_positions']
-    if any(key not in modelling_settings for key in keys_to_check) or 'x0' not in estimation_settings:
+    if any(key not in models for key in keys_to_check) or 'x0' not in iden_opt:
         # Generate x0_dict with random initialization within bounds
-        if estimation_settings['init'] == 'rand':
+        if iden_opt['init'] == 'rand':
             x0_dict = {
                 solver: np.array([
                     np.random.uniform(
-                        modelling_settings['t_l'][solver][i],
-                        modelling_settings['t_u'][solver][i]
+                        models['t_l'][solver][i],
+                        models['t_u'][solver][i]
                     )
                     for i in range(len(params))
                 ])
-                for solver, params in modelling_settings['theta'].items()
-                if solver in modelling_settings['t_l'] and solver in modelling_settings['t_u']
+                for solver, params in models['theta'].items()
+                if solver in models['t_l'] and solver in models['t_u']
             }
         else:
             x0_dict = {
                 solver: [1] * len(params)  # Replace all elements in the list with 1
-                for solver, params in modelling_settings['theta'].items()
-                if solver in modelling_settings['t_l'] and solver in modelling_settings['t_u']
+                for solver, params in models['theta'].items()
+                if solver in models['t_l'] and solver in models['t_u']
             }
 
         # Populate original_positions and masked_positions
         original_positions = {
             solver: list(range(len(params)))
-            for solver, params in modelling_settings['theta'].items()
+            for solver, params in models['theta'].items()
         }
         masked_positions = {
             solver: list(range(len(params)))
-            for solver, params in modelling_settings['theta'].items()
+            for solver, params in models['theta'].items()
         }
 
         # Remove any existing empty placeholders and update with generated values
-        modelling_settings.pop('original_positions', None)
-        modelling_settings.pop('masked_positions', None)
-        estimation_settings.pop('x0', None)
+        models.pop('original_positions', None)
+        models.pop('masked_positions', None)
+        iden_opt.pop('x0', None)
 
-        modelling_settings['original_positions'] = original_positions
-        modelling_settings['masked_positions'] = masked_positions
-        estimation_settings['x0'] = x0_dict
+        models['original_positions'] = original_positions
+        models['masked_positions'] = masked_positions
+        iden_opt['x0'] = x0_dict
 
     # Ensure V_matrix and mutation dictionaries are initialized
-    v_matrix_dict = modelling_settings.get('V_matrix', {})
-    mutation_dict = modelling_settings.get('mutation', {})
+    v_matrix_dict = models.get('V_matrix', {})
+    mutation_dict = models.get('mutation', {})
 
     # Loop through each theta in 'theta_parameters'
-    for key, theta_values in modelling_settings['theta'].items():
+    for key, theta_values in models['theta'].items():
         length = len(theta_values)
 
         # Create V_matrix if not available
@@ -1678,8 +1678,8 @@ def _initialize_dictionaries(modelling_settings, estimation_settings):
             mutation_dict[key] = [True] * length
 
     # Update models with the new V_matrix and mutation dictionaries
-    modelling_settings['V_matrix'] = v_matrix_dict
-    modelling_settings['mutation'] = mutation_dict
+    models['V_matrix'] = v_matrix_dict
+    models['mutation'] = mutation_dict
 
 
 def validation_R2(prediction_metric, validation_metric, reference_metric, case):
