@@ -601,10 +601,17 @@ def _uncert_metrics(
                 math.log(2 * math.pi * (sig_i**2)) + (diff_i**2 / sig_i**2)
             )
 
-        # "Chi" in your original code was sum of ( (y_true - y_pred)^2 / abs(y_pred) ).
-        denom = np.abs(y_pred_arr)
-        denom[denom == 0] = 1e-8
-        chi_part = np.sum((y_true_arr - y_pred_arr) ** 2 / denom)
+        # denom = np.abs(y_pred_arr)
+        # denom[denom == 0] = 1e-8
+        # chi_part = np.sum((y_true_arr - y_pred_arr) ** 2 / denom)
+        # sum_chi += chi_part
+
+        # Ensure no zero standard deviations
+        safe_sigma = np.copy(sigma_arr)
+        safe_sigma[safe_sigma == 0] = 1e-8  # avoid division by zero
+
+        # Chi-square = sum of squared residuals divided by variance
+        chi_part = np.sum(((y_true_arr - y_pred_arr) ** 2) / (safe_sigma ** 2))
         sum_chi += chi_part
 
         # Per-variable unweighted R²
