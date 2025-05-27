@@ -9,7 +9,7 @@ import traceback
 from middoe.krnl_simula import simula
 from collections import defaultdict
 import numpy as np
-import logging
+from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
 
 
 
@@ -112,6 +112,7 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     mutation = models['mutation']
     population_size = des_opt['itr']['pps']
     pltshow = des_opt['plt']
+    optmethod = des_opt.get('meth', 'L')
 
     result, index_dict = _optimiser_md(
         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -123,7 +124,7 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
         active_solvers, theta_parameters,
         eps, maxmd, tolmd,population_size,
         mutation, design_criteria,
-        system, models
+        system, models, optmethod
     )
 
     x_final = getattr(result, 'X', getattr(result, 'x', None))
@@ -175,6 +176,384 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
 
     return design_decisions, md_obj, swps
 
+# def _optimiser_md(
+#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
+#     ti_ophi_vars,
+#     tf, ti,
+#     active_solvers, theta_parameters,
+#     eps, maxmd, tolmd,population_size,
+#     mutation, design_criteria,
+#     system, models
+# ):
+#     bounds = []
+#     x0 = []
+#     index_dict = {
+#         'ti': {},
+#         'swps': {},
+#         'st': {}
+#     }
+#
+#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+#         lo, hi = mn / mx, 1.0
+#         bounds.append((lo, hi))
+#         x0.append((lo + hi) / 2)
+#         index_dict['ti'][name] = [i]
+#
+#     start = len(x0)
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]
+#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
+#         lo = mn / mx
+#         level_idxs = list(range(start, start + seg - 1))
+#         index_dict['swps'][name + 'l'] = level_idxs
+#         for _ in range(seg - 1):
+#             bounds.append((lo, 1.0))
+#             x0.append((lo + 1.0) / 2)
+#         start += seg - 1
+#
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]
+#         lo, hi = ti / tf, 1 - ti / tf
+#         time_idxs = list(range(start, start + seg - 2))
+#         index_dict['swps'][name + 't'] = time_idxs
+#         for _ in range(seg - 2):
+#             bounds.append((lo, hi))
+#             x0.append((lo + hi) / 2)
+#         start += seg - 2
+#
+#     sampling_groups = defaultdict(list)
+#     for var in tv_ophi_vars:
+#         group_id = tv_ophi_sampling[var]
+#         sampling_groups[group_id].append(var)
+#
+#     for group_id, group_vars in sampling_groups.items():
+#         var = group_vars[0]
+#         i = tv_ophi_vars.index(var)
+#         seg = tv_ophi_seg[i]
+#         num_forced = len(tv_ophi_forcedsamples[var])
+#         num_free = seg - num_forced
+#         lo, hi = ti / tf, 1 - ti / tf
+#
+#         idxs = list(range(start, start + num_free))
+#         for var_in_group in group_vars:
+#             index_dict['st'][var_in_group] = idxs
+#
+#         for _ in range(num_free):
+#             bounds.append((lo, hi))
+#             x0.append((lo + hi) / 2)
+#         start += num_free
+#
+#     lower = np.array([b[0] for b in bounds])
+#     upper = np.array([b[1] for b in bounds])
+#     x0 = np.array(x0)
+#
+#     constraint_index_list = []
+#     for i, name in enumerate(tv_iphi_vars):
+#         const = tv_iphi_const[i]
+#         if const != 'rel':
+#             idxs = index_dict['swps'][name + 'l']
+#             for j in range(len(idxs) - 1):
+#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
+#
+#     for i, name in enumerate(tv_iphi_vars):
+#         idxs = index_dict['swps'][name + 't']
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
+#
+#     for i, name in enumerate(tv_ophi_vars):
+#         idxs = index_dict['st'][name]
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+#
+#     total_constraints = len(constraint_index_list)
+#
+#     local_obj = partial(
+#         _md_of,
+#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+#         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
+#         tv_ophi_sampling=tv_ophi_sampling,
+#         active_solvers=active_solvers, theta_parameters=theta_parameters,
+#         tf=tf, eps=eps, mutation=mutation,
+#         design_criteria=design_criteria,
+#         index_dict=index_dict, system=system, models=models
+#     )
+#
+#     class Problem(ElementwiseProblem):
+#         def __init__(self):
+#             super().__init__(
+#                 n_var=len(bounds),
+#                 n_obj=1,
+#                 n_constr=total_constraints,
+#                 xl=lower,
+#                 xu=upper
+#             )
+#
+#         def _evaluate(self, x, out, *args, **kwargs):
+#             f_val = local_obj(x)
+#             g = []
+#             for kind, i, i1, i2 in constraint_index_list:
+#                 if kind == 'lvl':
+#                     offs = tv_iphi_offsetl[i]
+#                     const = tv_iphi_const[i]
+#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+#                     g.append(offs - diff)
+#                 elif kind == 't':
+#                     offs = tv_iphi_offsett[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#                 elif kind == 'st':
+#                     offs = tv_ophi_offsett_ophi[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#             out['F'] = f_val
+#             out['G'] = np.array(g, dtype=np.float64)
+#
+#
+#     problem = Problem()
+#
+#     algorithm = NelderMead()
+#
+#     res = pymoo_minimize(problem,
+#                    algorithm,
+#                    seed=None,
+#                    verbose=False)
+#
+#     #
+#     #
+#     # # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+#     # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/best/1/hypercube', CR=0.7)
+#     #
+#     # # res_de = pymoo_minimize(
+#     # #     problem,
+#     # #     algo,
+#     # #     termination=('n_gen', maxmd),
+#     # #     seed=None,
+#     # #     verbose=True,
+#     # #     constraint_tolerance=tolmd
+#     # # )
+#     #
+#     # res_de = pymoo_minimize(
+#     #     problem,
+#     #     algo,
+#     #     termination=('n_gen', maxmd),
+#     #     seed=None,
+#     #     verbose=True,
+#     #     constraint_tolerance=tolmd,
+#     #     save_history=True
+#     # )
+#     #
+#     #
+#     # algo_nm = PatternSearch()
+#     #
+#     # res_nm = pymoo_minimize(
+#     #     problem,
+#     #     algo_nm,
+#     #     termination=('n_gen', int(maxmd/4)),
+#     #     seed=None,
+#     #     verbose=True,
+#     #     constraint_tolerance=tolmd,
+#     #     x0=res_de.X
+#     # )
+#     #
+#     # res = res_nm if res_nm.F[0] < res_de.F[0] else res_de
+#
+#     return res, index_dict
+
+
+
+
+# def _optimiser_md(
+#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
+#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
+#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
+#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
+#     ti_ophi_vars,
+#     tf, ti,
+#     active_solvers, theta_parameters,
+#     eps, maxmd, tolmd,population_size,
+#     mutation, design_criteria,
+#     system, models, optmethod
+# ):
+#     bounds = []
+#     x0 = []
+#     index_dict = {
+#         'ti': {},
+#         'swps': {},
+#         'st': {}
+#     }
+#
+#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
+#         lo, hi = mn / mx, 1.0
+#         bounds.append((lo, hi))
+#         x0.append((lo + hi) / 2)
+#         index_dict['ti'][name] = [i]
+#
+#     start = len(x0)
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]
+#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
+#         lo = mn / mx
+#         level_idxs = list(range(start, start + seg - 1))
+#         index_dict['swps'][name + 'l'] = level_idxs
+#         for _ in range(seg - 1):
+#             bounds.append((lo, 1.0))
+#             x0.append((lo + 1.0) / 2)
+#         start += seg - 1
+#
+#     for i, name in enumerate(tv_iphi_vars):
+#         seg = tv_iphi_seg[i]
+#         lo, hi = ti / tf, 1 - ti / tf
+#         time_idxs = list(range(start, start + seg - 2))
+#         index_dict['swps'][name + 't'] = time_idxs
+#         for _ in range(seg - 2):
+#             bounds.append((lo, hi))
+#             x0.append((lo + hi) / 2)
+#         start += seg - 2
+#
+#     sampling_groups = defaultdict(list)
+#     for var in tv_ophi_vars:
+#         group_id = tv_ophi_sampling[var]
+#         sampling_groups[group_id].append(var)
+#
+#     for group_id, group_vars in sampling_groups.items():
+#         var = group_vars[0]
+#         i = tv_ophi_vars.index(var)
+#         seg = tv_ophi_seg[i]
+#         num_forced = len(tv_ophi_forcedsamples[var])
+#         num_free = seg - num_forced
+#         lo, hi = ti / tf, 1 - ti / tf
+#
+#         idxs = list(range(start, start + num_free))
+#         for var_in_group in group_vars:
+#             index_dict['st'][var_in_group] = idxs
+#
+#         for _ in range(num_free):
+#             bounds.append((lo, hi))
+#             x0.append((lo + hi) / 2)
+#         start += num_free
+#
+#     lower = np.array([b[0] for b in bounds])
+#     upper = np.array([b[1] for b in bounds])
+#     x0 = np.array(x0)
+#
+#     constraint_index_list = []
+#     for i, name in enumerate(tv_iphi_vars):
+#         const = tv_iphi_const[i]
+#         if const != 'rel':
+#             idxs = index_dict['swps'][name + 'l']
+#             for j in range(len(idxs) - 1):
+#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
+#
+#     for i, name in enumerate(tv_iphi_vars):
+#         idxs = index_dict['swps'][name + 't']
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
+#
+#     for i, name in enumerate(tv_ophi_vars):
+#         idxs = index_dict['st'][name]
+#         for j in range(len(idxs) - 1):
+#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+#
+#     total_constraints = len(constraint_index_list)
+#
+#     local_obj = partial(
+#         _md_of,
+#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
+#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
+#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
+#         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
+#         tv_ophi_sampling=tv_ophi_sampling,
+#         active_solvers=active_solvers, theta_parameters=theta_parameters,
+#         tf=tf, eps=eps, mutation=mutation,
+#         design_criteria=design_criteria,
+#         index_dict=index_dict, system=system, models=models
+#     )
+#
+#     class Problem(ElementwiseProblem):
+#         def __init__(self):
+#             super().__init__(
+#                 n_var=len(bounds),
+#                 n_obj=1,
+#                 n_constr=total_constraints,
+#                 xl=lower,
+#                 xu=upper
+#             )
+#
+#         def _evaluate(self, x, out, *args, **kwargs):
+#             f_val = local_obj(x)
+#             g = []
+#             for kind, i, i1, i2 in constraint_index_list:
+#                 if kind == 'lvl':
+#                     offs = tv_iphi_offsetl[i]
+#                     const = tv_iphi_const[i]
+#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+#                     g.append(offs - diff)
+#                 elif kind == 't':
+#                     offs = tv_iphi_offsett[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#                 elif kind == 'st':
+#                     offs = tv_ophi_offsett_ophi[i]
+#                     g.append(offs - (x[i2] - x[i1]))
+#             out['F'] = f_val
+#             out['G'] = np.array(g, dtype=np.float64)
+#
+#
+#     problem = Problem()
+#
+#     algorithm = PatternSearch()
+#
+#     res = pymoo_minimize(problem,
+#                    algorithm,
+#                    seed=None,
+#                    verbose=True)
+#
+#     #
+#     #
+#     # # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+#     # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/best/1/hypercube', CR=0.7)
+#     #
+#     # # res_de = pymoo_minimize(
+#     # #     problem,
+#     # #     algo,
+#     # #     termination=('n_gen', maxmd),
+#     # #     seed=None,
+#     # #     verbose=True,
+#     # #     constraint_tolerance=tolmd
+#     # # )
+#     #
+#     # res_de = pymoo_minimize(
+#     #     problem,
+#     #     algo,
+#     #     termination=('n_gen', maxmd),
+#     #     seed=None,
+#     #     verbose=True,
+#     #     constraint_tolerance=tolmd,
+#     #     save_history=True
+#     # )
+#     #
+#     #
+#     # algo_nm = PatternSearch()
+#     #
+#     # res_nm = pymoo_minimize(
+#     #     problem,
+#     #     algo_nm,
+#     #     termination=('n_gen', int(maxmd/4)),
+#     #     seed=None,
+#     #     verbose=True,
+#     #     constraint_tolerance=tolmd,
+#     #     x0=res_de.X
+#     # )
+#     #
+#     # res = res_nm if res_nm.F[0] < res_de.F[0] else res_de
+#
+#     return res, index_dict
+
+
+
+
 def _optimiser_md(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -183,10 +562,11 @@ def _optimiser_md(
     ti_ophi_vars,
     tf, ti,
     active_solvers, theta_parameters,
-    eps, maxmd, tolmd,population_size,
+    eps, maxmd, tolmd, population_size,
     mutation, design_criteria,
-    system, models
+    system, models, optmethod
 ):
+
     bounds = []
     x0 = []
     index_dict = {
@@ -282,7 +662,7 @@ def _optimiser_md(
         index_dict=index_dict, system=system, models=models
     )
 
-    class DEProblem(ElementwiseProblem):
+    class Problem(ElementwiseProblem):
         def __init__(self):
             super().__init__(
                 n_var=len(bounds),
@@ -310,19 +690,53 @@ def _optimiser_md(
             out['F'] = f_val
             out['G'] = np.array(g, dtype=np.float64)
 
-    problem = DEProblem()
-    algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+    problem = Problem()
 
-    res_de = pymoo_minimize(
-        problem,
-        algo,
-        termination=('n_gen', maxmd),
-        seed=None,
-        verbose=True,
-        constraint_tolerance=tolmd
-    )
+    if optmethod == 'L':
+        algorithm = PatternSearch()
+        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxmd), seed=None, verbose=True)
 
-    return res_de, index_dict
+    elif optmethod == 'G':
+        algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+        res_refine = pymoo_minimize(
+            problem,
+            algorithm,
+            termination=('n_gen', maxmd),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolmd,
+            save_history=True
+        )
+
+    elif optmethod == 'GL':
+        algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
+        res_de = pymoo_minimize(
+            problem,
+            algorithm_de,
+            termination=('n_gen', maxmd/2),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolmd,
+            save_history=True
+        )
+        algorithm_refine = PatternSearch()
+        res_refine = pymoo_minimize(
+            problem,
+            algorithm_refine,
+            termination=('n_gen', int(maxmd)),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolmd,
+            x0=res_de.X
+        )
+
+    else:
+        raise ValueError("optmethod must be 'L', 'G', or 'GL'")
+
+    return res_refine, index_dict
+
+
+
 
 
 def _md_of(
@@ -502,35 +916,6 @@ def _runner_md(
                     except np.linalg.LinAlgError:
                         md_obj += 1e6  # Penalise ill-conditioned cases
 
-    #
-    #     solver_LSA_list = []
-    #     for var in indices:
-    #         row_for_var = [LSA[var][solver_name][i] for i in free_params_indices]
-    #         row_summed = np.array([arr.mean() for arr in row_for_var])
-    #         solver_LSA_list.append(row_summed)
-    #     solver_LSA = np.array(solver_LSA_list)
-    #     J_transpose = solver_LSA.T
-    #     J_dot_matrix = np.dot(J_transpose, solver_LSA)
-    #
-    #     if J_dot[solver_name].shape != (solver_LSA.shape[1], solver_LSA.shape[1]):
-    #         J_dot[solver_name] = np.zeros((solver_LSA.shape[1], solver_LSA.shape[1]))
-    #
-    #     J_dot[solver_name] += J_dot_matrix
-    #
-    # md_obj = 0.0
-    # if design_criteria == 'HR':
-    #     for i, s1 in enumerate(active_solvers):
-    #         for s2 in active_solvers[i+1:]:
-    #             for var, mask in indices.items():
-    #                 y1 = y_values_dict[s1][var]
-    #                 y2 = y_values_dict[s2][var]
-    #                 md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
-    # elif design_criteria == 'BFF':
-    #     for solver_name in active_solvers:
-    #         J_reg = J_dot[solver_name] + 1e-10 * np.eye(J_dot[solver_name].shape[0])
-    #         for var, mask in indices.items():
-    #             diff_vec = y_values_dict[solver_name][var][mask]
-    #             md_obj += diff_vec @ (J_reg @ diff_vec)
 
     logger = configure_logger()
     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")

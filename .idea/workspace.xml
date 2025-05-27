@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 24">
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 25">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -155,7 +155,7 @@
       <workItem from="1747841873553" duration="836000" />
       <workItem from="1747898365593" duration="671000" />
       <workItem from="1747914862076" duration="579000" />
-      <workItem from="1747919377364" duration="9420000" />
+      <workItem from="1747919377364" duration="11139000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -389,7 +389,15 @@
       <option name="project" value="LOCAL" />
       <updated>1748095182107</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL-00032" summary="final polishing 25">
+      <option name="closed" value="true" />
+      <created>1748096021648</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1748096021648</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -407,7 +415,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="gproms coupling 4" />
     <MESSAGE value="final polishing" />
     <MESSAGE value="final polishing 2" />
     <MESSAGE value="final polishing 3" />
@@ -432,7 +439,8 @@
     <MESSAGE value="final polishing 22" />
     <MESSAGE value="final polishing 23" />
     <MESSAGE value="final polishing 24" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 24" />
+    <MESSAGE value="final polishing 25" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 25" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

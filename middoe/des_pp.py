@@ -11,7 +11,7 @@ from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize as pymoo_minimize
 from multiprocessing import Pool
 import traceback
-
+from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
 from typing import Dict, Any, Union
 
 def mbdoe_pp(
@@ -351,6 +351,7 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     mutation = models['mutation']
     V_matrix = models['V_matrix']
     pltshow= des_opt['plt']
+    optmethod = des_opt.get('meth', 'L')
 
     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
 
@@ -364,7 +365,7 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
         active_solvers, theta_parameters,
         eps, maxpp, tolpp,population_size,
         mutation, V_matrix, design_criteria,
-        system, models
+        system, models, optmethod
     )
 
     if hasattr(result, 'X'):
@@ -433,7 +434,7 @@ def _optimiser(
     active_models, theta_parameters,
     eps, maxpp, tolpp,population_size,
     mutation, V_matrix, design_criteria,
-    system, models
+    system, models, optmethod
 ):
     """
     Optimizes given variables using a differential evolution (DE) optimization algorithm, constrained by specified bounds
@@ -634,16 +635,47 @@ def _optimiser(
             out['G'] = np.array(g, dtype=np.float64)
 
     problem = DEProblem()
-    algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
 
-    res_de = pymoo_minimize(
-        problem,
-        algo,
-        termination=('n_gen', maxpp),
-        seed=None,
-        verbose=True,
-        constraint_tolerance=tolpp
-    )
+    if optmethod == 'L':
+        algorithm = PatternSearch()
+        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), seed=None, verbose=True)
+
+    elif optmethod == 'G':
+        algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
+        res_refine = pymoo_minimize(
+            problem,
+            algorithm,
+            termination=('n_gen', maxpp),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolpp,
+            save_history=True
+        )
+
+    elif optmethod == 'GL':
+        algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
+        res_de = pymoo_minimize(
+            problem,
+            algorithm_de,
+            termination=('n_gen', maxpp/2),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolpp,
+            save_history=True
+        )
+        algorithm_refine = PatternSearch()
+        res_refine = pymoo_minimize(
+            problem,
+            algorithm_refine,
+            termination=('n_gen', int(maxpp)),
+            seed=None,
+            verbose=True,
+            constraint_tolerance=tolpp,
+            x0=res_de.X
+        )
+
+    else:
+        raise ValueError("optmethod must be 'L', 'G', or 'GL'")
 
     return res_de, index_dict
 
