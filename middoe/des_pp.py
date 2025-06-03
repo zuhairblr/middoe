@@ -368,11 +368,8 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
         system, models, optmethod
     )
 
-    if hasattr(result, 'X'):
-        x_final = result.X
-    elif hasattr(result, 'x'):
-        x_final = result.x
-    else:
+    x_final = getattr(result, 'X', getattr(result, 'x', None))
+    if x_final is None:
         raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
     try:
@@ -677,7 +674,7 @@ def _optimiser(
     else:
         raise ValueError("optmethod must be 'L', 'G', or 'GL'")
 
-    return res_de, index_dict
+    return res_refine, index_dict
 
 
 def _pp_of(
@@ -1002,8 +999,8 @@ def _pp_runner(
         pp_obj = -condition_number
 
 
-    logger = configure_logger()
-    logger.info(f"mbdoe-MPP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
+    # logger = configure_logger()
+    # logger.info(f"mbdoe-MPP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
     # ---------------------------------------------------------------------
     # 5) Return the relevant pieces
     # ---------------------------------------------------------------------

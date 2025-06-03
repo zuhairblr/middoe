@@ -258,6 +258,10 @@ def _sobol_analysis(
 
     return results
 
+
+
+
+
 def _split_output_values(output_values, num_params, num_samples, calc_2nd_order):
     """
     Split the output values into matrices A, B, AB, and BA for Sobol sensitivity analysis.
@@ -321,33 +325,61 @@ def _initialize_sensitivity_storage(num_params, resample_count, keep_resamples, 
     return results
 
 
+# def _compute_first_order_sensitivity(A, AB, B):
+#     """
+#     Compute the first-order Sobol sensitivity index.
+#
+#     Parameters:
+#     A (numpy.ndarray): Matrix of output values for the first set of samples.
+#     AB (numpy.ndarray): Matrix of output values for the first-order indices.
+#     B (numpy.ndarray): Matrix of output values for the second set of samples.
+#
+#     Returns:
+#     numpy.ndarray: First-order Sobol sensitivity index.
+#     """
+#     return np.mean(B * (AB - A), axis=0) / np.var(np.r_[A, B], axis=0)
+#
+# def _compute_total_order_sensitivity(A, AB, B):
+#     """
+#     Compute the total-order Sobol sensitivity index.
+#
+#     Parameters:
+#     A (numpy.ndarray): Matrix of output values for the first set of samples.
+#     AB (numpy.ndarray): Matrix of output values for the first-order indices.
+#     B (numpy.ndarray): Matrix of output values for the second set of samples.
+#
+#     Returns:
+#     numpy.ndarray: Total-order Sobol sensitivity index.
+#     """
+#     return 0.5 * np.mean((A - AB) ** 2, axis=0) / np.var(np.r_[A, B], axis=0)
+
+
 def _compute_first_order_sensitivity(A, AB, B):
     """
-    Compute the first-order Sobol sensitivity index.
-
-    Parameters:
-    A (numpy.ndarray): Matrix of output values for the first set of samples.
-    AB (numpy.ndarray): Matrix of output values for the first-order indices.
-    B (numpy.ndarray): Matrix of output values for the second set of samples.
-
-    Returns:
-    numpy.ndarray: First-order Sobol sensitivity index.
+    Compute the first-order Sobol index via the Jansen estimator:
+      S_i = 1 − E[(B − AB)^2] / (2 Var(Y))
+    Always non-negative.
     """
-    return np.mean(B * (AB - A), axis=0) / np.var(np.r_[A, B], axis=0)
+    combined = np.concatenate([A, B])
+    var_total = np.var(combined, ddof=1)
+    return 1.0 - np.mean((B - AB)**2, axis=0) / (2.0 * var_total)
 
 def _compute_total_order_sensitivity(A, AB, B):
     """
-    Compute the total-order Sobol sensitivity index.
-
-    Parameters:
-    A (numpy.ndarray): Matrix of output values for the first set of samples.
-    AB (numpy.ndarray): Matrix of output values for the first-order indices.
-    B (numpy.ndarray): Matrix of output values for the second set of samples.
-
-    Returns:
-    numpy.ndarray: Total-order Sobol sensitivity index.
+    Compute the total-order Sobol index via the Jansen estimator:
+      S_Ti = E[(A − AB)^2] / (2 Var(Y))
+    Always between 0 and 1.
     """
-    return 0.5 * np.mean((A - AB) ** 2, axis=0) / np.var(np.r_[A, B], axis=0)
+    combined = np.concatenate([A, B])
+    var_total = np.var(combined, ddof=1)
+    return np.mean((A - AB)**2, axis=0) / (2.0 * var_total)
+
+
+
+
+
+
+
 
 def _validate_group_membership(settings):
     """

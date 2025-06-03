@@ -4,8 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 25">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 26">
+      <change afterPath="$PROJECT_DIR$/tests/paper/1/monod.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/2/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/2/modelsim.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/2/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/monod.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,43 +56,48 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python tests.Doctests in des_pp.executor&quot;: &quot;Run&quot;,
-    &quot;Python.des_pp.executor&quot;: &quot;Run&quot;,
-    &quot;Python.insilico_scm_runner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.intp.executor&quot;: &quot;Run&quot;,
-    &quot;Python.krnl_models.executor&quot;: &quot;Run&quot;,
-    &quot;Python.pyy.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner for gPROMS.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner gproms 2.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.sc_sensa.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;full.screen.before.presentation.mode&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Tadmin/PycharmProjects/middoe/tests/semiconwet&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.jupyter.py.connections.configurable.JupyterServersConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python tests.Doctests in des_pp.executor": "Run",
+    "Python.des_pp.executor": "Run",
+    "Python.insilico_scm_runner.executor": "Run",
+    "Python.intp.executor": "Run",
+    "Python.krnl_models.executor": "Run",
+    "Python.model.executor": "Run",
+    "Python.modelsim.executor": "Run",
+    "Python.monod.executor": "Run",
+    "Python.pyy.executor": "Run",
+    "Python.runner for gPROMS.executor": "Run",
+    "Python.runner gproms 2.executor": "Run",
+    "Python.runner new.executor": "Run",
+    "Python.runner.executor": "Run",
+    "Python.sc_sensa.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "full.screen.before.presentation.mode": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Tadmin/PycharmProjects/middoe/tests/paper",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.intellij.jupyter.py.connections.configurable.JupyterServersConfigurable",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="QodanaCIConfigService">
     <option name="ciType" value="GITHUB" />
     <option name="path" value="$PROJECT_DIR$/.github/workflows/qodana_code_quality.yml" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\paper" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\semiconwet" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\mineralisationkin" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\paper\1" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\monod example" />
     </key>
   </component>
@@ -156,6 +168,7 @@
       <workItem from="1747898365593" duration="671000" />
       <workItem from="1747914862076" duration="579000" />
       <workItem from="1747919377364" duration="11139000" />
+      <workItem from="1748245190691" duration="53106000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -397,7 +410,15 @@
       <option name="project" value="LOCAL" />
       <updated>1748096021648</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="final polishing 26">
+      <option name="closed" value="true" />
+      <created>1748344387267</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1748344387267</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -415,7 +436,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing" />
     <MESSAGE value="final polishing 2" />
     <MESSAGE value="final polishing 3" />
     <MESSAGE value="final polishing 4" />
@@ -440,7 +460,8 @@
     <MESSAGE value="final polishing 23" />
     <MESSAGE value="final polishing 24" />
     <MESSAGE value="final polishing 25" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 25" />
+    <MESSAGE value="final polishing 26" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 26" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -459,6 +480,11 @@
           <url>file://$PROJECT_DIR$/middoe/iden_uncert.py</url>
           <line>93</line>
           <option name="timeStamp" value="20" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/paper/2/modelsim.py</url>
+          <line>68</line>
+          <option name="timeStamp" value="23" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -479,13 +505,16 @@
     <SUITE FILE_PATH="coverage/middoe$des_pp.coverage" NAME="des_pp Coverage Results" MODIFIED="1747132019301" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1747400751054" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$pyy.coverage" NAME="pyy Coverage Results" MODIFIED="1745935284828" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1747841046448" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/monod example 2" />
+    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1748432143258" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/2" />
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$scratch_23.coverage" NAME="scratch_23 Coverage Results" MODIFIED="1742549765681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$runner_gproms_2.coverage" NAME="runner gproms 2 Coverage Results" MODIFIED="1745827521248" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$sc_sensa.coverage" NAME="sc_sensa Coverage Results" MODIFIED="1747398992372" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
+    <SUITE FILE_PATH="coverage/middoe$modelsim.coverage" NAME="modelsim Coverage Results" MODIFIED="1748424305009" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/2" />
+    <SUITE FILE_PATH="coverage/middoe$model.coverage" NAME="model Coverage Results" MODIFIED="1748424590422" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/2" />
     <SUITE FILE_PATH="coverage/middoe$gpastester.coverage" NAME="gpastester Coverage Results" MODIFIED="1745402187879" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1747399899607" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/middoe$monod.coverage" NAME="monod Coverage Results" MODIFIED="1748420072319" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/1" />
     <SUITE FILE_PATH="coverage/middoe$krnl_models.coverage" NAME="krnl_models Coverage Results" MODIFIED="1745863042798" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$Doctests_in_des_pp.coverage" NAME="Doctests in des_pp Coverage Results" MODIFIED="1747330822433" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$krnl_simula.coverage" NAME="krnl_simula Coverage Results" MODIFIED="1744824175802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />

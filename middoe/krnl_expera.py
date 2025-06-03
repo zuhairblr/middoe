@@ -69,6 +69,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
     # Retrieve the model name and related simulation parameters
     model_name = insilicos.get('tr_m')
+    errortype = insilicos.get('errt', 'abs')
     classic_des = insilicos['prels']
     # theta_parameters = models['theta']
     theta_parameters = insilicos['theta']
@@ -113,7 +114,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         df_combined = _inssimulator(
             t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac,
             cvp_initial, std_dev, t_acc_unique, case, model_name,
-            system, models
+            system, models, errortype
         )
 
     else:
@@ -159,7 +160,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
         df_combined = _inssimulator(
             t_values, swps_scaled, swpsu, phi_scaled, phisc, phit_scaled, phitsc, tsc, theta, thetac,
-            cvp_doe, std_dev, t_acc_unique, case, model_name, system, models)
+            cvp_doe, std_dev, t_acc_unique, case, model_name, system, models, errortype)
 
     # Define Excel path for in-silico data
     excel_path = Path.cwd() / 'indata.xlsx'
@@ -281,7 +282,7 @@ def _construct_par(model_name, theta_parameters):
 
 
 def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac, cvp, std_dev,
-                  t_valuesc, case, model_name, system, models):
+                  t_valuesc, case, model_name, system, models, errortype):
     """
     Conduct the in-silico experiments by setting up the simulation environment,
     running the simulations, adding noise, and saving the results.
@@ -378,11 +379,19 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         var_times = [t * tsc for t in t_values[dep_var]]  # Times for the dependent variable
         var_results = []
 
-        # Add noise to measurements
         for t in var_times:
+            # Find the closest index in the scaled time vector
             closest_idx = np.argmin(np.abs(np.array(t_valuesc) * tsc - t))
             original_val = tv_ophi[dep_var][closest_idx]
-            sigma = std_dev[dep_var]  # absolute standard deviation
+
+            # Compute noise based on selected error type
+            if errortype == 'abs':
+                sigma = std_dev[dep_var]  # constant std deviation
+            elif errortype == 'rel':
+                sigma = std_dev[dep_var] * abs(original_val)  # signal-dependent
+            else:
+                raise ValueError(f"Unsupported errortype: {errortype}")
+
             noisy_val = np.random.normal(loc=original_val, scale=sigma)
             var_results.append([t, noisy_val])
 

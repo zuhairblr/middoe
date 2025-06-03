@@ -573,7 +573,7 @@ def _runner(active_models, theta_parameters, bound_max, bound_min, mutation, obj
                 args=(data, solver, initial_x0, thetac, objf, thetas, system, models, logging),
                 maxiter=1000,
                 popsize=18,
-                tol=1e-6,
+                tol=1e-8,
                 strategy='best1bin',
                 mutation=(0.5, 1.5),
                 recombination=0.7,
