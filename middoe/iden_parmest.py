@@ -223,10 +223,24 @@ def _objective(
             for var in tv_ophi_vars
             if f"MES_Y:{var}" in sheet_data
         }
+
+        tv_ophi_err = {
+            var: np.array(sheet_data.get(f"MES_E:{var}", []))[~np.isnan(sheet_data.get(f"MES_E:{var}", []))]
+            for var in tv_ophi_vars
+            if f"MES_E:{var}" in sheet_data
+        }
+
+
         ti_ophi_data = {
             var: np.array(sheet_data.get(f"MES_Y:{var}", [np.nan]))[0]
             for var in ti_ophi_vars
             if f"MES_Y:{var}" in sheet_data
+        }
+
+        ti_ophi_err = {
+            var: np.array(sheet_data.get(f"MES_E:{var}", [np.nan]))[0]
+            for var in ti_ophi_vars
+            if f"MES_E:{var}" in sheet_data
         }
 
         # Initialize maxv dict for this sheet

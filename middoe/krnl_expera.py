@@ -393,9 +393,10 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
                 raise ValueError(f"Unsupported errortype: {errortype}")
 
             noisy_val = np.random.normal(loc=original_val, scale=sigma)
-            var_results.append([t, noisy_val])
+            noisy_val = max(noisy_val, 0.0)
+            var_results.append([t, noisy_val, sigma])
 
-        df_var = pd.DataFrame(var_results, columns=[f"MES_X:{dep_var}", f"MES_Y:{dep_var}"])
+        df_var = pd.DataFrame(var_results, columns=[f"MES_X:{dep_var}", f"MES_Y:{dep_var}", f"MES_E:{dep_var}"])
         var_dfs.append(df_var)
 
     # 2. Global DataFrame (t_global, tii, tvi/phit_interp, ti_ophi)
