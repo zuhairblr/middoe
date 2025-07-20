@@ -1,0 +1,15 @@
+Model: M
+Scaled Parameters: [0.4174235633972362, 0.18871765825369544, 0.9738718861343159, 0.27867738913713375, 5.56359746853397]
+T-Values: [ 0.64961312  0.0528104   7.79818958 14.44696249  1.17067158]
+CI 95% confidence: [0.64257255 3.57349449 0.12488436 0.01928969 4.75248357]
+Overall R²: 0.1306726722467997
+Overall Chi-square: 29996035.248523302
+R² by Response:
+  y1: 0.9993
+  y2: 0.9994
+Parameter Ranking (list):
+  Parameter 1: 0
+  Parameter 2: 3
+  Parameter 3: 2
+  Parameter 4: 1
+  Parameter 5: 4

@@ -10,9 +10,6 @@ from middoe.krnl_simula import simula
 from collections import defaultdict
 import numpy as np
 from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
-
-
-
 from typing import Dict, Any, Union
 
 
@@ -27,8 +24,32 @@ def mbdoe_md(
     """
     Execute the Model-Based Design of Experiments for Model Discrimination (MBDoE-MD).
 
-    Orchestrates parallel or single-core optimisation runs, filters out failures,
-    and returns a dictionary containing the best design and associated metrics.
+    This function orchestrates the optimization process for model discrimination
+    using either parallel or single-core execution. It filters out failed runs
+    and returns the best design decisions along with associated metrics.
+
+    Args:
+        des_opt (Dict[str, Any]): A dictionary containing design optimization parameters.
+        system (Dict[str, Any]): A dictionary representing the system configuration,
+                                 including time intervals, variable bounds, and constraints.
+        models (Dict[str, Any]): A dictionary containing model-related data, such as
+                                 active solvers, parameter estimates, and mutation settings.
+        round (int): The current round of the optimization process.
+        num_parallel_runs (int, optional): The number of parallel optimization runs to execute.
+                                           Defaults to 1 (single-core execution).
+
+    Returns:
+        Dict[str, Union[Dict[str, Any], float]]: A dictionary containing the best design decisions
+                                                 and associated metrics, including:
+                                                 - 'tii': Time-independent input variables.
+                                                 - 'tvi': Time-varying input variables.
+                                                 - 'swps': Switching points.
+                                                 - 'St': Sampling times.
+                                                 - 'md_obj': The model discrimination objective value.
+                                                 - 't_values': Time values used in the optimization.
+
+    Raises:
+        RuntimeError: If all parallel runs fail or if the single-core optimization fails.
     """
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
@@ -101,7 +122,13 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     ti_ophi_vars = [var for var in system['tio'].keys() if system['tio'][var].get('meas', True)]
 
     active_solvers = models['can_m']
-    estimations = models['normalized_parameters']
+    if 'normalized_parameters' in models:
+        estimations = models['normalized_parameters']
+    else:
+        estimations = {
+            solver: [1.0] * len(models['theta'][solver])
+            for solver in models['can_m']
+        }
     ref_thetas = models['theta']
     theta_parameters = _par_update(ref_thetas, estimations)
 
@@ -109,7 +136,30 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     maxmd = des_opt['itr']['maxmd']
     tolmd = des_opt['itr']['tolmd']
     eps = des_opt['eps']
-    mutation = models['mutation']
+
+    # Ensure V_matrix is a dict of solver -> NumPy array (for indexing safety)
+    if 'V_matrix' in models:
+        V_matrix = {
+            solver: np.array(models['V_matrix'][solver])
+            for solver in models['can_m']
+        }
+    else:
+        V_matrix = {
+            solver: np.array([
+                [1e-50 if i == j else 0 for j in range(len(models['theta'][solver]))]
+                for i in range(len(models['theta'][solver]))
+            ])
+            for solver in models['can_m']
+        }
+
+    # Ensure mutation is a dict of solver -> list[bool]
+    if 'mutation' in models:
+        mutation = models['mutation']
+    else:
+        mutation = {
+            solver: [True] * len(models['theta'][solver])
+            for solver in models['can_m']
+        }
     population_size = des_opt['itr']['pps']
     pltshow = des_opt['plt']
     optmethod = des_opt.get('meth', 'L')
@@ -692,11 +742,11 @@ def _optimiser_md(
 
     problem = Problem()
 
-    if optmethod == 'L':
+    if optmethod == 'PS':
         algorithm = PatternSearch()
         res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxmd), seed=None, verbose=True)
 
-    elif optmethod == 'G':
+    elif optmethod == 'DE':
         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
         res_refine = pymoo_minimize(
             problem,
@@ -708,7 +758,7 @@ def _optimiser_md(
             save_history=True
         )
 
-    elif optmethod == 'GL':
+    elif optmethod == 'DEPS':
         algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
         res_de = pymoo_minimize(
             problem,
@@ -773,6 +823,8 @@ def _md_of(
         print(f"Exception in md_objective_function: {e}")
         return 1e6
 
+
+
 def _runner_md(
     x,
     tv_iphi_vars,
@@ -801,7 +853,6 @@ def _runner_md(
 
     x = x.tolist() if not isinstance(x, list) else x
 
-    # Time slicing
     dt_real = system['t_r']
     nodes = int(round(tf / dt_real)) + 1
     tlin = np.linspace(0, 1, nodes)
@@ -816,10 +867,8 @@ def _runner_md(
     indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars}
 
     J_dot = defaultdict(
-        lambda: np.zeros(
-            (len(theta_parameters[active_solvers[0]]),
-             len(theta_parameters[active_solvers[0]]))
-        )
+        lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+                          len(theta_parameters[active_solvers[0]])))
     )
     tv_ophi = {}
     ti_ophi = {}
@@ -880,6 +929,7 @@ def _runner_md(
                 ) / eps
 
     md_obj = 0.0
+
     if design_criteria == 'HR':
         for i, s1 in enumerate(active_solvers):
             for s2 in active_solvers[i+1:]:
@@ -889,8 +939,15 @@ def _runner_md(
                     md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
 
     elif design_criteria == 'BFF':
-        std_dev = {var: system['tvo'][var]['unc'] for var in tv_ophi_vars}
+        std_dev = {}
+        for var in tv_ophi_vars:
+            unc = system.get('tvo', {}).get(var, {}).get('unc', 1.0)
+            if unc is None or np.isnan(unc):
+                unc = 1.0
+            std_dev[var] = unc
+
         Sigma_y = np.diag([std_dev[var] ** 2 for var in tv_ophi_vars])
+
         for i, s1 in enumerate(active_solvers):
             for s2 in active_solvers[i+1:]:
                 for t_idx, t in enumerate(t_values):
@@ -898,16 +955,17 @@ def _runner_md(
                     y2 = np.array([y_values_dict[s2][var][t_idx] for var in tv_ophi_vars])
                     diff = y1 - y2
 
+                    # Sensitivity matrices at time t
                     free_s1 = [i for i, v in enumerate(mutation[s1]) if v]
                     thetac_s1 = np.array(theta_parameters[s1])[free_s1]
                     V1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in tv_ophi_vars])
-                    Sigma_theta_s1_inv = np.diag(1 / (thetac_s1 ** 2 + 1e-50))
+                    Sigma_theta_s1_inv = np.diag(1.0 / (thetac_s1 ** 2 + 1e-50))
                     W1 = V1 @ Sigma_theta_s1_inv @ V1.T
 
                     free_s2 = [i for i, v in enumerate(mutation[s2]) if v]
                     thetac_s2 = np.array(theta_parameters[s2])[free_s2]
                     V2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in tv_ophi_vars])
-                    Sigma_theta_s2_inv = np.diag(1 / (thetac_s2 ** 2 + 1e-50))
+                    Sigma_theta_s2_inv = np.diag(1.0 / (thetac_s2 ** 2 + 1e-50))
                     W2 = V2 @ Sigma_theta_s2_inv @ V2.T
 
                     try:
@@ -916,9 +974,160 @@ def _runner_md(
                     except np.linalg.LinAlgError:
                         md_obj += 1e6  # Penalise ill-conditioned cases
 
-
     logger = configure_logger()
     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
 
-
     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp
+
+
+
+
+# def _runner_md(
+#     x,
+#     tv_iphi_vars,
+#     tv_iphi_max,
+#     ti_iphi_vars,
+#     ti_iphi_max,
+#     tv_ophi_vars,
+#     ti_ophi_vars,
+#     active_solvers,
+#     theta_parameters,
+#     tv_iphi_cvp,
+#     tv_ophi_forcedsamples,
+#     tv_ophi_sampling,
+#     design_criteria,
+#     tf,
+#     eps,
+#     mutation,
+#     index_dict,
+#     system,
+#     models
+# ):
+#     """
+#     Simulate models and evaluate the MD objective.
+#     Returns the sliced inputs, objective value, time vector, and outputs.
+#     """
+#
+#     x = x.tolist() if not isinstance(x, list) else x
+#
+#     # Time slicing
+#     dt_real = system['t_r']
+#     nodes = int(round(tf / dt_real)) + 1
+#     tlin = np.linspace(0, 1, nodes)
+#     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
+#     St = {var: np.array(sorted(St[var])) for var in St}
+#     t_values_flat = [tp for times in St.values() for tp in times]
+#     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
+#
+#     LSA = defaultdict(lambda: defaultdict(dict))
+#     y_values_dict = defaultdict(dict)
+#     y_i_values_dict = defaultdict(dict)
+#     indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars}
+#
+#     J_dot = defaultdict(
+#         lambda: np.zeros(
+#             (len(theta_parameters[active_solvers[0]]),
+#              len(theta_parameters[active_solvers[0]]))
+#         )
+#     )
+#     tv_ophi = {}
+#     ti_ophi = {}
+#     phit_interp = {}
+#
+#     for solver_name in active_solvers:
+#         thetac = theta_parameters[solver_name]
+#         theta = np.array([1.0] * len(thetac))
+#         ti_iphi_data = ti
+#         swps_data = swps
+#         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
+#         phitsc = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
+#         tsc = tf
+#
+#         tv_out, ti_out, interp_data = simula(
+#             t_values, swps_data, ti_iphi_data,
+#             phisc, phitsc, tsc,
+#             theta, thetac,
+#             tv_iphi_cvp, {},
+#             solver_name,
+#             system,
+#             models
+#         )
+#
+#         tv_ophi[solver_name] = tv_out
+#         ti_ophi[solver_name] = ti_out
+#         phit_interp = interp_data
+#
+#         for var in tv_ophi_vars:
+#             y_values_dict[solver_name][var] = np.array(tv_out[var])
+#         for var in ti_ophi_vars:
+#             y_values_dict[solver_name][var] = np.array([ti_out[var]])
+#
+#         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
+#
+#         for para_idx in free_params_indices:
+#             modified_theta = theta.copy()
+#             modified_theta[para_idx] += eps
+#
+#             tv_out_mod, ti_out_mod, _ = simula(
+#                 t_values, swps_data, ti_iphi_data,
+#                 phisc, phitsc, tsc,
+#                 modified_theta, thetac,
+#                 tv_iphi_cvp, {},
+#                 solver_name,
+#                 system,
+#                 models
+#             )
+#
+#             for var in tv_ophi_vars:
+#                 y_i_values_dict[solver_name][var] = np.array(tv_out_mod[var])
+#             for var in ti_ophi_vars:
+#                 y_i_values_dict[solver_name][var] = np.array([ti_out_mod[var]])
+#
+#             for var in indices:
+#                 LSA[var][solver_name][para_idx] = (
+#                     y_i_values_dict[solver_name][var] - y_values_dict[solver_name][var]
+#                 ) / eps
+#
+#     md_obj = 0.0
+#     if design_criteria == 'HR':
+#         for i, s1 in enumerate(active_solvers):
+#             for s2 in active_solvers[i+1:]:
+#                 for var, mask in indices.items():
+#                     y1 = y_values_dict[s1][var]
+#                     y2 = y_values_dict[s2][var]
+#                     md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
+#
+#     elif design_criteria == 'BFF':
+#         std_dev = {var: system['tvo'][var]['unc'] for var in tv_ophi_vars}
+#         Sigma_y = np.diag([std_dev[var] ** 2 for var in tv_ophi_vars])
+#         for i, s1 in enumerate(active_solvers):
+#             for s2 in active_solvers[i+1:]:
+#                 for t_idx, t in enumerate(t_values):
+#                     y1 = np.array([y_values_dict[s1][var][t_idx] for var in tv_ophi_vars])
+#                     y2 = np.array([y_values_dict[s2][var][t_idx] for var in tv_ophi_vars])
+#                     diff = y1 - y2
+#
+#                     free_s1 = [i for i, v in enumerate(mutation[s1]) if v]
+#                     thetac_s1 = np.array(theta_parameters[s1])[free_s1]
+#                     V1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in tv_ophi_vars])
+#                     Sigma_theta_s1_inv = np.diag(1 / (thetac_s1 ** 2 + 1e-50))
+#                     W1 = V1 @ Sigma_theta_s1_inv @ V1.T
+#
+#                     free_s2 = [i for i, v in enumerate(mutation[s2]) if v]
+#                     thetac_s2 = np.array(theta_parameters[s2])[free_s2]
+#                     V2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in tv_ophi_vars])
+#                     Sigma_theta_s2_inv = np.diag(1 / (thetac_s2 ** 2 + 1e-50))
+#                     W2 = V2 @ Sigma_theta_s2_inv @ V2.T
+#
+#                     try:
+#                         S = Sigma_y + W1 + W2
+#                         md_obj += diff.T @ np.linalg.inv(S) @ diff
+#                     except np.linalg.LinAlgError:
+#                         md_obj += 1e6  # Penalise ill-conditioned cases
+#
+#
+#     logger = configure_logger()
+#     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
+#
+#
+#     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp

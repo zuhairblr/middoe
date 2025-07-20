@@ -1,5 +1,4 @@
 import logging
-
 from middoe.des_utils import _slicer, _reporter, _par_update, configure_logger
 from middoe.krnl_simula import simula
 from collections import defaultdict
@@ -338,7 +337,14 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
 
     # Solver and optimization settings
     active_solvers = models['can_m']
-    estimations = models['normalized_parameters']
+
+    if 'normalized_parameters' in models:
+        estimations = models['normalized_parameters']
+    else:
+        estimations = {
+            solver: [1.0] * len(models['theta'][solver])
+            for solver in models['can_m']
+        }
     ref_thetas = models['theta']
     theta_parameters = _par_update(ref_thetas, estimations)
 
@@ -348,8 +354,29 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     tolpp = des_opt['itr']['tolpp']
     population_size = des_opt['itr']['pps']
     eps = des_opt['eps']
-    mutation = models['mutation']
-    V_matrix = models['V_matrix']
+    # Ensure V_matrix is a dict of solver -> NumPy array (for indexing safety)
+    if 'V_matrix' in models:
+        V_matrix = {
+            solver: np.array(models['V_matrix'][solver])
+            for solver in models['can_m']
+        }
+    else:
+        V_matrix = {
+            solver: np.array([
+                [1e-50 if i == j else 0 for j in range(len(models['theta'][solver]))]
+                for i in range(len(models['theta'][solver]))
+            ])
+            for solver in models['can_m']
+        }
+
+    # Ensure mutation is a dict of solver -> list[bool]
+    if 'mutation' in models:
+        mutation = models['mutation']
+    else:
+        mutation = {
+            solver: [True] * len(models['theta'][solver])
+            for solver in models['can_m']
+        }
     pltshow= des_opt['plt']
     optmethod = des_opt.get('meth', 'L')
 
@@ -633,11 +660,11 @@ def _optimiser(
 
     problem = DEProblem()
 
-    if optmethod == 'L':
+    if optmethod == 'PS':
         algorithm = PatternSearch()
         res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), seed=None, verbose=True)
 
-    elif optmethod == 'G':
+    elif optmethod == 'DE':
         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
         res_refine = pymoo_minimize(
             problem,
@@ -649,7 +676,7 @@ def _optimiser(
             save_history=True
         )
 
-    elif optmethod == 'GL':
+    elif optmethod == 'DEPS':
         algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
         res_de = pymoo_minimize(
             problem,
@@ -713,6 +740,303 @@ def _pp_of(
         print(f"Exception in pp_objective_function: {e}")
         return 1e6
 
+# def _pp_runner(
+#     x,
+#     tv_iphi_vars,
+#     tv_iphi_max,
+#     ti_iphi_vars,
+#     ti_iphi_max,
+#     tv_ophi_vars,
+#     ti_ophi_vars,
+#     active_solvers,
+#     theta_parameters,
+#     tv_iphi_cvp,
+#     tv_ophi_forcedsamples,
+#     tv_ophi_sampling,
+#     tf,
+#     eps,
+#     mutation,
+#     V_matrix,
+#     MBDOE_PP_criterion,
+#     index_dict,
+#     system,
+#     models
+# ):
+#     """
+#     Run the simulation and compute the parameter precision criterion for the MBDOE_PP problem.
+#
+#     Parameters
+#     ----------
+#     x : list or array
+#         Design variables to be optimized.
+#     nd : int
+#         Number of time points in the first stage.
+#     tv_iphi_vars : list
+#         Time-variant input variables.
+#     tv_iphi_max : list
+#         Maximum values for time-variant input variables.
+#     ti_iphi_vars : list
+#         Time-invariant input variables.
+#     ti_iphi_max : list
+#         Maximum values for time-invariant input variables.
+#     tv_ophi_vars : list
+#         Time-variant output variables.
+#     ti_ophi_vars : list
+#         Time-invariant output variables.
+#     active_solvers : list
+#         List of active solvers.
+#     theta_parameters : dict
+#         Dictionary of theta parameters for solvers (keyed by solver_name).
+#     tv_iphi_cvp : list or dict
+#         Piecewise interpolation or other design data for time-variant inputs.
+#     tf : float
+#         Total experiment time.
+#     eps : float
+#         Small epsilon value for numerical sensitivity.
+#     mutation : dict
+#         Mutation settings for solvers (keyed by solver_name).
+#     V_matrix : dict
+#         V-matrix settings (keyed by solver_name).
+#     MBDOE_PP_criterion : str
+#         Criterion for the design (e.g., 'D', 'A', 'E', 'ME').
+#     index_dict : dict
+#         Dictionary of index mappings for design variables.
+#     system : dict
+#         Model structure dictionary.
+#     models : dict
+#         Additional model settings.
+#
+#     Returns
+#     -------
+#     tuple
+#         (ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp)
+#         where:
+#         - ti (dict): Time-invariant input data.
+#         - swps (dict): Switching points data.
+#         - St (dict): Sampling time points (dict of var -> array).
+#         - pp_obj (float): Performance criterion value.
+#         - t_values (list): Time values for the simulation.
+#         - tv_ophi (dict): Time-variant output results (solver_name -> {var -> array}).
+#         - ti_ophi (dict): Time-invariant output results (solver_name -> {var -> scalar}).
+#         - phit_interp (dict): Interpolated piecewise data (last model run).
+#     """
+#     # Convert x to list if not already
+#     if x is None:
+#         raise ValueError("MBDoE optimiser kernel was unsuccessful, increase iteration to avoid constraint violations.")
+#     x = x.tolist() if not isinstance(x, list) else x
+#
+#     # ---------------------------------------------------------------------
+#     # 1) Extract design parameters via _slicer
+#     # ---------------------------------------------------------------------
+#     dt_real = system['t_r']
+#     nodes = int(round(tf / dt_real)) + 1
+#     tlin = np.linspace(0, 1, nodes)
+#     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
+#     # Convert St into dict of var -> np.array
+#     St = {var: np.array(sorted(St[var])) for var in St}
+#
+#     # Combine nd equally spaced points in [0,1] with the sampling points
+#     t_values_flat = [tp for times in St.values() for tp in times]
+#
+#     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
+#
+#     # ---------------------------------------------------------------------
+#     # 2) Prepare data structures
+#     #    LSA: dict -> dict -> dict, for partial derivatives
+#     #    J_dot_matrix: dict -> 2D array
+#     # ---------------------------------------------------------------------
+#     LSA = defaultdict(lambda: defaultdict(dict))
+#     J_dot_matrix = defaultdict(
+#         lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+#                           len(theta_parameters[active_solvers[0]])))
+#     )
+#     y_values_dict = {}       # y_values_dict[solver_name][var] -> array
+#     y_i_values_dict = {}     # y_i_values_dict[solver_name][var] -> array
+#     indices = {}             # indices[var] -> boolean mask for times
+#
+#     # Check that each tv_ophi_var actually appears in St
+#     for var in tv_ophi_vars:
+#         if var not in St:
+#             raise ValueError(f"No time values found for variable '{var}' in St.")
+#         # For each var, find the boolean mask that matches St[var] in t_values
+#         indices[var] = np.isin(t_values, St[var])
+#
+#     # Matrices to accumulate from partial derivatives
+#     M0 = defaultdict(
+#         lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+#                           len(theta_parameters[active_solvers[0]])))
+#     )
+#     M = {}
+#
+#     # For returning model results
+#     tv_ophi = {}
+#     ti_ophi = {}
+#     phit_interp = {}
+#
+#     # ---------------------------------------------------------------------
+#     # 3) Main loop over solvers
+#     # ---------------------------------------------------------------------
+#     for solver_name in active_solvers:
+#         thetac = theta_parameters[solver_name]
+#         # Example: start from a "1.0" vector as your baseline parameter
+#         theta = np.array([1.0] * len(thetac))
+#
+#         # Time-invariant and switching points data directly from slicer
+#         ti_iphi_data = ti
+#         swps_data = swps
+#
+#         # Scaling factors for time-invariant (phisc) and time-variant (phitsc) inputs
+#         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
+#         phitsc = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
+#         tsc = tf  # treat tf as a time-scaling factor
+#
+#         # -----------------------------------------------------------------
+#         # 3a) Run the model for unperturbed (baseline) theta
+#         # -----------------------------------------------------------------
+#         tv_out, ti_out, interp_data = simula(
+#             t_values, swps_data, ti_iphi_data,
+#             phisc, phitsc, tsc,
+#             theta, thetac,
+#             tv_iphi_cvp, {},  # pass empty dict or relevant data
+#             solver_name,
+#             system,
+#             models
+#         )
+#         tv_ophi[solver_name] = tv_out      # e.g. {var -> array} for time-variant
+#         ti_ophi[solver_name] = ti_out      # e.g. {var -> scalar} for time-invariant
+#         phit_interp = interp_data
+#
+#         # Store unperturbed outputs in y_values_dict
+#         y_values_dict[solver_name] = {}
+#         for var in tv_ophi_vars:
+#             # Make sure it's a NumPy array
+#             y_values_dict[solver_name][var] = np.array(tv_out[var])
+#         for var in ti_ophi_vars:
+#             # Time-invariant output as a scalar or array(1,)
+#             y_values_dict[solver_name][var] = np.array([ti_out[var]])
+#
+#         # Create a dictionary for "combined" unperturbed values (by var)
+#         y_combined = {}
+#         for var in tv_ophi_vars:
+#             y_combined[var] = y_values_dict[solver_name][var]
+#         for var in ti_ophi_vars:
+#             y_combined[var] = y_values_dict[solver_name][var]
+#
+#         # -----------------------------------------------------------------
+#         # 3b) Loop over free parameters (the ones set to True in mutation)
+#         # -----------------------------------------------------------------
+#         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
+#
+#         # Initialize dictionary for storing partial-perturbation outputs
+#         y_i_values_dict[solver_name] = {}
+#
+#         for para_idx in free_params_indices:
+#             # Perturb a single parameter
+#             modified_theta = theta.copy()
+#             modified_theta[para_idx] += eps
+#
+#             # -------------------------------------------------------------
+#             # 3b-i) Run model with modified theta
+#             # -------------------------------------------------------------
+#             tv_out_mod, ti_out_mod, _ = simula(
+#                 t_values, swps_data, ti_iphi_data,
+#                 phisc, phitsc, tsc,
+#                 modified_theta, thetac,
+#                 tv_iphi_cvp, {},  # pass empty dict or relevant data
+#                 solver_name,
+#                 system,
+#                 models
+#             )
+#
+#             # Store these "modified" results
+#             y_i_values_dict[solver_name][var] = {}
+#             for var in tv_ophi_vars:
+#                 y_i_values_dict[solver_name][var] = np.array(tv_out_mod[var])
+#             for var in ti_ophi_vars:
+#                 y_i_values_dict[solver_name][var] = np.array([ti_out_mod[var]])
+#
+#             # Build a dictionary for the perturbed outputs
+#             y_modified_combined = {}
+#             for var in tv_ophi_vars:
+#                 y_modified_combined[var] = y_i_values_dict[solver_name][var]
+#             for var in ti_ophi_vars:
+#                 y_modified_combined[var] = y_i_values_dict[solver_name][var]
+#
+#             # -------------------------------------------------------------
+#             # 3b-ii) Compute partial derivatives (LSA)
+#             #        LSA[var][solver_name][para_idx] = (perturbed - base)/eps
+#             # -------------------------------------------------------------
+#             for var in indices:
+#                 LSA[var][solver_name][para_idx] = (
+#                     y_modified_combined[var] - y_combined[var]
+#                 ) / eps
+#
+#         # -----------------------------------------------------------------
+#         # 3c) Construct solver_LSA matrix from LSA
+#         #     Rows: each var in indices
+#         #     Cols: each free parameter
+#         # -----------------------------------------------------------------
+#         # If "indices" is {var1: mask, var2: mask, ...}, we can iterate over var in sorted(indices).
+#         # Or keep them in the order they appear. Each row in solver_LSA will be a "stack" of partials
+#         # for that var. (Alternatively, you might sum them or some other approach.)
+#         solver_LSA_list = []
+#         for var in indices:
+#             row_for_var = [LSA[var][solver_name][i] for i in free_params_indices]
+#             # row_for_var might be a 1D array or scalar for each i. If you want to combine them into a single float,
+#             # or if each is an array, you might need to flatten or handle shapes.
+#             # For now, let's assume each LSA[var][solver_name][i] is a 1D array => we must handle that carefully.
+#             # A common approach: sum or average those partial derivatives. Or stack them vertically.
+#             # If you want each var to produce multiple rows, you do something else.
+#             #
+#             # For a single row in solver_LSA, we might need to average or something. Let's assume we do a simple sum:
+#             row_summed = np.array([arr.mean() for arr in row_for_var])  # Example: each arr is a 1D difference
+#             solver_LSA_list.append(row_summed)
+#         solver_LSA = np.array(solver_LSA_list)  # shape (#vars, #free_params)
+#
+#         # Transpose for J_dot = J^T J
+#         J_transpose = solver_LSA.T  # shape (#free_params, #vars)
+#         J_dot = np.dot(J_transpose, solver_LSA)  # shape (#free_params, #free_params)
+#
+#         # Make sure shapes align with J_dot_matrix[solver_name]
+#         if J_dot_matrix[solver_name].shape != (solver_LSA.shape[1], solver_LSA.shape[1]):
+#             J_dot_matrix[solver_name] = np.zeros((solver_LSA.shape[1], solver_LSA.shape[1]))
+#
+#         # Accumulate
+#         J_dot_matrix[solver_name] += J_dot
+#         M0[solver_name] = J_dot_matrix[solver_name]
+#
+#         # Build final M = M0 + inv(V_matrix_for_free_params)
+#         reduced_V_matrix = V_matrix[solver_name][np.ix_(free_params_indices, free_params_indices)]
+#         M[solver_name] = M0[solver_name] + np.linalg.inv(reduced_V_matrix)
+#
+#     # ---------------------------------------------------------------------
+#     # 4) Evaluate design criterion
+#     # ---------------------------------------------------------------------
+#     pp_obj = None
+#     solver_name = active_solvers[0]  # or whichever model you want to measure
+#     if MBDOE_PP_criterion == 'D':
+#         pp_obj = np.linalg.det(M[solver_name])
+#     elif MBDOE_PP_criterion == 'A':
+#         pp_obj = np.trace(M[solver_name])
+#     elif MBDOE_PP_criterion == 'E':
+#         eigenvalues = np.linalg.eigvalsh(M[solver_name])
+#         pp_obj = np.min(eigenvalues)
+#     elif MBDOE_PP_criterion == 'ME':
+#         condition_number = np.linalg.cond(M[solver_name])
+#         pp_obj = -condition_number
+#
+#
+#     # logger = configure_logger()
+#     # logger.info(f"mbdoe-MPP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
+#     # ---------------------------------------------------------------------
+#     # 5) Return the relevant pieces
+#     # ---------------------------------------------------------------------
+#     # phit_interp might hold data only for the last model or each model in a dict
+#     return ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp
+
+
+
+
 def _pp_runner(
     x,
     tv_iphi_vars,
@@ -735,274 +1059,116 @@ def _pp_runner(
     system,
     models
 ):
-    """
-    Run the simulation and compute the parameter precision criterion for the MBDOE_PP problem.
-
-    Parameters
-    ----------
-    x : list or array
-        Design variables to be optimized.
-    nd : int
-        Number of time points in the first stage.
-    tv_iphi_vars : list
-        Time-variant input variables.
-    tv_iphi_max : list
-        Maximum values for time-variant input variables.
-    ti_iphi_vars : list
-        Time-invariant input variables.
-    ti_iphi_max : list
-        Maximum values for time-invariant input variables.
-    tv_ophi_vars : list
-        Time-variant output variables.
-    ti_ophi_vars : list
-        Time-invariant output variables.
-    active_solvers : list
-        List of active solvers.
-    theta_parameters : dict
-        Dictionary of theta parameters for solvers (keyed by solver_name).
-    tv_iphi_cvp : list or dict
-        Piecewise interpolation or other design data for time-variant inputs.
-    tf : float
-        Total experiment time.
-    eps : float
-        Small epsilon value for numerical sensitivity.
-    mutation : dict
-        Mutation settings for solvers (keyed by solver_name).
-    V_matrix : dict
-        V-matrix settings (keyed by solver_name).
-    MBDOE_PP_criterion : str
-        Criterion for the design (e.g., 'D', 'A', 'E', 'ME').
-    index_dict : dict
-        Dictionary of index mappings for design variables.
-    system : dict
-        Model structure dictionary.
-    models : dict
-        Additional model settings.
-
-    Returns
-    -------
-    tuple
-        (ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp)
-        where:
-        - ti (dict): Time-invariant input data.
-        - swps (dict): Switching points data.
-        - St (dict): Sampling time points (dict of var -> array).
-        - pp_obj (float): Performance criterion value.
-        - t_values (list): Time values for the simulation.
-        - tv_ophi (dict): Time-variant output results (solver_name -> {var -> array}).
-        - ti_ophi (dict): Time-invariant output results (solver_name -> {var -> scalar}).
-        - phit_interp (dict): Interpolated piecewise data (last model run).
-    """
-    # Convert x to list if not already
     if x is None:
         raise ValueError("MBDoE optimiser kernel was unsuccessful, increase iteration to avoid constraint violations.")
     x = x.tolist() if not isinstance(x, list) else x
 
-    # ---------------------------------------------------------------------
-    # 1) Extract design parameters via _slicer
-    # ---------------------------------------------------------------------
     dt_real = system['t_r']
     nodes = int(round(tf / dt_real)) + 1
     tlin = np.linspace(0, 1, nodes)
     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
-    # Convert St into dict of var -> np.array
     St = {var: np.array(sorted(St[var])) for var in St}
-
-    # Combine nd equally spaced points in [0,1] with the sampling points
     t_values_flat = [tp for times in St.values() for tp in times]
-
     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
-    # ---------------------------------------------------------------------
-    # 2) Prepare data structures
-    #    LSA: dict -> dict -> dict, for partial derivatives
-    #    J_dot_matrix: dict -> 2D array
-    # ---------------------------------------------------------------------
     LSA = defaultdict(lambda: defaultdict(dict))
-    J_dot_matrix = defaultdict(
-        lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-                          len(theta_parameters[active_solvers[0]])))
-    )
-    y_values_dict = {}       # y_values_dict[solver_name][var] -> array
-    y_i_values_dict = {}     # y_i_values_dict[solver_name][var] -> array
-    indices = {}             # indices[var] -> boolean mask for times
-
-    # Check that each tv_ophi_var actually appears in St
-    for var in tv_ophi_vars:
-        if var not in St:
-            raise ValueError(f"No time values found for variable '{var}' in St.")
-        # For each var, find the boolean mask that matches St[var] in t_values
-        indices[var] = np.isin(t_values, St[var])
-
-    # Matrices to accumulate from partial derivatives
-    M0 = defaultdict(
-        lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-                          len(theta_parameters[active_solvers[0]])))
-    )
+    J_dot_matrix = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+                                                 len(theta_parameters[active_solvers[0]]))))
+    indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars if var in St}
+    M0 = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+                                       len(theta_parameters[active_solvers[0]]))))
     M = {}
+    tv_ophi, ti_ophi, phit_interp = {}, {}, {}
 
-    # For returning model results
-    tv_ophi = {}
-    ti_ophi = {}
-    phit_interp = {}
-
-    # ---------------------------------------------------------------------
-    # 3) Main loop over solvers
-    # ---------------------------------------------------------------------
     for solver_name in active_solvers:
         thetac = theta_parameters[solver_name]
-        # Example: start from a "1.0" vector as your baseline parameter
         theta = np.array([1.0] * len(thetac))
-
-        # Time-invariant and switching points data directly from slicer
         ti_iphi_data = ti
         swps_data = swps
-
-        # Scaling factors for time-invariant (phisc) and time-variant (phitsc) inputs
         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
         phitsc = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
-        tsc = tf  # treat tf as a time-scaling factor
+        tsc = tf
 
-        # -----------------------------------------------------------------
-        # 3a) Run the model for unperturbed (baseline) theta
-        # -----------------------------------------------------------------
-        tv_out, ti_out, interp_data = simula(
-            t_values, swps_data, ti_iphi_data,
-            phisc, phitsc, tsc,
-            theta, thetac,
-            tv_iphi_cvp, {},  # pass empty dict or relevant data
-            solver_name,
-            system,
-            models
-        )
-        tv_ophi[solver_name] = tv_out      # e.g. {var -> array} for time-variant
-        ti_ophi[solver_name] = ti_out      # e.g. {var -> scalar} for time-invariant
+        tv_out, ti_out, interp_data = simula(t_values, swps_data, ti_iphi_data,
+                                             phisc, phitsc, tsc,
+                                             theta, thetac,
+                                             tv_iphi_cvp, {}, solver_name,
+                                             system, models)
+        tv_ophi[solver_name] = tv_out
+        ti_ophi[solver_name] = ti_out
         phit_interp = interp_data
 
-        # Store unperturbed outputs in y_values_dict
-        y_values_dict[solver_name] = {}
-        for var in tv_ophi_vars:
-            # Make sure it's a NumPy array
-            y_values_dict[solver_name][var] = np.array(tv_out[var])
-        for var in ti_ophi_vars:
-            # Time-invariant output as a scalar or array(1,)
-            y_values_dict[solver_name][var] = np.array([ti_out[var]])
+        y_values_dict = {var: np.array(tv_out[var]) for var in tv_ophi_vars}
+        y_values_dict.update({var: np.array([ti_out[var]]) for var in ti_ophi_vars})
+        y_combined = dict(y_values_dict)
 
-        # Create a dictionary for "combined" unperturbed values (by var)
-        y_combined = {}
-        for var in tv_ophi_vars:
-            y_combined[var] = y_values_dict[solver_name][var]
-        for var in ti_ophi_vars:
-            y_combined[var] = y_values_dict[solver_name][var]
-
-        # -----------------------------------------------------------------
-        # 3b) Loop over free parameters (the ones set to True in mutation)
-        # -----------------------------------------------------------------
         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
-
-        # Initialize dictionary for storing partial-perturbation outputs
-        y_i_values_dict[solver_name] = {}
+        y_i_values_dict = {}
 
         for para_idx in free_params_indices:
-            # Perturb a single parameter
             modified_theta = theta.copy()
             modified_theta[para_idx] += eps
 
-            # -------------------------------------------------------------
-            # 3b-i) Run model with modified theta
-            # -------------------------------------------------------------
-            tv_out_mod, ti_out_mod, _ = simula(
-                t_values, swps_data, ti_iphi_data,
-                phisc, phitsc, tsc,
-                modified_theta, thetac,
-                tv_iphi_cvp, {},  # pass empty dict or relevant data
-                solver_name,
-                system,
-                models
-            )
+            tv_out_mod, ti_out_mod, _ = simula(t_values, swps_data, ti_iphi_data,
+                                               phisc, phitsc, tsc,
+                                               modified_theta, thetac,
+                                               tv_iphi_cvp, {}, solver_name,
+                                               system, models)
 
-            # Store these "modified" results
-            y_i_values_dict[solver_name][var] = {}
-            for var in tv_ophi_vars:
-                y_i_values_dict[solver_name][var] = np.array(tv_out_mod[var])
-            for var in ti_ophi_vars:
-                y_i_values_dict[solver_name][var] = np.array([ti_out_mod[var]])
+            y_i_values_dict = {var: np.array(tv_out_mod[var]) for var in tv_ophi_vars}
+            y_i_values_dict.update({var: np.array([ti_out_mod[var]]) for var in ti_ophi_vars})
+            y_modified_combined = dict(y_i_values_dict)
 
-            # Build a dictionary for the perturbed outputs
-            y_modified_combined = {}
-            for var in tv_ophi_vars:
-                y_modified_combined[var] = y_i_values_dict[solver_name][var]
-            for var in ti_ophi_vars:
-                y_modified_combined[var] = y_i_values_dict[solver_name][var]
-
-            # -------------------------------------------------------------
-            # 3b-ii) Compute partial derivatives (LSA)
-            #        LSA[var][solver_name][para_idx] = (perturbed - base)/eps
-            # -------------------------------------------------------------
             for var in indices:
                 LSA[var][solver_name][para_idx] = (
                     y_modified_combined[var] - y_combined[var]
                 ) / eps
 
-        # -----------------------------------------------------------------
-        # 3c) Construct solver_LSA matrix from LSA
-        #     Rows: each var in indices
-        #     Cols: each free parameter
-        # -----------------------------------------------------------------
-        # If "indices" is {var1: mask, var2: mask, ...}, we can iterate over var in sorted(indices).
-        # Or keep them in the order they appear. Each row in solver_LSA will be a "stack" of partials
-        # for that var. (Alternatively, you might sum them or some other approach.)
         solver_LSA_list = []
         for var in indices:
-            row_for_var = [LSA[var][solver_name][i] for i in free_params_indices]
-            # row_for_var might be a 1D array or scalar for each i. If you want to combine them into a single float,
-            # or if each is an array, you might need to flatten or handle shapes.
-            # For now, let's assume each LSA[var][solver_name][i] is a 1D array => we must handle that carefully.
-            # A common approach: sum or average those partial derivatives. Or stack them vertically.
-            # If you want each var to produce multiple rows, you do something else.
-            #
-            # For a single row in solver_LSA, we might need to average or something. Let's assume we do a simple sum:
-            row_summed = np.array([arr.mean() for arr in row_for_var])  # Example: each arr is a 1D difference
-            solver_LSA_list.append(row_summed)
-        solver_LSA = np.array(solver_LSA_list)  # shape (#vars, #free_params)
+            row = [LSA[var][solver_name][i].mean() for i in free_params_indices]
+            solver_LSA_list.append(np.array(row))
+        solver_LSA = np.array(solver_LSA_list)
 
-        # Transpose for J_dot = J^T J
-        J_transpose = solver_LSA.T  # shape (#free_params, #vars)
-        J_dot = np.dot(J_transpose, solver_LSA)  # shape (#free_params, #free_params)
+        # Build variance-covariance matrix Sigma_y
+        std_dev = {}
+        for grp, keys in [('tvo', tv_ophi_vars), ('tio', ti_ophi_vars)]:
+            for var in keys:
+                unc = system.get(grp, {}).get(var, {}).get('unc', 1.0)
+                if unc is None or np.isnan(unc):
+                    unc = 1.0
+                std_dev[var] = unc
 
-        # Make sure shapes align with J_dot_matrix[solver_name]
-        if J_dot_matrix[solver_name].shape != (solver_LSA.shape[1], solver_LSA.shape[1]):
-            J_dot_matrix[solver_name] = np.zeros((solver_LSA.shape[1], solver_LSA.shape[1]))
+        vars_order = list(indices.keys())
+        N_r = len(vars_order)
+        Sigma_y = np.zeros((N_r, N_r))
+        for i, var in enumerate(vars_order):
+            Sigma_y[i, i] = std_dev.get(var, 1.0) ** 2
+        Sigma_y_inv = np.linalg.inv(Sigma_y)
 
-        # Accumulate
-        J_dot_matrix[solver_name] += J_dot
+        # Fisher Information Matrix
+        J = solver_LSA
+        M_fisher = J.T @ Sigma_y_inv @ J
+
+        if J_dot_matrix[solver_name].shape != M_fisher.shape:
+            J_dot_matrix[solver_name] = np.zeros_like(M_fisher)
+        J_dot_matrix[solver_name] += M_fisher
         M0[solver_name] = J_dot_matrix[solver_name]
 
-        # Build final M = M0 + inv(V_matrix_for_free_params)
         reduced_V_matrix = V_matrix[solver_name][np.ix_(free_params_indices, free_params_indices)]
         M[solver_name] = M0[solver_name] + np.linalg.inv(reduced_V_matrix)
 
-    # ---------------------------------------------------------------------
-    # 4) Evaluate design criterion
-    # ---------------------------------------------------------------------
-    pp_obj = None
-    solver_name = active_solvers[0]  # or whichever model you want to measure
+    # Evaluate criterion
+    solver_name = active_solvers[0]
     if MBDOE_PP_criterion == 'D':
         pp_obj = np.linalg.det(M[solver_name])
     elif MBDOE_PP_criterion == 'A':
         pp_obj = np.trace(M[solver_name])
     elif MBDOE_PP_criterion == 'E':
-        eigenvalues = np.linalg.eigvalsh(M[solver_name])
-        pp_obj = np.min(eigenvalues)
+        pp_obj = np.min(np.linalg.eigvalsh(M[solver_name]))
     elif MBDOE_PP_criterion == 'ME':
-        condition_number = np.linalg.cond(M[solver_name])
-        pp_obj = -condition_number
+        pp_obj = -np.linalg.cond(M[solver_name])
+    else:
+        pp_obj = None
 
-
-    # logger = configure_logger()
-    # logger.info(f"mbdoe-MPP:{MBDOE_PP_criterion} is running with {pp_obj:.4f}")
-    # ---------------------------------------------------------------------
-    # 5) Return the relevant pieces
-    # ---------------------------------------------------------------------
-    # phit_interp might hold data only for the last model or each model in a dict
     return ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp

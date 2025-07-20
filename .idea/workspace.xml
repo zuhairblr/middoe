@@ -4,14 +4,180 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 28">
-      <change afterPath="$PROJECT_DIR$/tests/case study poster/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/case study poster/runner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/semwet/gg.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/semwet/simul-Tcon.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/semwet/simul-Teff.py" afterDir="false" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 29">
+      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/runner.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/runner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/case study poster/model2.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MI.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MII.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MIII.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MIV.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/runner.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/plot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/runner.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/confidence/1_th_round_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/estimability/rCC vs k round_1 in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/iden_results.jac" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_confidence_space.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_ellipsoid_volume.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_estimates.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_std_devs.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_pt_tests.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_1.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_summary.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/estimability/rCC vs parameters in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/p_values_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/t_values_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/runner.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/1_th_round_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/2_th_round_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/3_th_round_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_1 in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_2 in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_3 in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/iden_results.jac" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/indata.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/1_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_3.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/plot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_confidence_space.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_ellipsoid_volume.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_estimates.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_std_devs.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_pt_tests.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_1.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_summary.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/estimability/rCC vs parameters in model_M.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_3.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_3.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/runner.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/runner.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,8 +187,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Python Script" />
         <option value="Jupyter Notebook" />
+        <option value="Python Script" />
       </list>
     </option>
   </component>
@@ -70,11 +236,12 @@
     &quot;Python.modelsim2.executor&quot;: &quot;Run&quot;,
     &quot;Python.modelsim2csh.executor&quot;: &quot;Run&quot;,
     &quot;Python.monod.executor&quot;: &quot;Run&quot;,
+    &quot;Python.plot.executor&quot;: &quot;Run&quot;,
     &quot;Python.pyy.executor&quot;: &quot;Run&quot;,
     &quot;Python.runner for gPROMS.executor&quot;: &quot;Run&quot;,
     &quot;Python.runner gproms 2.executor&quot;: &quot;Run&quot;,
     &quot;Python.runner new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner.executor&quot;: &quot;Run&quot;,
+    &quot;Python.runner.executor&quot;: &quot;Debug&quot;,
     &quot;Python.sc_estima.executor&quot;: &quot;Run&quot;,
     &quot;Python.sc_sensa.executor&quot;: &quot;Run&quot;,
     &quot;Python.simul-Tcon.executor&quot;: &quot;Run&quot;,
@@ -85,12 +252,12 @@
     &quot;ToolWindow.Plots.ShowToolbar&quot;: &quot;false&quot;,
     &quot;full.screen.before.presentation.mode&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Tadmin/PycharmProjects/middoe/tests/case study poster&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Tadmin/PycharmProjects/middoe/tests/paper/CS1-SC1&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.jupyter.py.connections.configurable.JupyterServersConfigurable&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;settings.sync&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -100,13 +267,14 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\paper\CS1-SC1" />
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests" />
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\poster\case 2" />
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\case study 2 poster" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\case study poster" />
-      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\ionics" />
-      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\paper" />
-      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\semiconwet" />
-      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\mineralisationkin" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\poster" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\paper\1" />
       <recent name="C:\Users\Tadmin\PycharmProjects\middoe\tests\monod example" />
@@ -189,6 +357,14 @@
       <workItem from="1750668364705" duration="24849000" />
       <workItem from="1750938853021" duration="10717000" />
       <workItem from="1751025432908" duration="5226000" />
+      <workItem from="1751111901219" duration="17835000" />
+      <workItem from="1751202447281" duration="63888000" />
+      <workItem from="1751365443644" duration="104160000" />
+      <workItem from="1752161707185" duration="1386000" />
+      <workItem from="1752238947079" duration="506000" />
+      <workItem from="1752239531398" duration="160899000" />
+      <workItem from="1752823619695" duration="5523000" />
+      <workItem from="1753035299562" duration="1398000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -454,7 +630,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750406703368</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="final polishing 29">
+      <option name="closed" value="true" />
+      <created>1751118632345</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1751118632345</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -472,7 +656,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 4" />
     <MESSAGE value="final polishing 5" />
     <MESSAGE value="final polishing 6" />
     <MESSAGE value="final polishing 7" />
@@ -497,25 +680,21 @@
     <MESSAGE value="final polishing 26" />
     <MESSAGE value="final polishing 27" />
     <MESSAGE value="final polishing 28" />
-    <option name="LAST_COMMIT_MESSAGE" value="final polishing 28" />
+    <MESSAGE value="final polishing 29" />
+    <option name="LAST_COMMIT_MESSAGE" value="final polishing 29" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/middoe/sc_estima.py</url>
-          <line>116</line>
-          <option name="timeStamp" value="26" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/middoe/sc_estima.py</url>
-          <line>198</line>
-          <option name="timeStamp" value="28" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/tests/paper/2/runner.py</url>
           <line>289</line>
           <option name="timeStamp" value="30" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/middoe/iden_uncert.py</url>
+          <line>531</line>
+          <option name="timeStamp" value="69" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -535,12 +714,12 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/middoe$simul_Tcon.coverage" NAME="simul-Tcon Coverage Results" MODIFIED="1750842565584" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/semwet" />
-    <SUITE FILE_PATH="coverage/middoe$modelsim.coverage" NAME="modelsim Coverage Results" MODIFIED="1748950864610" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ionics" />
-    <SUITE FILE_PATH="coverage/middoe$sc_sensa.coverage" NAME="sc_sensa Coverage Results" MODIFIED="1748618169950" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
-    <SUITE FILE_PATH="coverage/middoe$scratch_23.coverage" NAME="scratch_23 Coverage Results" MODIFIED="1742549765681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$runner_gproms_2.coverage" NAME="runner gproms 2 Coverage Results" MODIFIED="1745827521248" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$monod.coverage" NAME="monod Coverage Results" MODIFIED="1748420072319" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/1" />
+    <SUITE FILE_PATH="coverage/middoe$scratch_23.coverage" NAME="scratch_23 Coverage Results" MODIFIED="1742549765681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
+    <SUITE FILE_PATH="coverage/middoe$sc_sensa.coverage" NAME="sc_sensa Coverage Results" MODIFIED="1748618169950" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
+    <SUITE FILE_PATH="coverage/middoe$modelsim.coverage" NAME="modelsim Coverage Results" MODIFIED="1748950864610" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ionics" />
     <SUITE FILE_PATH="coverage/middoe$intp.coverage" NAME="intp Coverage Results" MODIFIED="1747399899607" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/middoe$monod.coverage" NAME="monod Coverage Results" MODIFIED="1748420072319" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/1" />
     <SUITE FILE_PATH="coverage/middoe$krnl_models.coverage" NAME="krnl_models Coverage Results" MODIFIED="1745863042798" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$Doctests_in_des_pp.coverage" NAME="Doctests in des_pp Coverage Results" MODIFIED="1747330822433" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$gg.coverage" NAME="gg Coverage Results" MODIFIED="1750939319845" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/semwet" />
@@ -550,12 +729,13 @@
     <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1747400751054" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$sc_estima.coverage" NAME="sc_estima Coverage Results" MODIFIED="1748545978186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$pyy.coverage" NAME="pyy Coverage Results" MODIFIED="1745935284828" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1748874536482" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/3" />
+    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1752764267383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
     <SUITE FILE_PATH="coverage/middoe$modelsim2.coverage" NAME="modelsim2 Coverage Results" MODIFIED="1749730578972" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ionics" />
     <SUITE FILE_PATH="coverage/middoe$ff.coverage" NAME="ff Coverage Results" MODIFIED="1750835947239" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/case study 2" />
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/middoe$model.coverage" NAME="model Coverage Results" MODIFIED="1748424590422" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/2" />
-    <SUITE FILE_PATH="coverage/middoe$iden_uncert.coverage" NAME="iden_uncert Coverage Results" MODIFIED="1748528506655" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
+    <SUITE FILE_PATH="coverage/middoe$iden_uncert.coverage" NAME="iden_uncert Coverage Results" MODIFIED="1751283284141" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
+    <SUITE FILE_PATH="coverage/middoe$plot.coverage" NAME="plot Coverage Results" MODIFIED="1751557689710" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/poster2/case 2" />
     <SUITE FILE_PATH="coverage/middoe$gpastester.coverage" NAME="gpastester Coverage Results" MODIFIED="1745402187879" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$krnl_simula.coverage" NAME="krnl_simula Coverage Results" MODIFIED="1744824175802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$simul.coverage" NAME="simul Coverage Results" MODIFIED="1750841026186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/semwet" />

@@ -26,17 +26,17 @@ def estima(result, system, models, iden_opt, round, data):
     k_optimal_values = {}
     rCC_values = {}
     J_k_values = {}
-    iden_opt['init']= 'rand'
+    iden_opt['init']= None
     iden_opt['log']= False
     print (f"Estimability analysis for round {round} is running")
     for solver, res in result.items():
-        Z = res['Z']
+        Z = res['LSA']
         n_parameters = Z.shape[1]
 
         ranking_known = parameter_ranking(Z)
         print(f"Parameter ranking from most estimable to least estimable for {solver} in round {round}: {ranking_known}")
 
-        k_optimal, rCC, J_k = parameter_selection(
+        k_optimal, rCC, J_k, best_uncert_result = parameter_selection(
             n_parameters, ranking_known, system, models,
             iden_opt, solver, round, data, result
         )
@@ -48,112 +48,63 @@ def estima(result, system, models, iden_opt, round, data):
         J_k_values[solver] = J_k
     iden_opt['log']= True
     iden_opt['init']= None
-    return rankings, k_optimal_values, rCC_values, J_k_values
+    return rankings, k_optimal_values, rCC_values, J_k_values, best_uncert_result
 
 
 def parameter_ranking(Z):
     """
-    Perform orthogonalization on the given matrix Z to rank parameters based on their estimability.
+    Rank parameters by estimability via iterative orthogonalization.
 
-    Parameters:
-    Z (numpy.ndarray): The matrix containing the sensitivity information.
+    At each iteration, select the column whose component
+    orthogonal to previously selected columns has maximum norm.
 
-    Returns:
-    list: A list of parameter indices ranked from most estimable to least estimable.
+    Parameters
+    ----------
+    Z : (m, n) array_like
+        Sensitivity matrix (m samples × n parameters).
+
+    Returns
+    -------
+    ranking : list of int
+        Parameter indices sorted from most estimable to least estimable.
     """
-    n_samples, n_parameters = Z.shape
+    Z = np.asarray(Z)
+    m, n = Z.shape
+
+    remaining = list(range(n))
     ranking = []
-    remaining_columns = list(range(n_parameters))
-    magnitudes = [la.norm(Z[:, j]) for j in remaining_columns]
-    max_magnitude_index = np.argmax(magnitudes)
-    most_estimable = remaining_columns.pop(max_magnitude_index)
-    ranking.append(most_estimable)
+    # Orthonormal basis of selected columns
+    Q = np.zeros((m, 0))
 
-    for k in range(n_parameters):
-        Xk = Z[:, ranking]
-        Z_hat = Xk @ np.linalg.pinv(Xk.T @ Xk) @ Xk.T @ Z
-        Rk = Z - Z_hat
-        magnitudes = [la.norm(Rk[:, j]) for j in remaining_columns]
-        max_magnitude_index = np.argmax(magnitudes)
-        most_estimable = remaining_columns.pop(max_magnitude_index)
-        ranking.append(most_estimable)
-        if len(ranking) >= n_parameters:
-            return ranking
+    for _ in range(n):
+        # Compute residual norms for all remaining columns
+        norms = []
+        for j in remaining:
+            v = Z[:, j]
+            if Q.shape[1] > 0:
+                # project v onto span(Q) and subtract
+                proj = Q @ (Q.T @ v)
+                r = v - proj
+            else:
+                r = v
+            norms.append(np.linalg.norm(r))
 
-# def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, solvera, round, data, result):
-#     """
-#     Perform MSE-based selection to determine the optimal number of parameters to estimate.
-#
-#     Parameters:
-#     n_parameters (int): The total number of parameters.
-#     ranking_known (list): The list of parameter indices ranked by estimability.
-#     system (dict): User provided - The model structure information.
-#     models (dict): User provided - The settings for the modelling process.
-#     iden_opt (dict): User provided - The settings for the estimation process.
-#     solvera (str): The name of the model(s).
-#     round (int): The current round of the design - conduction and identification procedure.
-#     data (dict): prior information for estimability analysis (observations, inputs, etc.).
-#     run_solver (function): The function to run the model (simulator-bridger).
-#
-#     Returns:
-#     tuple: A tuple containing the optimal number of parameters for estimation in the ranking, rCC values (corrected critical ratios), and J_k values (objectives of weighted least square method based optimization).
-#     """
-#     rCC_values = []
-#     J_k_values = []
-#     original_mutation = models['mutation'][solvera].copy()
-#     models['mutation'][solvera] = [True] * len(models['theta'][solvera])
-#
-#     # results_all_params = parmest(
-#     #     system,
-#     #     models,
-#     #     iden_opt,
-#     #     data,case= 'freeze')
-#     #
-#     # uncert_results_all = uncert(data, results_all_params, system, models, iden_opt)
-#     # result = uncert_results_all['results']
-#     # n_samples = uncert_results_all['obs']
-#
-#     vmax=models['V_matrix'][solvera]
-#     J_theta = result[solvera]['WLS']
-#
-#     for k in range(1, n_parameters):
-#         selected_mask = [False] * len(ranking_known)
-#         for i in range(k):
-#             selected_mask[ranking_known[i]] = True
-#
-#         models['mutation'][solvera] = selected_mask
-#
-#         results_k_params = parmest(
-#             system,
-#             models,
-#             iden_opt,
-#             data, case= 'freeze')
-#         # print(f"Results for {k} parameters: {results_k_params[solvera]['optimization_result'].fun}")
-#
-#         uncert_results_k = uncert(data, results_k_params, system, models, iden_opt)
-#         resultk = uncert_results_k['results']
-#         n_samples = uncert_results_k['obs']
-#
-#         J_k = resultk[solvera]['WLS']
-#
-#         rC = (J_k - J_theta) / ((n_parameters - k))
-#         rCKub = max(rC-1, (2 * rC) / (n_parameters - k + 2))
-#         rCC = ((n_parameters - k) / n_samples) * (rCKub-1)
-#
-#         rCC_values.append(rCC)
-#         J_k_values.append(J_k)
-#     rCC_values.append(0)
-#     x_values = list(range(1, len(rCC_values) + 1))
-#     k_optimal = np.argmin(rCC_values) + 1
-#
-#     models['mutation'][solvera] = original_mutation
-#     plot_rCC_vs_k(x_values, rCC_values, round, solvera)
-#
-#     selected_mask = [True] * len(ranking_known)
-#     models['mutation'][solvera] = selected_mask
-#     models['V_matrix'][solvera] = vmax
-#
-#     return k_optimal, rCC_values, J_k_values
+        # pick the column with max residual norm
+        best_idx = int(np.argmax(norms))
+        j_sel = remaining.pop(best_idx)
+        ranking.append(j_sel)
+
+        # Orthonormalize the selected column and append to Q
+        v = Z[:, j_sel]
+        if Q.shape[1] > 0:
+            v = v - Q @ (Q.T @ v)
+        norm = np.linalg.norm(v)
+        if norm > 0:
+            q = v / norm
+            Q = np.hstack((Q, q[:, None]))
+        # zero vectors (if any) are simply skipped
+
+    return ranking
 
 
 
@@ -177,6 +128,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     """
     rCC_values = []
     J_k_values = []
+    uncert_results_list = []
 
     J_theta = result[solvera]['WLS']
     print(f"J_theta : {J_theta}")
@@ -197,7 +149,9 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
 
         # Run estimation and uncertainty analysis with k parameters
         results_k_params = parmest(system_k, models_k, iden_opt_k, data, case='freeze')
-        uncert_results_k = uncert(data, results_k_params, system_k, models_k, iden_opt_k)
+        uncert_results_k = uncert(data, results_k_params, system_k, models_k, iden_opt_k, case='freeze')
+        uncert_results_list.append(uncert_results_k)
+
         resultk = uncert_results_k['results']
         n_samples = uncert_results_k['obs']
 
@@ -218,8 +172,13 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     rCC_values.append(0)
     x_values = list(range(1, len(rCC_values) + 1))
     k_optimal = np.argmin(rCC_values) + 1
+    # Safely select best uncertainty result
+    if k_optimal <= len(uncert_results_list):
+        best_uncert_result = uncert_results_list[k_optimal - 1]
+    else:
+        best_uncert_result = {'results': result, 'obs': None}  # fallback
 
     # Plot with consistent config (only for display)
     plot_rCC_vs_k(x_values, rCC_values, round, solvera)
 
-    return k_optimal, rCC_values, J_k_values
+    return k_optimal, rCC_values, J_k_values, best_uncert_result

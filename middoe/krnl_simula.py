@@ -266,7 +266,7 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     """
 
 
-    max_retries = 10
+    max_retries = 1
     retry_count = 0
     success = False
     tv_ophi, ti_ophi = {}, {}
@@ -360,3 +360,4 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
                 time.sleep(0.5)
 
     return tv_ophi, ti_ophi, phit
+

@@ -1,157 +1,708 @@
+# import numpy as np
+# from middoe.krnl_simula import simula
+# import scipy.stats as stats
+# import logging
+# import matplotlib.pyplot as plt
+# import pandas as pd
+# from pathlib import Path
+#
+#
+# # Configure the logger
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+#
+# def uncert(data, resultpr, system, models, iden_opt, case=None):
+#     """
+#     Perform uncertainty analysis on the optimization results.
+#
+#     Parameters
+#     ----------
+#     data : dict
+#         Dictionary containing the experimental data.
+#     resultpr : dict
+#         Dictionary containing the results of the optimization from parameter estimation.
+#     system : dict
+#         User-provided dictionary containing the model structure.
+#     models : dict
+#         User-provided dictionary containing the modelling settings.
+#     iden_opt : dict
+#         User-provided dictionary containing the estimation settings.
+#     run_solver : function
+#         Simulator function to run the model.
+#
+#     Returns
+#     ----------
+#     tuple
+#         (resultun2, theta_parameters, solver_parameters, scaled_params, observed_values)
+#
+#         Where resultun2 is a dictionary keyed by model name, containing:
+#           'LS', 'MLE', 'MSE', 'Chi', 'LSA', 'JWLS', 'R2_responses', etc.
+#     """
+#
+#
+#     # Gather variable names
+#     sens_method = iden_opt.get('sens_m', 'central')  # Default to central difference
+#     tv_iphi_vars = list(system.get('tvi', {}).keys())
+#     ti_iphi_vars = list(system.get('tii', {}).keys())
+#     tv_ophi_vars = [
+#         var for var in system.get('tvo', {}).keys()
+#         if system['tvo'][var].get('meas', True)
+#     ]
+#     ti_ophi_vars = [
+#         var for var in system.get('tio', {}).keys()
+#         if system['tio'][var].get('meas', True)
+#     ]
+#     varcov= iden_opt.get('var-cov', 'H')
+#     # Attempt to retrieve standard deviations for each measured variable.
+#     # If not found or NaN, default to 1.0.
+#     # (Although we don't use them directly here, we show how you'd gather them.)
+#     std_dev = {}
+#     for var in system.get('tvo', {}):
+#         if system['tvo'][var].get('meas', True):
+#             sigma = system['tvo'][var].get('unc', None)
+#             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
+#                 sigma = 1.0
+#             std_dev[var] = sigma
+#     for var in system.get('tio', {}):
+#         if system['tio'][var].get('meas', True):
+#             sigma = system['tio'][var].get('unc', None)
+#             if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
+#                 sigma = 1.0
+#             std_dev[var] = sigma
+#
+#     # Estimation settings
+#     eps = iden_opt.get('eps', None)
+#     if isinstance(eps, dict):
+#         epsf = eps.copy()  # user provided dict
+#     else:
+#         epsf = {solver: eps for solver in resultpr}  # use same float for all
+#     logging = iden_opt.get('log', False)
+#
+#     # Modelling settings
+#     mutation = models.get('mutation', {})
+#
+#     resultun = {}
+#
+#     # We'll keep a placeholder to store the last-run 'observed_values'
+#     # so that we can return it at the end.
+#     observed_values = None
+#
+#     # Loop over solvers in the results dictionary
+#     for solver, solver_results in resultpr.items():
+#
+#         thetac = solver_results['scpr']
+#         thetas = mutation.get(solver, [])
+#         # initial_x0 = solver_results['optimization_result'].x
+#         theta = np.ones_like(thetac, dtype=float)
+#
+#         # If eps is not provided, perform (optional) FDM mesh dependency test
+#         # in your own custom function:
+#         if epsf[solver] is None:
+#             epsf[solver] = _fdm_mesh_independency(theta, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data, sens_method, varcov, resultpr)
+#
+#
+#         # ---------------------------------------------------------------------
+#         # Call the core metrics function (updated to handle Weighted LS, MLE, etc.)
+#         # ---------------------------------------------------------------------
+#         (
+#             optimized_data,
+#             LS,
+#             MLE,
+#             Chi,
+#             LSA,
+#             Z,
+#             V_matrix,
+#             CI,
+#             t_values,
+#             t_m,
+#             tv_input_m,
+#             ti_input_m,
+#             tv_output_m,
+#             ti_output_m,
+#             WLS,
+#             obs,
+#             MSE,
+#             R2_responses,
+#             M
+#         ) = _uncert_metrics(
+#             theta,
+#             data,
+#             [solver],
+#             thetac,
+#             epsf,
+#             thetas,
+#             ti_iphi_vars,
+#             tv_iphi_vars,
+#             tv_ophi_vars,
+#             ti_ophi_vars,
+#             system,
+#             models,
+#             varcov,
+#             resultpr,
+#             sens_method=sens_method
+#         )
+#         observed_values = obs  # store how many measurements used, etc.
+#
+#         resultun[solver] = {
+#             'optimization_result': solver_results,
+#             'data': optimized_data,
+#             'LS': LS,                     # Overall R² across all scaled data
+#             'MLE': MLE,                   # Weighted negative log-likelihood
+#             'MSE': MSE,                   # Mean squared error (unweighted)
+#             'Chi': Chi,                   # Sum((res^2) / abs(pred))
+#             'LSA': LSA,                   # Jacobian (sensitivities)
+#             'Z': Z,                       # Jacobian normalized by std deviations
+#             'WLS': WLS,                   # Weighted least squares
+#             'R2_responses': R2_responses, # dictionary of per-variable R²
+#             'V_matrix': np.array(V_matrix),
+#             'CI': CI,
+#             't_values': t_values,
+#             't_m': t_m,
+#             'tv_input_m': tv_input_m,
+#             'ti_input_m': ti_input_m,
+#             'tv_output_m': tv_output_m,
+#             'ti_output_m': ti_output_m,
+#             'estimations': thetac,
+#             'found_eps': epsf,
+#             'M': M,
+#         }
+#
+#     iden_opt['eps'] = epsf
+#     # Summarize results for all solvers
+#     (
+#         scaled_params,
+#         solver_parameters,
+#         solver_cov_matrices,
+#         solver_confidence_intervals,
+#         resultun2
+#     ) = _report(
+#         resultun,
+#         mutation,
+#         models,
+#         logging
+#     )
+#
+#     if case == None:
+#         for solver in models['can_m']:
+#             models['theta'][solver] = scaled_params[solver]
+#
+#         # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+#         for solver in models['can_m']:
+#             models['V_matrix'][solver] = resultun[solver]['V_matrix']
+#
+#     # Construct return dictionary
+#     uncert_output = {
+#         'results': resultun2,
+#         'obs': observed_values
+#     }
+#
+#     return uncert_output
+#
+#
+#
+#
+#
+# def _uncert_metrics(
+#     theta,
+#     data,
+#     active_solvers,
+#     thetac,
+#     eps,
+#     thetas,
+#     ti_iphi_vars,
+#     tv_iphi_vars,
+#     tv_ophi_vars,
+#     ti_ophi_vars,
+#     system,
+#     models,
+#     varcov,
+#     resultpr,
+#     sens_method='forward'
+# ):
+#     """
+#     Calculate uncertainty metrics for parameter estimation results.
+#     Uses pointwise heteroscedastic uncertainties from 'MES_E:{var}' arrays.
+#
+#     Returns:
+#       data, LS, sum_mle, sum_chi,
+#       LSA (sensitivity matrix), Z (Z-scores),
+#       V (covariance matrix), CI (confidence intervals), t_values,
+#       t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m,
+#       sum_wls, obs_count, MSE, R2
+#     """
+#
+#
+#     theta_full = np.array(theta)
+#     active_idx = np.where(thetas)[0]
+#     n_active = len(active_idx)
+#     thetac = np.array(thetac)
+#
+#     var_measurements = {}
+#     Q_accum = {v: [] for v in tv_ophi_vars + ti_ophi_vars}
+#     t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m = {}, {}, {}, {}, {}
+#
+#     if not active_solvers:
+#         raise ValueError("No active solver provided.")
+#     solver = active_solvers[0]
+#     h = eps[solver]
+#
+#     for sheet, sheet_data in data.items():
+#         t_all = np.unique(np.array(sheet_data.get('X:all', []))[~np.isnan(sheet_data.get('X:all', []))])
+#         swps = {}
+#         for v in tv_iphi_vars:
+#             tkey, lkey = f"{v}t", f"{v}l"
+#             if tkey in sheet_data and lkey in sheet_data:
+#                 ta = np.array(sheet_data[tkey])[~np.isnan(sheet_data[tkey])]
+#                 la = np.array(sheet_data[lkey])[~np.isnan(sheet_data[lkey])]
+#                 if ta.size and la.size:
+#                     swps[tkey], swps[lkey] = ta, la
+#         ti_data = {v: float(sheet_data.get(v, [np.nan])[0]) for v in ti_iphi_vars}
+#         tv_data = {v: np.array(sheet_data.get(v, []))[~np.isnan(sheet_data.get(v, []))] for v in tv_iphi_vars}
+#         cvp = {v: sheet_data[f"CVP:{v}"].iloc[0] for v in system.get('tvi', {}) if f"CVP:{v}" in sheet_data}
+#
+#         tv_pred, ti_pred, _ = simula(
+#             t_all, swps, ti_data,
+#             {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#             theta_full, thetac, cvp, tv_data, solver, system, models
+#         )
+#
+#         t_m[sheet] = t_all.tolist()
+#         tv_input_m[sheet] = tv_data
+#         ti_input_m[sheet] = ti_data
+#         tv_output_m[sheet] = tv_pred
+#         ti_output_m[sheet] = ti_pred
+#
+#         perturbed = {}
+#         for p in active_idx:
+#             if sens_method == 'forward':
+#                 th = theta_full.copy(); th[p] += h
+#                 tv2, ti2, _ = simula(t_all, swps, ti_data, {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                                      th, thetac, cvp, tv_data, solver, system, models)
+#                 perturbed[p] = {'plus':(tv2, ti2)}
+#             elif sens_method == 'central':
+#                 th_p = theta_full.copy(); th_p[p] += h
+#                 th_m = theta_full.copy(); th_m[p] -= h
+#                 tv_p, ti_p, _ = simula(t_all, swps, ti_data, {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                                        th_p, thetac, cvp, tv_data, solver, system, models)
+#                 tv_m, ti_m, _ = simula(t_all, swps, ti_data, {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                                        th_m, thetac, cvp, tv_data, solver, system, models)
+#                 perturbed[p] = {'plus':(tv_p, ti_p), 'minus':(tv_m, ti_m)}
+#             elif sens_method in ('five','five_point'):
+#                 ths = {}
+#                 for k, factor in zip(('p1','m1','p2','m2'), (1,-1,2,-2)):
+#                     tsh = theta_full.copy(); tsh[p] += factor*h
+#                     ths[k] = tsh
+#                 sims = {k: simula(t_all, swps, ti_data, {v:1 for v in ti_iphi_vars},{v:1 for v in tv_iphi_vars},1,
+#                                   ths[k], thetac, cvp, tv_data, solver, system, models)[:2]
+#                         for k in ths}
+#                 perturbed[p] = sims
+#             else:
+#                 raise ValueError(f"Unknown sens_method '{sens_method}'")
+#
+#         for var in tv_ophi_vars + ti_ophi_vars:
+#             if var in tv_ophi_vars:
+#                 yt = np.array(sheet_data.get(f"MES_Y:{var}",[]))[~np.isnan(sheet_data.get(f"MES_Y:{var}",[]))]
+#                 tx = np.array(sheet_data.get(f"MES_X:{var}",[]))[~np.isnan(sheet_data.get(f"MES_X:{var}",[]))]
+#                 yp = np.array([tv_pred[var][np.where(t_all==t)[0][0]] for t in tx]) if tx.size else np.array([])
+#                 sigs_raw = sheet_data.get(f"MES_E:{var}", [])
+#                 sigs = np.array(sigs_raw)[~np.isnan(sigs_raw)]
+#                 if sigs.size != yp.size:
+#                     raise ValueError(f"Mismatch between MES_E and predictions for {var} in {sheet}")
+#
+#             else:
+#                 yt = np.array([sheet_data.get(f"MES_Y:{var}",[np.nan])[0]])
+#                 yp = np.array([ti_pred[var]])
+#                 sigs = np.array([1.0])
+#
+#             sigs = np.maximum(sigs, 1e-6)
+#             var_measurements.setdefault(var, []).extend(zip(yt, yp, sigs))
+#             if yt.size == 0: continue
+#
+#             cols = []
+#             for p in active_idx:
+#                 if sens_method == 'forward':
+#                     tv2, ti2 = perturbed[p]['plus']
+#                     y2 = (np.array([tv2[var][np.where(t_all==t)[0][0]] for t in tx])
+#                           if var in tv_ophi_vars else np.array([ti2[var]]))
+#                     d = (y2 - yp) / (h * thetac[p])
+#                 elif sens_method == 'central':
+#                     tv_p, ti_p = perturbed[p]['plus']; tv_m, ti_m = perturbed[p]['minus']
+#                     y_p = (np.array([tv_p[var][np.where(t_all==t)[0][0]] for t in tx])
+#                            if var in tv_ophi_vars else np.array([ti_p[var]]))
+#                     y_m = (np.array([tv_m[var][np.where(t_all==t)[0][0]] for t in tx])
+#                            if var in tv_ophi_vars else np.array([ti_m[var]]))
+#                     d = (y_p - y_m) / (2 * h * thetac[p])
+#                 else:
+#                     tv_p1, ti_p1 = perturbed[p]['p1']; tv_m1, ti_m1 = perturbed[p]['m1']
+#                     tv_p2, ti_p2 = perturbed[p]['p2']; tv_m2, ti_m2 = perturbed[p]['m2']
+#                     def fetch(sim): return (np.array([sim[var][np.where(t_all==t)[0][0]] for t in tx])
+#                                             if var in tv_ophi_vars else np.array([sim[var]]))
+#                     y_p1, y_m1, y_p2, y_m2 = [fetch(sim) for sim in (tv_p1, tv_m1, tv_p2, tv_m2)]
+#                     d = (-y_p2 + 8*y_p1 - 8*y_m1 + y_m2) / (12 * h * thetac[p])
+#                 cols.append(d)
+#             Q_accum[var].append(np.stack(cols, axis=1))
+#
+#     Q_full = {v: np.vstack(Q_accum[v]) for v in Q_accum}
+#     vars_list = list(Q_full)
+#     obs = sum(len(v) for v in var_measurements.values())
+#     dof = max(obs - n_active, 1)
+#     tcrit = stats.t.ppf(0.975, dof)
+#     LSA = np.vstack([Q_full[v] for v in vars_list])
+#     sigs_all = np.concatenate([[sig for _, _, sig in var_measurements[v]] for v in vars_list])
+#     sigs_all = np.clip(sigs_all, 1e-6, np.inf)
+#
+#     # --- Variance-covariance matrix selection ---
+#     if varcov == 'M':
+#         W_full = np.diag(1.0 / sigs_all ** 2)
+#         M = LSA.T @ W_full @ LSA
+#         V = np.linalg.pinv(M)
+#         logger = logging.getLogger(__name__)
+#         logger.info(f"Fisher matrix condition number: {np.linalg.cond(M):.2e}")
+#         if np.linalg.cond(M) > 1e10:
+#             logger.warning("Fisher matrix is ill-conditioned. Confidence intervals may be unreliable.")
+#     elif varcov == 'H':
+#         hess_inv = resultpr.get(solver, {}).get('hess_inv', None)
+#         if hess_inv is None:
+#             raise ValueError("Hessian inverse not found in resultpr for solver: " + solver)
+#         Ve = np.array(hess_inv)
+#         err = resultpr.get(solver, {}).get('fun', None)
+#         err=err/dof
+#         V= err * Ve  # scale Hessian inverse by error variance
+#         M = np.linalg.pinv(V)  # if you want to return M as well
+#     else:
+#         raise ValueError(f"Unknown varcov option '{varcov}'")
+#
+#     CI = tcrit * np.sqrt(np.diag(V))
+#     tvals = (theta_full[active_idx] * thetac[active_idx]) / (CI)
+#     resp_sigs = np.concatenate([[sig for _, _, sig in var_measurements[v]] for v in vars_list])
+#     theta_std = np.sqrt(np.diag(V))
+#     Z = LSA * theta_std / resp_sigs[:, None]
+#
+#     LS = sum_wls = sum_mle = sum_chi = total_err = 0.0
+#     R2_data = {v: {'y': [], 'yp': []} for v in vars_list}
+#     for v, vals in var_measurements.items():
+#         for y, y_pred, sig in vals:
+#             r = y - y_pred
+#             LS += r**2
+#             sum_wls += (r / sig)**2
+#             sum_mle += 0.5 * (np.log(2 * np.pi * sig**2) + (r / sig)**2)
+#             sum_chi += r**2 / sig**2
+#             R2_data[v]['y'].append(y)
+#             R2_data[v]['yp'].append(y_pred)
+#             total_err += r**2
+#
+#     R2 = {v: 1 - np.sum((np.array(d['y']) - np.array(d['yp']))**2) / np.sum((np.array(d['y']) - np.mean(d['y']))**2)
+#           if len(d['y']) > 1 else np.nan
+#           for v, d in R2_data.items()}
+#     MSE = total_err / obs if obs else np.nan
+#
+#     return (
+#         data, LS, sum_mle, sum_chi, LSA, Z, V, CI, tvals,
+#         t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m,
+#         sum_wls, obs, MSE, R2, M
+#     )
+#
+#
+#
+#
+#
+#
+# def _report(result, mutation, models, logging):
+#     """
+#     Report the uncertainty and parameter estimation results.
+#
+#     Parameters:
+#     ----------
+#     result : dict
+#         Dictionary containing the results of the optimization.
+#     mutation : dict
+#         Dictionary indicating which parameters are to be optimized for each model.
+#     theta_parameters : dict
+#         Dictionary of theta parameters for each model.
+#     models : dict
+#         User-provided dictionary containing the modelling settings.
+#     logging : bool
+#         Flag to indicate whether to log the results.
+#
+#     Returns:
+#     ----------
+#     tuple
+#         (scaled_params, solver_parameters, solver_cov_matrices,
+#          solver_confidence_intervals, result)
+#     """
+#     solver_parameters = {}
+#     solver_cov_matrices = {}
+#     solver_confidence_intervals = {}
+#     scaled_thetaest = {}
+#     scaled_params = {}
+#     sum_of_chi_squared = sum(1 / (res['Chi']) ** 2 for res in result.values())
+#
+#     for solver, solver_results in result.items():
+#         # Extract mutation mask and positions of active parameters
+#         mutation_mask = mutation.get(solver, [True] * len(solver_results['optimization_result'].x))
+#         original_positions = [i for i, active in enumerate(mutation_mask) if active]
+#
+#         # Scale estimated parameters
+#         scaled_thetaest[solver] = solver_results['optimization_result']['scpr']
+#
+#         if logging:
+#             scaled_params[solver] = [float(param) for param in scaled_thetaest[solver]]
+#             print(f"Estimated parameters of {solver}: {scaled_params[solver]}")
+#             print(f"LS objective function value for {solver}: {solver_results['LS']}")
+#
+#         # Update modelling settings with V_matrix for the model
+#         models['V_matrix'][solver] = solver_results['V_matrix']
+#
+#         # Map CI, t-values, and CI ratios to their original parameter positions
+#         CI_mapped = {pos: solver_results['CI'][i] for i, pos in enumerate(original_positions)}
+#         t_values_mapped = {pos: solver_results['t_values'][i] for i, pos in enumerate(original_positions)}
+#         CI_ratio_mapped = {
+#             pos: ci * 100 / param if param != 0 else float('inf')
+#             for pos, ci, param in zip(original_positions, solver_results['CI'], solver_results['optimization_result'].x)
+#         }
+#
+#         # Log t-values if requested
+#         if logging:
+#             print(f"T-values of model {solver}: {solver_results['t_values']}")
+#
+#         # Store parameters, covariance matrices, and confidence intervals
+#         solver_parameters[solver] = solver_results['optimization_result'].x
+#         solver_cov_matrices[solver] = solver_results['V_matrix']
+#         solver_confidence_intervals[solver] = CI_mapped
+#         solver_results['P'] = ((1 / (solver_results['Chi']) ** 2) / sum_of_chi_squared) * 100
+#         print(f"P-value of model:{solver} is {solver_results['P']} for model discrimination")
+#
+#         # Log R² for responses
+#         if 'R2_responses' in solver_results:
+#             r2_responses = solver_results['R2_responses']
+#             if logging:
+#                 print(f"R2 values for responses in model {solver}:")
+#                 for var, r2_value in r2_responses.items():
+#                     print(f"  {var}: {r2_value:.4f}")
+#
+#             # Optionally store R² values in result for external use
+#             solver_results['R2_responses_summary'] = {
+#                 var: round(r2_value, 4) for var, r2_value in r2_responses.items()
+#             }
+#
+#     return scaled_params, solver_parameters, solver_cov_matrices, solver_confidence_intervals, result
+#
+# def _fdm_mesh_independency(theta, thetac, solver, system, models,
+#                            tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data, sens_method, varcov, resultpr):
+#     """
+#     Perform FDM mesh dependency test to determine a suitable epsilon for sensitivity analysis.
+#
+#     Parameters:
+#     theta (list): Initial parameter estimates.
+#     thetac (list): Scaling factors for parameters.
+#     solver (str): Solver name.
+#     system (dict): Model structure.
+#     models (dict): Modelling settings.
+#     tv_iphi_vars (list): Time-variant input variable names.
+#     ti_iphi_vars (list): Time-invariant input variable names.
+#     tv_ophi_vars (list): Time-variant output variable names.
+#     ti_ophi_vars (list): Time-invariant output variable names.
+#     data (dict): Experimental data.
+#
+#     Returns:
+#     float: Optimal epsilon value for sensitivity analysis.
+#     """
+#     logger.info(f"Performing FDM mesh dependency test for model {solver}.")
+#
+#     eps_values = np.logspace(-12, -1, 50)
+#     eig_matrix = []
+#
+#     for eps in eps_values:
+#         try:
+#             result = _uncert_metrics(
+#                 theta, data, [solver], thetac, {solver: eps}, [True] * len(theta),
+#                 ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models, varcov,resultpr, sens_method=sens_method
+#             )
+#             V_matrix = result[6]  # variance-covariance matrix
+#             eigvals = np.linalg.eigvalsh(V_matrix)
+#             eig_matrix.append(eigvals)
+#         except np.linalg.LinAlgError:
+#             logger.warning(f"LinAlgError at eps={eps:.1e} for {solver}")
+#             eig_matrix.append([np.nan] * len(theta))
+#
+#     eig_matrix = np.array(eig_matrix)  # shape = (eps values, parameters)
+#
+#     # Plot eigenvalues across epsilons
+#     folder = Path.cwd() / "meshindep_plots"
+#     folder.mkdir(exist_ok=True)
+#     filename_base = folder / f"{solver}_eps_eigenvalue_test"
+#
+#     plt.figure(figsize=(10, 6))
+#     for i in range(eig_matrix.shape[1]):
+#         plt.plot(eps_values, eig_matrix[:, i], marker='o', label=f'Eigenvalue {i+1}')
+#     plt.xscale('log')
+#     plt.yscale('log')
+#     plt.xlabel('Epsilon')
+#     plt.ylabel('Eigenvalues of V')
+#     plt.title(f'Eigenvalue Spectrum vs Epsilon (Model: {solver})')
+#     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+#     plt.legend(loc='best')
+#     plt.tight_layout()
+#     plt.savefig(f"{filename_base}.png", dpi=300)
+#     if plt.get_backend() != 'agg':
+#         plt.show()
+#     plt.close()
+#
+#     # Save eigenvalues to Excel
+#     df = pd.DataFrame(eig_matrix, columns=[f'Eigen_{i+1}' for i in range(eig_matrix.shape[1])])
+#     df.insert(0, 'Epsilon', eps_values)
+#     df.to_excel(f"{filename_base}.xlsx", index=False)
+#
+#     # Select epsilon based on region of minimal total eigenvalue variation
+#     stable_region = np.where(np.isfinite(eig_matrix).all(axis=1))[0]
+#     if stable_region.size == 0:
+#         raise ValueError(f"Could not determine a stable epsilon region for model {solver}.")
+#
+#     window = 5  # must be odd
+#     half_w = window // 2
+#     min_total_var = np.inf
+#     best_center_idx = None
+#
+#     for i in range(half_w, len(stable_region) - half_w):
+#         eps_candidate = eps_values[stable_region[i]]
+#         if not (1e-7 <= eps_candidate <= 1e-2):
+#             continue  # skip out-of-range eps
+#
+#         window_indices = stable_region[i - half_w:i + half_w + 1]
+#         window_eigs = eig_matrix[window_indices]
+#         variation = np.sum(np.std(window_eigs, axis=0))
+#         if variation < min_total_var:
+#             min_total_var = variation
+#             best_center_idx = i
+#
+#     # If no preferred-range candidate found, fall back to full region
+#     if best_center_idx is None:
+#         for i in range(half_w, len(stable_region) - half_w):
+#             window_indices = stable_region[i - half_w:i + half_w + 1]
+#             window_eigs = eig_matrix[window_indices]
+#             variation = np.sum(np.std(window_eigs, axis=0))
+#             if variation < min_total_var:
+#                 min_total_var = variation
+#                 best_center_idx = i
+#
+#     optimal_eps = eps_values[stable_region[best_center_idx]]
+#     logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps:.2e}")
+#
+#     return optimal_eps
+
+
+
 import numpy as np
-from middoe.krnl_simula import simula
 import scipy.stats as stats
 import logging
 import matplotlib.pyplot as plt
-import math
 import pandas as pd
 from pathlib import Path
-
+from middoe.krnl_simula import simula
 
 # Configure the logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def uncert(data, resultpr, system, models, iden_opt):
+
+def uncert(data, resultpr, system, models, iden_opt, case=None):
     """
     Perform uncertainty analysis on the optimization results.
 
-    Parameters
-    ----------
-    data : dict
-        Dictionary containing the experimental data.
-    resultpr : dict
-        Dictionary containing the results of the optimization from parameter estimation.
-    system : dict
-        User-provided dictionary containing the model structure.
-    models : dict
-        User-provided dictionary containing the modelling settings.
-    iden_opt : dict
-        User-provided dictionary containing the estimation settings.
-    run_solver : function
-        Simulator function to run the model.
-
-    Returns
-    ----------
-    tuple
-        (resultun2, theta_parameters, solver_parameters, scaled_params, observed_values)
-
-        Where resultun2 is a dictionary keyed by model name, containing:
-          'LS', 'MLE', 'MSE', 'Chi', 'LSA', 'JWLS', 'R2_responses', etc.
+    If iden_opt['varcov']=='B', will use the bootstrap variance–covariance
+    stored in resultpr[solver]['varcov'].
     """
+    # Sensitivity method and varcov selection
+    sens_method = iden_opt.get('sens_m', 'central')
+    varcov_key  = iden_opt.get('varcov', 'H')  # 'M', 'H', or 'B'
 
+    # Identify measurement variables
+    tv_iphi_vars = list(system.get('tvi', {}))
+    ti_iphi_vars = list(system.get('tii', {}))
+    tv_ophi_vars = [v for v,c in system.get('tvo', {}).items() if c.get('meas', True)]
+    ti_ophi_vars = [v for v,c in system.get('tio', {}).items() if c.get('meas', True)]
 
-    # Gather variable names
-    tv_iphi_vars = list(system.get('tvi', {}).keys())
-    ti_iphi_vars = list(system.get('tii', {}).keys())
-    tv_ophi_vars = [
-        var for var in system.get('tvo', {}).keys()
-        if system['tvo'][var].get('meas', True)
-    ]
-    ti_ophi_vars = [
-        var for var in system.get('tio', {}).keys()
-        if system['tio'][var].get('meas', True)
-    ]
-
-    # Attempt to retrieve standard deviations for each measured variable.
-    # If not found or NaN, default to 1.0.
-    # (Although we don't use them directly here, we show how you'd gather them.)
+    # Collect measurement uncertainties (not directly used here)
     std_dev = {}
-    for var in system.get('tvo', {}):
-        if system['tvo'][var].get('meas', True):
-            sigma = system['tvo'][var].get('unc', None)
-            if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
-                sigma = 1.0
-            std_dev[var] = sigma
-    for var in system.get('tio', {}):
-        if system['tio'][var].get('meas', True):
-            sigma = system['tio'][var].get('unc', None)
-            if sigma is None or (isinstance(sigma, float) and np.isnan(sigma)):
-                sigma = 1.0
-            std_dev[var] = sigma
+    for grp in ('tvo','tio'):
+        for v,cfg in system.get(grp, {}).items():
+            if cfg.get('meas', True):
+                s = cfg.get('unc', 1.0)
+                std_dev[v] = 1.0 if s is None or np.isnan(s) else s
 
-    # Estimation settings
-    eps = iden_opt.get('eps', None)
-    if isinstance(eps, dict):
-        epsf = eps.copy()  # user provided dict
+    # Prepare epsilon settings
+    eps_in = iden_opt.get('eps', None)
+    if not isinstance(eps_in, dict):
+        epsf = {sv: eps_in for sv in resultpr}
     else:
-        epsf = {solver: eps for solver in resultpr}  # use same float for all
-    logging = iden_opt.get('log', False)
-
-    # Modelling settings
-    mutation = models.get('mutation', {})
-    theta_parameters = models.get('theta', {})
+        epsf = eps_in.copy()
 
     resultun = {}
-
-    # We'll keep a placeholder to store the last-run 'observed_values'
-    # so that we can return it at the end.
     observed_values = None
 
-    # Loop over solvers in the results dictionary
+    # Loop over each solver's optimization result
     for solver, solver_results in resultpr.items():
+        thetac = solver_results['scpr']
+        thetas = models.get('mutation', {}).get(solver, [])
+        # If epsilon not provided, run mesh-independency test
+        if epsf.get(solver) is None:
+            epsf[solver] = _fdm_mesh_independency(
+                theta=np.ones_like(thetac),
+                thetac=thetac,
+                solver=solver,
+                system=system,
+                models=models,
+                tv_iphi_vars=tv_iphi_vars,
+                ti_iphi_vars=ti_iphi_vars,
+                tv_ophi_vars=tv_ophi_vars,
+                ti_ophi_vars=ti_ophi_vars,
+                data=data,
+                sens_method=sens_method,
+                varcov=varcov_key,
+                resultpr=resultpr
+            )
 
-        thetac = theta_parameters.get(solver, [])
-        thetas = mutation.get(solver, [])
-        initial_x0 = solver_results['optimization_result'].x
-
-        # If eps is not provided, perform (optional) FDM mesh dependency test
-        # in your own custom function:
-        if epsf[solver] is None:
-            epsf[solver] = _fdm_mesh_independency(initial_x0, thetac, solver, system, models, tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data)
-
-
-        # ---------------------------------------------------------------------
-        # Call the core metrics function (updated to handle Weighted LS, MLE, etc.)
-        # ---------------------------------------------------------------------
+        # Compute uncertainty metrics
         (
             optimized_data,
-            LS,
-            MLE,
-            Chi,
-            LSA,
-            Z,
-            V_matrix,
-            CI,
-            t_values,
-            t_m,
-            tv_input_m,
-            ti_input_m,
-            tv_output_m,
-            ti_output_m,
-            WLS,
-            obs,
-            MSE,
-            R2_responses
+            LS, MLE, Chi,
+            LSA, Z, V_matrix,
+            CI, t_values,
+            t_m, tv_input_m, ti_input_m,
+            tv_output_m, ti_output_m,
+            WLS, obs, MSE,
+            R2_responses, M
         ) = _uncert_metrics(
-            initial_x0,
-            data,
-            [solver],
-            initial_x0,
-            thetac,
-            epsf,
-            thetas,
-            ti_iphi_vars,
-            tv_iphi_vars,
-            tv_ophi_vars,
-            ti_ophi_vars,
-            system,
-            models
+            theta=np.ones_like(thetac),
+            data=data,
+            active_solvers=[solver],
+            thetac=thetac,
+            eps=epsf,
+            thetas=thetas,
+            ti_iphi_vars=ti_iphi_vars,
+            tv_iphi_vars=tv_iphi_vars,
+            tv_ophi_vars=tv_ophi_vars,
+            ti_ophi_vars=ti_ophi_vars,
+            system=system,
+            models=models,
+            varcov=varcov_key,
+            resultpr=resultpr,
+            sens_method=sens_method
         )
-        observed_values = obs  # store how many measurements used, etc.
+        observed_values = obs
 
         resultun[solver] = {
-            'optimization_result': solver_results['optimization_result'],
+            'optimization_result': solver_results,
             'data': optimized_data,
-            'LS': LS,                     # Overall R² across all scaled data
-            'MLE': MLE,                   # Weighted negative log-likelihood
-            'MSE': MSE,                   # Mean squared error (unweighted)
-            'Chi': Chi,                   # Sum((res^2) / abs(pred))
-            'LSA': LSA,                   # Jacobian (sensitivities)
-            'Z': Z,                       # Jacobian normalized by std deviations
-            'WLS': WLS,                   # Weighted least squares
-            'R2_responses': R2_responses, # dictionary of per-variable R²
-            'V_matrix': np.array(V_matrix),
+            'LS': LS,
+            'MLE': MLE,
+            'MSE': MSE,
+            'Chi': Chi,
+            'LSA': LSA,
+            'Z': Z,
+            'WLS': WLS,
+            'R2_responses': R2_responses,
+            'V_matrix': V_matrix,
             'CI': CI,
             't_values': t_values,
             't_m': t_m,
@@ -159,453 +710,314 @@ def uncert(data, resultpr, system, models, iden_opt):
             'ti_input_m': ti_input_m,
             'tv_output_m': tv_output_m,
             'ti_output_m': ti_output_m,
-            'estimations_normalized': initial_x0,
-            'found_eps': epsf
+            'estimations': thetac,
+            'found_eps': epsf[solver],
+            'M': M
         }
 
+    # Store back eps
     iden_opt['eps'] = epsf
-    # Summarize results for all solvers
+
+    # Summarize and report
     (
         scaled_params,
         solver_parameters,
         solver_cov_matrices,
         solver_confidence_intervals,
         resultun2
-    ) = _report(
-        resultun,
-        mutation,
-        theta_parameters,
-        models,
-        logging
-    )
+    ) = _report(resultun, models.get('mutation', {}), models, iden_opt.get('log', False))
 
-    # Construct return dictionary
-    uncert_output = {
-        'results': resultun2,
-        'theta_parameters': theta_parameters,
-        'solver_parameters': solver_parameters,
-        'scaled_params': scaled_params,
-        'obs': observed_values
-    }
+    # Optionally update models in‐place
+    if case is None:
+        for sv in models['can_m']:
+            models['theta'][sv]    = scaled_params[sv]
+            models['V_matrix'][sv] = resultun[sv]['V_matrix']
 
-    return uncert_output
-
-
+    return {'results': resultun2, 'obs': observed_values}
 
 
 def _uncert_metrics(
-    theta,
-    data,
-    active_solvers,
-    x0,
-    thetac,
-    eps,
-    thetas,
-    ti_iphi_vars,
-    tv_iphi_vars,
-    tv_ophi_vars,
-    ti_ophi_vars,
-    system,
-    models
+    theta, data, active_solvers, thetac, eps, thetas,
+    ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars,
+    system, models, varcov, resultpr, sens_method='forward'
 ):
     """
-    Calculate uncertainty metrics for parameter estimation results.
-
-    Parameters
-    ----------
-    theta : list
-        Estimated (normalized) parameter values.
-    data : dict
-        Experimental dataset across sheets.
-    active_solvers : list
-        Active solver identifiers.
-    x0 : list
-        Normalized initial guess of parameters.
-    thetac : list
-        Parameter scaling constants.
-    eps : dict
-        Perturbation size for sensitivity analysis by solver.
-    thetas : list of bool
-        Active parameter flags.
-    ti_iphi_vars : list
-        Time-invariant input variable names.
-    tv_iphi_vars : list
-        Time-variant input variable names.
-    tv_ophi_vars : list
-        Time-variant output variable names.
-    ti_ophi_vars : list
-        Time-invariant output variable names.
-    system : dict
-        System structure including variable definitions.
-    models : dict
-        Modelling configuration and external functions.
-
-    Returns
-    -------
-    tuple
-        A collection of results: (data, LS, MLE, Chi, LSA, V_matrix, CI,
-        t_values, t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m,
-        JWLS, obs, MSE, R2_responses)
+    Calculate detailed uncertainty metrics.  Honors varcov=='B' to pull
+    bootstrap covariance from resultpr.
     """
-    if len(theta) != len(x0):
-        raise ValueError("Length of theta and x0 must match.")
+    theta_full = np.array(theta, dtype=float)
+    active_idx = np.where(thetas)[0]
+    n_active   = len(active_idx)
+    thetac_arr = np.array(thetac, dtype=float)
 
-    theta = [theta[i] if thetas[i] else x0[i] for i in range(len(thetas))]
-    std_dev, global_y_true, global_y_pred, maxv = {}, {}, {}, {}
+    # Containers
     var_measurements = {}
-    LSA = np.zeros((0, np.sum(thetas)))
+    Q_accum = {v: [] for v in (tv_ophi_vars + ti_ophi_vars)}
+    t_m = {}
+    tv_input_m, ti_input_m = {}, {}
+    tv_output_m, ti_output_m = {}, {}
 
-    phisc = {var: 1 for var in ti_iphi_vars}
-    phitsc = {var: 1 for var in tv_iphi_vars}
+    solver = active_solvers[0]
+    h = eps[solver]
 
-    t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m = {}, {}, {}, {}, {}
-    tsc = 1
+    # Loop over data sheets
+    for sheet_name, sheet in data.items():
+        # Time grid
+        t_all = np.unique(sheet.get("X:all", pd.Series()).dropna().values)
 
-    for group in ['tvo', 'tio']:
-        for var in system.get(group, {}):
-            if system[group][var].get('meas', True):
-                sigma = system[group][var].get('unc', 1.0)
-                std_dev[var] = 1.0 if sigma is None or np.isnan(sigma) else sigma
+        # Switch‐pressure inputs
+        swps = {}
+        for v in tv_iphi_vars:
+            tkey, lkey = f"{v}t", f"{v}l"
+            if tkey in sheet and lkey in sheet:
+                ta = sheet[tkey].dropna().values
+                la = sheet[lkey].dropna().values
+                if ta.size and la.size:
+                    swps[tkey], swps[lkey] = ta, la
 
-    for sheet_name, sheet_data in data.items():
-        t_values = {
-            var: np.array(sheet_data[f"MES_X:{var}"])[~np.isnan(sheet_data[f"MES_X:{var}"])]
-            for var in tv_ophi_vars if f"MES_X:{var}" in sheet_data
-        }
+        # Input data
+        ti_in = {v: sheet.get(v, pd.Series([np.nan])).iloc[0] for v in ti_iphi_vars}
+        tv_in = {v: sheet.get(v, pd.Series()).dropna().values for v in tv_iphi_vars}
+        cvp   = {v: sheet[f"CVP:{v}"].iloc[0] for v in system.get('tvi', {})}
 
-        swps_data = {}
-        for var in tv_iphi_vars:
-            if f'{var}t' in sheet_data and f'{var}l' in sheet_data:
-                times = np.array(sheet_data[f'{var}t'])[~np.isnan(sheet_data[f'{var}t'])]
-                levels = np.array(sheet_data[f'{var}l'])[~np.isnan(sheet_data[f'{var}l'])]
-                if times.size and levels.size:
-                    swps_data[f'{var}t'] = times
-                    swps_data[f'{var}l'] = levels
-
-        ti_data = {var: np.array(sheet_data.get(var, [np.nan]))[0] for var in ti_iphi_vars}
-        tv_data = {var: np.array(sheet_data.get(var, []))[~np.isnan(sheet_data.get(var, []))] for var in tv_iphi_vars}
-        tv_out_data = {var: np.array(sheet_data.get(f"MES_Y:{var}", []))[~np.isnan(sheet_data.get(f"MES_Y:{var}", []))] for var in tv_ophi_vars if f"MES_Y:{var}" in sheet_data}
-        ti_out_data = {var: np.array(sheet_data.get(f"MES_Y:{var}", [np.nan]))[0] for var in ti_ophi_vars if f"MES_Y:{var}" in sheet_data}
-
-        maxv.setdefault(sheet_name, {})
-
-        cvp = {var: sheet_data[f"CVP:{var}"].iloc[0] for var in tv_iphi_vars if f"CVP:{var}" in sheet_data}
-
-        solver_name = active_solvers[0]
-        if not solver_name or "X:all" not in sheet_data:
-            continue
-
-        t_vals = np.unique(np.array(sheet_data["X:all"])[~np.isnan(sheet_data["X:all"])]).tolist()
-
-        tv_pred, ti_pred, _ = simula(
-            t_vals, swps_data, ti_data, phisc, phitsc, tsc,
-            theta, thetac, cvp, tv_data, solver_name, system, models
+        # Reference simulation
+        tv_ref, ti_ref, _ = simula(
+            t_all, swps, ti_in,
+            {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+            theta_full, thetac_arr, cvp, tv_in, solver, system, models
         )
 
-        indices, tv_filt = {}, {}
-        for var in tv_ophi_vars:
-            if var in t_values:
-                indices[var] = np.isin(t_vals, t_values[var])
-                if var in tv_pred:
-                    tv_filt[var] = np.array(tv_pred[var])[indices[var]]
+        # Store simulation outputs
+        t_m[sheet_name]         = t_all.tolist()
+        tv_input_m[sheet_name]  = tv_in
+        ti_input_m[sheet_name]  = ti_in
+        tv_output_m[sheet_name] = tv_ref
+        ti_output_m[sheet_name] = ti_ref
 
-        y_true_combined, y_model_combined = [], []
-        for var in tv_ophi_vars:
-            y_true_arr = tv_out_data.get(var, np.array([]))
-            y_pred_arr = tv_filt.get(var, np.zeros_like(y_true_arr))
-            n = min(len(y_true_arr), len(y_pred_arr))
-            y_true_arr, y_pred_arr = y_true_arr[:n], y_pred_arr[:n]
-            max_val = max(np.max(np.abs(y_true_arr)), np.max(np.abs(y_pred_arr)), 1.0)
-            maxv[sheet_name][var] = max_val
+        # Build perturbed sims for FD sensitivities
+        perturbed = {}
+        for p in active_idx:
+            if sens_method == 'forward':
+                thp = theta_full.copy(); thp[p] += h
+                tvp, tip, _ = simula(
+                    t_all, swps, ti_in,
+                    {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+                    thp, thetac_arr, cvp, tv_in, solver, system, models
+                )
+                perturbed[p] = ('forward', (tvp, tip))
+            else:
+                thp = theta_full.copy(); thp[p] += h
+                thm = theta_full.copy(); thm[p] -= h
+                tvp, tip, _ = simula(
+                    t_all, swps, ti_in,
+                    {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+                    thp, thetac_arr, cvp, tv_in, solver, system, models
+                )
+                tvm, tim, _ = simula(
+                    t_all, swps, ti_in,
+                    {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+                    thm, thetac_arr, cvp, tv_in, solver, system, models
+                )
+                perturbed[p] = ('central', (tvp, tip, tvm, tim))
 
-            global_y_true.setdefault(var, []).extend(y_true_arr / max_val)
-            global_y_pred.setdefault(var, []).extend(y_pred_arr / max_val)
-            y_true_combined.extend(y_true_arr / max_val)
-            y_model_combined.extend(y_pred_arr / max_val)
+        # Collect residuals and sensitivities
+        for var in tv_ophi_vars + ti_ophi_vars:
+            # Extract y_true, y_pred, sigma
+            if var in tv_ophi_vars:
+                # time‐varying
+                xcol = f"MES_X:{var}"
+                ycol = f"MES_Y:{var}"
+                ecol = f"MES_E:{var}"
+                mask = ~sheet[xcol].isna().values
+                times = sheet[xcol][mask].values
+                y_t = sheet[ycol][mask].values
+                idx = np.isin(t_all, times)
+                y_p = np.array(tv_ref[var])[idx]
+                if ecol in sheet:
+                    y_e = sheet[ecol][mask].values
+                else:
+                    y_e = np.full_like(y_t, 1.0)
+            else:
+                # time‐independent
+                ycol = f"MES_Y:{var}"
+                y_t = np.array([sheet[ycol].iloc[0]])
+                y_p = np.array([ti_ref[var]])
+                y_e = np.array([1.0])
 
-            sigma = std_dev.get(var, 1.0)
-            for yt, yp in zip(y_true_arr, y_pred_arr):
-                var_measurements.setdefault(var, []).append((yt, yp, sigma))
+            var_measurements.setdefault(var, []).extend(zip(y_t, y_p, y_e))
 
-        for var in ti_ophi_vars:
-            yt, yp = ti_out_data.get(var, np.nan), ti_pred.get(var, np.nan)
-            if not np.isnan(yt) and not np.isnan(yp):
-                max_val = max(abs(yt), abs(yp), 1.0)
-                maxv[sheet_name][var] = max_val
-                global_y_true.setdefault(var, []).append(yt / max_val)
-                global_y_pred.setdefault(var, []).append(yp / max_val)
-                y_true_combined.append(yt / max_val)
-                y_model_combined.append(yp / max_val)
-                var_measurements.setdefault(var, []).append((yt, yp, std_dev.get(var, 1.0)))
+            # Build sensitivity row
+            cols = []
+            for p in active_idx:
+                mode, sims = perturbed[p]
+                if mode == 'forward':
+                    tvp, tip = sims
+                    if var in tv_ophi_vars:
+                        y2 = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
+                    else:
+                        y2 = np.array([tip[var]])
+                    d = (y2 - y_p) / (h * thetac_arr[p])
+                else:
+                    tvp, tip, tvm, tim = sims
+                    if var in tv_ophi_vars:
+                        y_p_p = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
+                        y_p_m = np.array([tvm[var][np.where(t_all==t)[0][0]] for t in times])
+                    else:
+                        y_p_p = np.array([tip[var]])
+                        y_p_m = np.array([tim[var]])
+                    d = (y_p_p - y_p_m) / (2*h*thetac_arr[p])
+                cols.append(d)
+            if len(cols):
+                Q_accum[var].append(np.stack(cols, axis=1))
 
-        # LSA
-        LSAe = np.zeros((len(y_model_combined), np.sum(thetas)))
-        for i, idx in enumerate(np.where(thetas)[0]):
-            perturbed_theta = theta.copy()
-            perturbed_theta[idx] += eps[solver_name]
-            tv_mod, ti_mod, _ = simula(
-                t_vals, swps_data, ti_data, phisc, phitsc, tsc,
-                perturbed_theta, thetac, cvp, tv_data, solver_name, system, models
-            )
-            mod_combined = []
-            for var in tv_ophi_vars:
-                yp_mod = np.array(tv_mod[var])[indices[var]][:len(tv_filt[var])]
-                mod_combined.extend(yp_mod / maxv[sheet_name][var])
-            for var in ti_ophi_vars:
-                yp_mod = ti_mod.get(var, np.nan)
-                if not np.isnan(yp_mod):
-                    mod_combined.append(yp_mod / maxv[sheet_name][var])
-            LSAe[:, i] = (np.array(mod_combined) - np.array(y_model_combined)) / eps[solver_name]
-        LSA = np.vstack([LSA, LSAe])
-        t_m[sheet_name] = t_vals
-        tv_input_m[sheet_name] = tv_data
-        ti_input_m[sheet_name] = ti_data
-        tv_output_m[sheet_name] = tv_pred
-        ti_output_m[sheet_name] = ti_pred
+    # Flatten Q into LSA
+    LSA = np.vstack([np.vstack(Q_accum[v]) for v in Q_accum])
+    obs = sum(len(vals) for vals in var_measurements.values())
+    dof = max(obs - n_active, 1)
+    tcrit = stats.t.ppf(0.975, dof)
 
-    all_y_true, all_y_pred = [], []
-    for var in global_y_true:
-        y_t, y_p = np.array(global_y_true[var]), np.array(global_y_pred[var])
-        n = min(len(y_t), len(y_p))
-        all_y_true.extend(y_t[:n])
-        all_y_pred.extend(y_p[:n])
+    # --- Variance–Covariance Selection ---
+    if varcov == 'M':
+        # Fisher-based
+        sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
+        W = np.diag(1.0/sigs**2)
+        M = LSA.T @ W @ LSA
+        V = np.linalg.pinv(M)
 
-    all_y_true, all_y_pred = np.array(all_y_true), np.array(all_y_pred)
-    obs = len(all_y_true)
-    ss_res_scaled = np.sum((all_y_true - all_y_pred) ** 2)
-    ss_tot_scaled = np.sum((all_y_true - np.mean(all_y_true)) ** 2)
-    LS = 1 - (ss_res_scaled / ss_tot_scaled) if ss_tot_scaled != 0 else np.nan
+    elif varcov == 'H':
+        # Hessian-inverse
+        hess_inv = resultpr[solver].get('hess_inv')
+        err = resultpr[solver].get('fun', 1.0) / dof
+        V = err * np.array(hess_inv)
+        M = np.linalg.pinv(V)
 
-    sum_wls = sum_mle = sum_chi = 0.0
-    R2_responses = {}
-    for var, vals in var_measurements.items():
-        y_t, y_p, sigma = zip(*vals)
-        y_t, y_p, sigma = np.array(y_t), np.array(y_p), np.array(sigma)
-        resid = (y_t - y_p) / sigma
-        resid2 = (y_t - y_p)**2 / sigma**2
-        sum_wls += np.sum(resid2**2)
-        sum_mle += np.sum(0.5 * (np.log(2 * math.pi * sigma**2) + resid**2))
-        sigma_safe = np.where(sigma == 0, 1e-8, sigma)
-        sum_chi += np.sum(((y_t - y_p) ** 2) / sigma_safe**2)
+    elif varcov == 'B':
+        # **Bootstrap**-based
+        V = resultpr[solver].get('varcov')
+        if V is None:
+            raise ValueError(f"No bootstrap varcov found for solver '{solver}'")
+        M = np.linalg.pinv(V)
+        logger.info(f"Using bootstrap var–cov for {solver}")
 
-        ss_res = np.sum((y_t - y_p) ** 2)
-        ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-        R2_responses[var] = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0.0
+    else:
+        raise ValueError(f"Unknown varcov option '{varcov}'")
 
-    residuals_scaled = all_y_true - all_y_pred
-    MSE = np.sum(residuals_scaled**2) / obs
+    # Confidence intervals and t-values
+    CI = tcrit * np.sqrt(np.diag(V))
+    theta_std = np.sqrt(np.diag(V))
+    t_values = (theta_full[active_idx] * thetac_arr[active_idx]) / CI
 
-    dof = max(obs - np.sum(thetas), 1)
-    trv = stats.t.ppf(0.975, dof)
-    J = LSA
-    JtJ = np.dot(J.T, J).astype(np.float64)
-    if np.linalg.cond(JtJ) > 1e10:
-        JtJ += np.eye(JtJ.shape[0]) * 1e-10
+    # Z-scores (normalized sensitivities)
+    resp_sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
+    Z = LSA * theta_std / resp_sigs[:, None]
 
-    sigma_ls = np.sum(residuals_scaled**2) / dof
-    try:
-        V_matrix = sigma_ls * np.linalg.inv(JtJ)
-    except np.linalg.LinAlgError:
-        V_matrix = sigma_ls * np.linalg.pinv(JtJ)
-
-    diag = np.diag(V_matrix)
-    CI = trv * np.sqrt(diag)
-    param_values = np.array(theta)[thetas]
-    t_values = param_values / (CI + 1e-12)
-
-    # Compute Z matrix
-    theta_std = np.sqrt(np.diag(V_matrix))
-    response_stds = []
-    for var, vals in var_measurements.items():
-        response_stds.extend([sigma for (_, _, sigma) in vals])
-    response_stds = np.array(response_stds)
-    theta_std_safe = np.where(theta_std == 0, 1e-12, theta_std)
-    response_stds_safe = np.where(response_stds == 0, 1e-12, response_stds)
-
-    Z = LSA / np.outer(response_stds_safe, theta_std_safe)
+    # Compute LS, WLS, MLE, Chi, MSE, R2
+    LS = WLS = MLE = Chi = 0.0
+    total_err = 0.0
+    R2_data = {v: {'y':[], 'yp':[]} for v in Q_accum}
+    for v, vals in var_measurements.items():
+        for y, y_pred, s in vals:
+            r = y - y_pred
+            LS += r**2
+            WLS += (r/s)**2
+            MLE += 0.5*(np.log(2*np.pi*s**2)+(r/s)**2)
+            Chi += r**2/s**2
+            total_err += r**2
+            R2_data[v]['y'].append(y)
+            R2_data[v]['yp'].append(y_pred)
+    R2_responses = {
+        v: 1 - np.sum((np.array(d['y'])-np.array(d['yp']))**2)/np.sum((np.array(d['y'])-np.mean(d['y']))**2)
+        if len(d['y'])>1 else np.nan
+        for v,d in R2_data.items()
+    }
+    MSE = total_err/obs if obs else np.nan
 
     return (
-        data, LS, sum_mle, sum_chi, LSA, Z, V_matrix, CI, t_values,
-        t_m, tv_input_m, ti_input_m, tv_output_m, ti_output_m,
-        sum_wls, obs, MSE, R2_responses
+        data, LS, MLE, Chi,
+        LSA, Z, V, CI, t_values,
+        t_m, tv_input_m, ti_input_m,
+        tv_output_m, ti_output_m,
+        WLS, obs, MSE, R2_responses, M
     )
 
 
-
-
-
-def _report(result, mutation, theta_parameters, models, logging):
+def _report(result, mutation, models, logging_flag):
     """
-    Report the uncertainty and parameter estimation results.
-
-    Parameters:
-    ----------
-    result : dict
-        Dictionary containing the results of the optimization.
-    mutation : dict
-        Dictionary indicating which parameters are to be optimized for each model.
-    theta_parameters : dict
-        Dictionary of theta parameters for each model.
-    models : dict
-        User-provided dictionary containing the modelling settings.
-    logging : bool
-        Flag to indicate whether to log the results.
-
-    Returns:
-    ----------
-    tuple
-        (scaled_params, solver_parameters, solver_cov_matrices,
-         solver_confidence_intervals, result)
+    Summarize and optionally log the uncertainty results.
     """
+    scaled_params = {}
     solver_parameters = {}
     solver_cov_matrices = {}
     solver_confidence_intervals = {}
-    scaled_thetaest = {}
-    scaled_params = {}
-    sum_of_chi_squared = sum(1 / (res['Chi']) ** 2 for res in result.values())
 
-    for solver, solver_results in result.items():
-        # Extract mutation mask and positions of active parameters
-        mutation_mask = mutation.get(solver, [True] * len(solver_results['optimization_result'].x))
-        original_positions = [i for i, active in enumerate(mutation_mask) if active]
-
-        # Scale estimated parameters
-        scaled_thetaest[solver] = [
-            param * scale for param, scale in zip(solver_results['optimization_result'].x, theta_parameters[solver])
-        ]
-
-        if logging:
-            scaled_params[solver] = [float(param) for param in scaled_thetaest[solver]]
-            print(f"Estimated parameters of {solver}: {scaled_params[solver]}")
-            print(f"True parameters of {solver}: {theta_parameters[solver]}")
-            print(f"LS objective function value for {solver}: {solver_results['LS']}")
-
-        # Update modelling settings with V_matrix for the model
-        models['V_matrix'][solver] = solver_results['V_matrix']
-
-        # Map CI, t-values, and CI ratios to their original parameter positions
-        CI_mapped = {pos: solver_results['CI'][i] for i, pos in enumerate(original_positions)}
-        t_values_mapped = {pos: solver_results['t_values'][i] for i, pos in enumerate(original_positions)}
-        CI_ratio_mapped = {
-            pos: ci * 100 / param if param != 0 else float('inf')
-            for pos, ci, param in zip(original_positions, solver_results['CI'], solver_results['optimization_result'].x)
+    for solver, res in result.items():
+        opt = res['optimization_result']
+        scpr = opt['scpr']
+        scaled_params[solver] = scpr.tolist()
+        solver_parameters[solver] = opt['x']
+        solver_cov_matrices[solver] = res['V_matrix']
+        solver_confidence_intervals[solver] = {
+            i: ci for i, ci in enumerate(res['CI'])
         }
-
-        # Log t-values if requested
-        if logging:
-            print(f"T-values of model {solver}: {solver_results['t_values']}")
-
-        # Store parameters, covariance matrices, and confidence intervals
-        solver_parameters[solver] = solver_results['optimization_result'].x
-        solver_cov_matrices[solver] = solver_results['V_matrix']
-        solver_confidence_intervals[solver] = CI_mapped
-        solver_results['P'] = ((1 / (solver_results['Chi']) ** 2) / sum_of_chi_squared) * 100
-        print(f"P-value of model:{solver} is {solver_results['P']} for model discrimination")
-
-        # Log R² for responses
-        if 'R2_responses' in solver_results:
-            r2_responses = solver_results['R2_responses']
-            if logging:
-                print(f"R2 values for responses in model {solver}:")
-                for var, r2_value in r2_responses.items():
-                    print(f"  {var}: {r2_value:.4f}")
-
-            # Optionally store R² values in result for external use
-            solver_results['R2_responses_summary'] = {
-                var: round(r2_value, 4) for var, r2_value in r2_responses.items()
-            }
-
-    return scaled_params, solver_parameters, solver_cov_matrices, solver_confidence_intervals, result
+        if logging_flag:
+            logger.info(f"Solver {solver}: Estimated θ = {scpr}")
+            logger.info(f"Solver {solver}: CI = {res['CI']}")
+    return (
+        scaled_params,
+        solver_parameters,
+        solver_cov_matrices,
+        solver_confidence_intervals,
+        result
+    )
 
 
-
-def _fdm_mesh_independency(theta, thetac, solver, system, models,
-                           tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars, data):
+def _fdm_mesh_independency(
+    theta, thetac, solver, system, models,
+    tv_iphi_vars, ti_iphi_vars, tv_ophi_vars, ti_ophi_vars,
+    data, sens_method, varcov, resultpr
+):
     """
-    Perform FDM mesh dependency test to determine a suitable epsilon for sensitivity analysis.
-
-    Parameters:
-    theta (list): Initial parameter estimates.
-    thetac (list): Scaling factors for parameters.
-    solver (str): Solver name.
-    system (dict): Model structure.
-    models (dict): Modelling settings.
-    tv_iphi_vars (list): Time-variant input variable names.
-    ti_iphi_vars (list): Time-invariant input variable names.
-    tv_ophi_vars (list): Time-variant output variable names.
-    ti_ophi_vars (list): Time-invariant output variable names.
-    data (dict): Experimental data.
-
-    Returns:
-    float: Optimal epsilon value for sensitivity analysis.
+    FDM mesh-dependency test to choose epsilon for sensitivities.
     """
-    logger.info(f"Performing FDM mesh dependency test for model {solver}.")
-
-    eps_values = np.logspace(-8, -1, 20)
-    determinant_changes = []
-
+    logger.info(f"Performing mesh-independency test for {solver}")
+    eps_values = np.logspace(-12, -1, 50)
+    eigs = []
     for eps in eps_values:
         try:
-            result = _uncert_metrics(
-                theta, data, [solver], theta, thetac, {solver: eps}, [True] * len(theta),
-                ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars, system, models
+            out = _uncert_metrics(
+                theta, data, [solver], thetac, {solver:eps}, [True]*len(theta),
+                ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars,
+                system, models, varcov, resultpr, sens_method=sens_method
             )
-            V_matrix = result[6]  # Adjust index if needed
-            det_val = np.linalg.det(V_matrix)
-            determinant_changes.append(det_val)
-        except np.linalg.LinAlgError:
-            logger.warning(f"LinAlgError at eps={eps:.1e} for {solver}")
-            determinant_changes.append(np.nan)
+            V = out[6]  # returned V_matrix
+            eigs.append(np.linalg.eigvalsh(V))
+        except Exception:
+            eigs.append([np.nan]*len(theta))
+    eigs = np.array(eigs)
 
-    determinant_changes = np.array(determinant_changes)
-
-    # Plot determinant variations
+    # Plot and save
     folder = Path.cwd() / "meshindep_plots"
     folder.mkdir(exist_ok=True)
-    filename_base = folder / f"{solver}_eps_dependency_test"
+    base = folder / f"{solver}_eps_test"
+    plt.figure(figsize=(8,5))
+    for i in range(eigs.shape[1]):
+        plt.plot(eps_values, eigs[:,i], marker='o', label=f'eig{i+1}')
+    plt.xscale('log'); plt.yscale('log')
+    plt.xlabel('Epsilon'); plt.ylabel('Eigenvalues')
+    plt.legend(); plt.tight_layout()
+    plt.savefig(f"{base}.png"); plt.close()
+    pd.DataFrame(eigs, index=eps_values).to_excel(f"{base}.xlsx")
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(eps_values, determinant_changes, marker='o', label='Det(V_matrix)')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Epsilon')
-    plt.ylabel('Determinant of Variance-Covariance Matrix')
-    plt.title(f'Epsilon Dependency Test for model {solver}')
-    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"{filename_base}.png", dpi=300)
-    if plt.get_backend() != 'agg':  # Show only in interactive environments
-        plt.show()
-    plt.close()
+    # Choose epsilon minimizing variation
+    valid = np.isfinite(eigs).all(axis=1)
+    idx = np.where(valid)[0]
+    win = 5
+    half = win//2
+    best, best_var = eps_values[0], np.inf
+    for i in idx[half:-half]:
+        var = eigs[i-half:i+half+1].std(axis=0).sum()
+        if var<best_var:
+            best_var, best = var, eps_values[i]
+    logger.info(f"Selected epsilon={best:.1e} for {solver}")
+    return best
 
-    # Save data to Excel
-    df = pd.DataFrame({
-        'Epsilon': eps_values,
-        'Determinant': determinant_changes
-    })
-    df.to_excel(f"{filename_base}.xlsx", index=False)
-
-    # Determine optimal epsilon based on stability in the determinant
-    stable_region = np.where(np.isfinite(determinant_changes))[0]
-
-    if stable_region.size == 0:
-        raise ValueError(f"Could not determine a stable epsilon region for model {solver}.")
-
-    lowest_variation_index = None
-    min_variation = np.inf
-
-    for i in range(1, len(stable_region) - 1):
-        prev_val = determinant_changes[stable_region[i - 1]]
-        current_val = determinant_changes[stable_region[i]]
-        next_val = determinant_changes[stable_region[i + 1]]
-
-        variation = abs(current_val - prev_val) + abs(current_val - next_val)
-        if variation < min_variation:
-            min_variation = variation
-            lowest_variation_index = stable_region[i]
-
-    optimal_eps = eps_values[lowest_variation_index]
-    logger.info(f"Optimal epsilon selected for model {solver}: {optimal_eps:.2e}")
-
-    return optimal_eps

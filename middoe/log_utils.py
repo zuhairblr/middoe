@@ -42,7 +42,7 @@ def read_excel(data_type):
     data = pd.read_excel(file_path, sheet_name=None)
     return data
 
-def save_rounds(round, result, theta_parameters, design_type, round_data, models, scaled_params, iden_opt, solver_parameters, obs, data_storage, system, ranking= None, k_optimal_value= None, rCC_values= None, J_k_values= None):
+def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, data_storage, system, ranking= None, k_optimal_value= None, rCC_values= None, J_k_values= None,  best_uncert_result= None):
     """
     Save data for each round of model identification, and append to prior.
 
@@ -53,13 +53,10 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     rCC_values (list): Corrected critical ratios for models.
     J_k_values (list): Objectives of weighted least square method based optimization for models.
     result (dict): Result of the identification procedure (estimation and uncertainty analysis) for models.
-    theta_parameters (dict): Parameters for models.
     design_type (str): Type of design (classic or DOE).
     round_data (dict): Dictionary to append the data for the current round.
     models (dict): User provided - The settings for the modelling process.
-    scaled_params (dict): Estimated parameters scaled to the original scale for each model-round observations.
     iden_opt (dict): Settings for the estimation process, including active solvers and plotting options.
-    solver_parameters (dict): Parameters for the model.
     framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
     obs (int): Number of observations.
     case (str): Case identifier, used for naming files and directories.
@@ -70,8 +67,9 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
     dict: Reference t-value for each model-round observation.
     """
     round_key = f'Round {round}'
-    dof = {solver: obs - len(theta_parameters[solver]) for solver in models['can_m']}
+    dof = {solver: obs - len(result[solver]['estimations']) for solver in models['can_m']}
     trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['can_m']}
+    scaled_params = {solver: result[solver]['estimations'] for solver in models['can_m']}
     round_data[round_key] = {
         'ranking': ranking,
         'k_optimal_value': k_optimal_value,
@@ -81,11 +79,11 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
         'mutation': {},
         'original_positions': {},
         'trv': trv,
-        'theta_parameters': theta_parameters,
         'scaled_params': scaled_params,
         'result': result,
         'iden_opt': iden_opt,
-        'system': system
+        'system': system,
+        'est_EA':  best_uncert_result
     }
 
     # Save mutation information
@@ -99,30 +97,19 @@ def save_rounds(round, result, theta_parameters, design_type, round_data, models
         else:
             round_data[round_key]['original_positions'][solver] = []  # Or handle as needed
 
-    if round == 1:
-        add_norm_par(models)
-    else:
-        for solver in models['can_m']:
-            # Initialize 'normalized_parameters' if it doesn't exist
-            if 'normalized_parameters' not in models:
-                models['normalized_parameters'] = {}
 
-            # Create the entry for the model if it doesn't exist
-            if solver not in models['normalized_parameters']:
-                models['normalized_parameters'][solver] = []
-
-            # Update the normalized parameters for the model
-            models['normalized_parameters'][solver] = result[solver]['estimations_normalized']
-
-    # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-    for solver in models['can_m']:
-        models['V_matrix'][solver] = result[solver]['V_matrix']
+    # for solver in models['can_m']:
+    #     models['theta'][solver] = scaled_params[solver]
+    #
+    # # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
+    # for solver in models['can_m']:
+    #     models['V_matrix'][solver] = result[solver]['V_matrix']
 
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
     plotting1 = Plotting_Results(models, iden_opt['plt_s'], round)  # Instantiate Plotting class
     if iden_opt['c_plt'] == True:
-        plotting1.conf_plot(solver_parameters, solver_cov_matrices, solver_confidence_intervals)
+        plotting1.conf_plot(scaled_params, solver_cov_matrices, solver_confidence_intervals)
     if iden_opt['f_plt'] == True:
         plotting1.fit_plot(data_storage, result, system)
 

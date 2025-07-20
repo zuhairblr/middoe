@@ -749,7 +749,7 @@ class Plotting_FinalResults:
                     logger.info(f"Skipping {round_label}: missing key '{req_key}' in solver_data.")
                     return None
 
-            theta_vals = solver_result['optimization_result'].x
+            theta_vals = solver_result['estimations']
             cov_matrix = solver_result['V_matrix']
             ci_vals = solver_result['CI']
 
@@ -1623,24 +1623,24 @@ def _initialize_dictionaries(models, iden_opt):
     keys_to_check = ['original_positions', 'masked_positions']
     if any(key not in models for key in keys_to_check) or 'x0' not in iden_opt:
         # Generate x0_dict with random initialization within bounds
-        if iden_opt['init'] == 'rand':
-            x0_dict = {
-                solver: np.array([
-                    np.random.uniform(
-                        models['t_l'][solver][i],
-                        models['t_u'][solver][i]
-                    )
-                    for i in range(len(params))
-                ])
-                for solver, params in models['theta'].items()
-                if solver in models['t_l'] and solver in models['t_u']
-            }
-        else:
-            x0_dict = {
-                solver: [1] * len(params)  # Replace all elements in the list with 1
-                for solver, params in models['theta'].items()
-                if solver in models['t_l'] and solver in models['t_u']
-            }
+        # if iden_opt['init'] == 'rand':
+        #     x0_dict = {
+        #         solver: np.array([
+        #             np.random.uniform(
+        #                 models['t_l'][solver][i],
+        #                 models['t_u'][solver][i]
+        #             )
+        #             for i in range(len(params))
+        #         ])
+        #         for solver, params in models['theta'].items()
+        #         if solver in models['t_l'] and solver in models['t_u']
+        #     }
+        # else:
+        #     x0_dict = {
+        #         solver: [1] * len(params)  # Replace all elements in the list with 1
+        #         for solver, params in models['theta'].items()
+        #         if solver in models['t_l'] and solver in models['t_u']
+        #     }
 
         # Populate original_positions and masked_positions
         original_positions = {
@@ -1655,11 +1655,11 @@ def _initialize_dictionaries(models, iden_opt):
         # Remove any existing empty placeholders and update with generated values
         models.pop('original_positions', None)
         models.pop('masked_positions', None)
-        iden_opt.pop('x0', None)
+        # iden_opt.pop('x0', None)
 
         models['original_positions'] = original_positions
         models['masked_positions'] = masked_positions
-        iden_opt['x0'] = x0_dict
+        # iden_opt['x0'] = x0_dict
 
     # Ensure V_matrix and mutation dictionaries are initialized
     v_matrix_dict = models.get('V_matrix', {})
