@@ -5,179 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 29">
-      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/case study 2 poster/runner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/case study poster/model2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MI.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MII.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MIII.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/MIV.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS1/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/plot.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster/case 2/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/confidence/1_th_round_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/estimability/rCC vs k round_1 in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/iden_results.jac" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_confidence_space.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_ellipsoid_volume.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_estimates.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_std_devs.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_pt_tests.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_1.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_summary.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/estimability/rCC vs parameters in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/p_values_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/t_values_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 1/runner.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/1_th_round_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/2_th_round_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/confidence/3_th_round_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_1 in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_2 in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_3 in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/iden_results.jac" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/indata.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/1_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_3.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/plot.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_confidence_space.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_ellipsoid_volume.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_estimates.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_std_devs.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_pt_tests.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_1.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_2.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_3.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_summary.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/estimability/rCC vs parameters in model_M.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_3.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_3.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/poster2/case 2/runner.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/iden_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/case study poster/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/case study poster/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/sc_sensa.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_sensa.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -241,7 +76,7 @@
     &quot;Python.runner for gPROMS.executor&quot;: &quot;Run&quot;,
     &quot;Python.runner gproms 2.executor&quot;: &quot;Run&quot;,
     &quot;Python.runner new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.runner.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.runner.executor&quot;: &quot;Run&quot;,
     &quot;Python.sc_estima.executor&quot;: &quot;Run&quot;,
     &quot;Python.sc_sensa.executor&quot;: &quot;Run&quot;,
     &quot;Python.simul-Tcon.executor&quot;: &quot;Run&quot;,
@@ -257,7 +92,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.sync&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.jupyter.py.connections.configurable.JupyterServersConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -283,8 +118,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-PY-251.25410.159" />
-        <option value="bundled-python-sdk-e0ed3721d81e-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.25410.159" />
+        <option value="bundled-js-predefined-d6986cc7102b-09060db00ec0-JavaScript-PY-251.26927.90" />
+        <option value="bundled-python-sdk-41e8cd69c857-64d779b69b7a-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.26927.90" />
       </set>
     </attachedChunks>
   </component>
@@ -364,7 +199,22 @@
       <workItem from="1752238947079" duration="506000" />
       <workItem from="1752239531398" duration="160899000" />
       <workItem from="1752823619695" duration="5523000" />
-      <workItem from="1753035299562" duration="1398000" />
+      <workItem from="1753035299562" duration="2032000" />
+      <workItem from="1753037450825" duration="444000" />
+      <workItem from="1753038141230" duration="98000" />
+      <workItem from="1753038886352" duration="46117000" />
+      <workItem from="1753207364275" duration="5827000" />
+      <workItem from="1753260511594" duration="12292000" />
+      <workItem from="1753276695293" duration="3214000" />
+      <workItem from="1753280479862" duration="178000" />
+      <workItem from="1753280839783" duration="4623000" />
+      <workItem from="1753285549487" duration="2883000" />
+      <workItem from="1753288480500" duration="603000" />
+      <workItem from="1753289103650" duration="3395000" />
+      <workItem from="1753292548204" duration="303000" />
+      <workItem from="1753292867248" duration="548000" />
+      <workItem from="1753293433872" duration="548000" />
+      <workItem from="1753294000417" duration="985000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -638,7 +488,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751118632345</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="final polishing 29">
+      <option name="closed" value="true" />
+      <created>1753037283075</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1753037283075</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -729,7 +587,7 @@
     <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1747400751054" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$sc_estima.coverage" NAME="sc_estima Coverage Results" MODIFIED="1748545978186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$pyy.coverage" NAME="pyy Coverage Results" MODIFIED="1745935284828" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1752764267383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
+    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1753285082695" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
     <SUITE FILE_PATH="coverage/middoe$modelsim2.coverage" NAME="modelsim2 Coverage Results" MODIFIED="1749730578972" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ionics" />
     <SUITE FILE_PATH="coverage/middoe$ff.coverage" NAME="ff Coverage Results" MODIFIED="1750835947239" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/case study 2" />
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />

@@ -614,7 +614,7 @@ def uncert(data, resultpr, system, models, iden_opt, case=None):
     """
     # Sensitivity method and varcov selection
     sens_method = iden_opt.get('sens_m', 'central')
-    varcov_key  = iden_opt.get('varcov', 'H')  # 'M', 'H', or 'B'
+    varcov_key  = iden_opt.get('var-cov', 'H')  # 'M', 'H', or 'B'
 
     # Identify measurement variables
     tv_iphi_vars = list(system.get('tvi', {}))
@@ -736,22 +736,250 @@ def uncert(data, resultpr, system, models, iden_opt, case=None):
     return {'results': resultun2, 'obs': observed_values}
 
 
+# def _uncert_metrics(
+#     theta, data, active_solvers, thetac, eps, thetas,
+#     ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars,
+#     system, models, varcov, resultpr, sens_method='forward'
+# ):
+#     """
+#     Calculate detailed uncertainty metrics.  Honors varcov=='B' to pull
+#     bootstrap covariance from resultpr.
+#     """
+#     theta_full = np.array(theta, dtype=float)
+#     active_idx = np.where(thetas)[0]
+#     n_active   = len(active_idx)
+#     thetac_arr = np.array(thetac, dtype=float)
+#
+#     # Containers
+#     var_measurements = {}
+#     Q_accum = {v: [] for v in (tv_ophi_vars + ti_ophi_vars)}
+#     t_m = {}
+#     tv_input_m, ti_input_m = {}, {}
+#     tv_output_m, ti_output_m = {}, {}
+#
+#     solver = active_solvers[0]
+#     h = eps[solver]
+#
+#     # Loop over data sheets
+#     for sheet_name, sheet in data.items():
+#         # Time grid
+#         t_all = np.unique(sheet.get("X:all", pd.Series()).dropna().values)
+#
+#         # Switch‐pressure inputs
+#         swps = {}
+#         for v in tv_iphi_vars:
+#             tkey, lkey = f"{v}t", f"{v}l"
+#             if tkey in sheet and lkey in sheet:
+#                 ta = sheet[tkey].dropna().values
+#                 la = sheet[lkey].dropna().values
+#                 if ta.size and la.size:
+#                     swps[tkey], swps[lkey] = ta, la
+#
+#         # Input data
+#         ti_in = {v: sheet.get(v, pd.Series([np.nan])).iloc[0] for v in ti_iphi_vars}
+#         tv_in = {v: sheet.get(v, pd.Series()).dropna().values for v in tv_iphi_vars}
+#         cvp   = {v: sheet[f"CVP:{v}"].iloc[0] for v in system.get('tvi', {})}
+#
+#         # Reference simulation
+#         tv_ref, ti_ref, _ = simula(
+#             t_all, swps, ti_in,
+#             {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#             theta_full, thetac_arr, cvp, tv_in, solver, system, models
+#         )
+#
+#         # Store simulation outputs
+#         t_m[sheet_name]         = t_all.tolist()
+#         tv_input_m[sheet_name]  = tv_in
+#         ti_input_m[sheet_name]  = ti_in
+#         tv_output_m[sheet_name] = tv_ref
+#         ti_output_m[sheet_name] = ti_ref
+#
+#         # Build perturbed sims for FD sensitivities
+#         perturbed = {}
+#         for p in active_idx:
+#             if sens_method == 'forward':
+#                 thp = theta_full.copy(); thp[p] += h
+#                 tvp, tip, _ = simula(
+#                     t_all, swps, ti_in,
+#                     {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                     thp, thetac_arr, cvp, tv_in, solver, system, models
+#                 )
+#                 perturbed[p] = ('forward', (tvp, tip))
+#             else:
+#                 thp = theta_full.copy(); thp[p] += h
+#                 thm = theta_full.copy(); thm[p] -= h
+#                 tvp, tip, _ = simula(
+#                     t_all, swps, ti_in,
+#                     {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                     thp, thetac_arr, cvp, tv_in, solver, system, models
+#                 )
+#                 tvm, tim, _ = simula(
+#                     t_all, swps, ti_in,
+#                     {v:1 for v in ti_iphi_vars}, {v:1 for v in tv_iphi_vars}, 1,
+#                     thm, thetac_arr, cvp, tv_in, solver, system, models
+#                 )
+#                 perturbed[p] = ('central', (tvp, tip, tvm, tim))
+#
+#         # Collect residuals and sensitivities
+#         for var in tv_ophi_vars + ti_ophi_vars:
+#             # Extract y_true, y_pred, sigma
+#             if var in tv_ophi_vars:
+#                 # time‐varying
+#                 xcol = f"MES_X:{var}"
+#                 ycol = f"MES_Y:{var}"
+#                 ecol = f"MES_E:{var}"
+#                 mask = ~sheet[xcol].isna().values
+#                 times = sheet[xcol][mask].values
+#                 y_t = sheet[ycol][mask].values
+#                 idx = np.isin(t_all, times)
+#                 y_p = np.array(tv_ref[var])[idx]
+#                 if ecol in sheet:
+#                     y_e = sheet[ecol][mask].values
+#                 else:
+#                     y_e = np.full_like(y_t, 1.0)
+#             else:
+#                 # time‐independent
+#                 ycol = f"MES_Y:{var}"
+#                 y_t = np.array([sheet[ycol].iloc[0]])
+#                 y_p = np.array([ti_ref[var]])
+#                 y_e = np.array([1.0])
+#
+#             var_measurements.setdefault(var, []).extend(zip(y_t, y_p, y_e))
+#
+#             # Build sensitivity row
+#             cols = []
+#             for p in active_idx:
+#                 mode, sims = perturbed[p]
+#                 if mode == 'forward':
+#                     tvp, tip = sims
+#                     if var in tv_ophi_vars:
+#                         y2 = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
+#                     else:
+#                         y2 = np.array([tip[var]])
+#                     d = (y2 - y_p) / (h * thetac_arr[p])
+#                 else:
+#                     tvp, tip, tvm, tim = sims
+#                     if var in tv_ophi_vars:
+#                         y_p_p = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
+#                         y_p_m = np.array([tvm[var][np.where(t_all==t)[0][0]] for t in times])
+#                     else:
+#                         y_p_p = np.array([tip[var]])
+#                         y_p_m = np.array([tim[var]])
+#                     d = (y_p_p - y_p_m) / (2*h*thetac_arr[p])
+#                 cols.append(d)
+#             if len(cols):
+#                 Q_accum[var].append(np.stack(cols, axis=1))
+#
+#     # Flatten Q into LSA
+#     LSA = np.vstack([np.vstack(Q_accum[v]) for v in Q_accum])
+#     obs = sum(len(vals) for vals in var_measurements.values())
+#     dof = max(obs - n_active, 1)
+#     tcrit = stats.t.ppf(0.975, dof)
+#
+#     # --- Variance–Covariance Selection ---
+#     if varcov == 'M':
+#         # Fisher-based
+#         sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
+#         W = np.diag(1.0/sigs**2)
+#         M = LSA.T @ W @ LSA
+#         V = np.linalg.inv(M)
+#
+#     elif varcov == 'H':
+#         # Hessian-inverse
+#         hess_inv = resultpr[solver].get('hess_inv')
+#         err = resultpr[solver].get('fun', 1.0) / dof
+#         V = err * np.array(hess_inv)
+#         M = np.linalg.pinv(V)
+#
+#     elif varcov == 'B':
+#         # **Bootstrap**-based
+#         V = resultpr[solver].get('v')
+#         if V is None:
+#             raise ValueError(f"No bootstrap v matrix found for model '{solver}'")
+#         M = np.linalg.pinv(V)
+#         logger.info(f"Using bootstrap var–cov for {solver}")
+#
+#     else:
+#         raise ValueError(f"Unknown varcov option '{varcov}'")
+#
+#     # Confidence intervals and t-values
+#     CI = tcrit * np.sqrt(np.diag(V))
+#     theta_std = np.sqrt(np.diag(V))
+#     t_values = (theta_full[active_idx] * thetac_arr[active_idx]) / CI
+#
+#     # Z-scores (normalized sensitivities)
+#     resp_sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
+#     Z = LSA * theta_std / resp_sigs[:, None]
+#
+#     # Compute LS, WLS, MLE, Chi, MSE, R2
+#     LS = WLS = MLE = Chi = 0.0
+#     total_err = 0.0
+#     R2_data = {v: {'y':[], 'yp':[]} for v in Q_accum}
+#     for v, vals in var_measurements.items():
+#         for y, y_pred, s in vals:
+#             r = y - y_pred
+#             LS += r**2
+#             WLS += (r/s)**2
+#             MLE += 0.5*(np.log(2*np.pi*s**2)+(r/s)**2)
+#             Chi += r**2/s**2
+#             total_err += r**2
+#             R2_data[v]['y'].append(y)
+#             R2_data[v]['yp'].append(y_pred)
+#     R2_responses = {
+#         v: 1 - np.sum((np.array(d['y'])-np.array(d['yp']))**2)/np.sum((np.array(d['y'])-np.mean(d['y']))**2)
+#         if len(d['y'])>1 else np.nan
+#         for v,d in R2_data.items()
+#     }
+#     MSE = total_err/obs if obs else np.nan
+#
+#     return (
+#         data, LS, MLE, Chi,
+#         LSA, Z, V, CI, t_values,
+#         t_m, tv_input_m, ti_input_m,
+#         tv_output_m, ti_output_m,
+#         WLS, obs, MSE, R2_responses, M
+#     )
+
+import logging
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+logger = logging.getLogger(__name__)
+
 def _uncert_metrics(
     theta, data, active_solvers, thetac, eps, thetas,
     ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars,
     system, models, varcov, resultpr, sens_method='forward'
 ):
     """
-    Calculate detailed uncertainty metrics.  Honors varcov=='B' to pull
+    Calculate detailed uncertainty metrics. Honors varcov=='B' to pull
     bootstrap covariance from resultpr.
+
+    Assumes heteroskedastic (relative) measurement errors stored in MES_E:*.
+    Each MES_E value is interpreted as a *fractional* standard deviation and
+    is converted to an absolute sigma by multiplying with the signal magnitude
+    (|y_pred|). A tiny floor avoids zero weights.
+
+    Adds ill-conditioning diagnostics (rank/condition numbers/eigenvalues)
+    without changing the original signature or return tuple. The diagnostic
+    summary is logged (INFO to avoid colored 'red' outputs) and stored in
+    resultpr[solver]['ill_report'] when possible.
     """
+    # ---- diagnostic thresholds (adjust here if needed) -----------------
+    _SLOPPY_THRESH = 1e3     # 'sloppy' if cond(M) >= this
+    _COND_THRESH   = 1e8     # ill-conditioned if cond(M) >= this
+    _TINY_EIG      = 1e-12   # ill if min eigenvalue < this
+    _REPORT_LEVEL  = logging.INFO  # keep it white in most color schemes
+    _SIG_FLOOR     = 1e-12   # floor for absolute sigmas
+
     theta_full = np.array(theta, dtype=float)
     active_idx = np.where(thetas)[0]
     n_active   = len(active_idx)
     thetac_arr = np.array(thetac, dtype=float)
 
     # Containers
-    var_measurements = {}
+    var_measurements = {}                     # {var: [(y_true, y_pred, sigma_abs), ...]}
     Q_accum = {v: [] for v in (tv_ophi_vars + ti_ophi_vars)}
     t_m = {}
     tv_input_m, ti_input_m = {}, {}
@@ -765,7 +993,7 @@ def _uncert_metrics(
         # Time grid
         t_all = np.unique(sheet.get("X:all", pd.Series()).dropna().values)
 
-        # Switch‐pressure inputs
+        # Switch-pressure inputs
         swps = {}
         for v in tv_iphi_vars:
             tkey, lkey = f"{v}t", f"{v}l"
@@ -822,31 +1050,38 @@ def _uncert_metrics(
 
         # Collect residuals and sensitivities
         for var in tv_ophi_vars + ti_ophi_vars:
-            # Extract y_true, y_pred, sigma
             if var in tv_ophi_vars:
-                # time‐varying
+                # time-varying measurement
                 xcol = f"MES_X:{var}"
                 ycol = f"MES_Y:{var}"
                 ecol = f"MES_E:{var}"
                 mask = ~sheet[xcol].isna().values
                 times = sheet[xcol][mask].values
-                y_t = sheet[ycol][mask].values
-                idx = np.isin(t_all, times)
-                y_p = np.array(tv_ref[var])[idx]
+                y_t   = sheet[ycol][mask].values
+                idx   = np.isin(t_all, times)
+                y_p   = np.array(tv_ref[var])[idx]
+
+                # relative sigma from sheet, convert to absolute using |y_p|
                 if ecol in sheet:
-                    y_e = sheet[ecol][mask].values
+                    rel = sheet[ecol][mask].values.astype(float)
+                    y_e = rel * np.abs(y_p) + _SIG_FLOOR
                 else:
-                    y_e = np.full_like(y_t, 1.0)
+                    y_e = np.full_like(y_t, 1.0, dtype=float)
             else:
-                # time‐independent
+                # time-independent measurement
                 ycol = f"MES_Y:{var}"
-                y_t = np.array([sheet[ycol].iloc[0]])
-                y_p = np.array([ti_ref[var]])
-                y_e = np.array([1.0])
+                ecol = f"MES_E:{var}"
+                y_t  = np.array([sheet[ycol].iloc[0]])
+                y_p  = np.array([ti_ref[var]])
+                if ecol in sheet:
+                    rel = float(sheet[ecol].iloc[0])
+                    y_e = np.array([rel * np.abs(y_p[0]) + _SIG_FLOOR], dtype=float)
+                else:
+                    y_e = np.array([1.0], dtype=float)
 
             var_measurements.setdefault(var, []).extend(zip(y_t, y_p, y_e))
 
-            # Build sensitivity row
+            # Sensitivity block
             cols = []
             for p in active_idx:
                 mode, sims = perturbed[p]
@@ -878,29 +1113,72 @@ def _uncert_metrics(
 
     # --- Variance–Covariance Selection ---
     if varcov == 'M':
-        # Fisher-based
-        sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
-        W = np.diag(1.0/sigs**2)
-        M = LSA.T @ W @ LSA
+        # Using absolute sigmas we just constructed
+        sigs = np.concatenate([np.array([s for _, _, s in var_measurements[v]])
+                               for v in Q_accum])
+        # Avoid forming giant diagonal: scale rows instead
+        scaled_J = LSA / sigs[:, None]
+        M = scaled_J.T @ scaled_J
         V = np.linalg.pinv(M)
 
     elif varcov == 'H':
-        # Hessian-inverse
         hess_inv = resultpr[solver].get('hess_inv')
         err = resultpr[solver].get('fun', 1.0) / dof
         V = err * np.array(hess_inv)
         M = np.linalg.pinv(V)
 
     elif varcov == 'B':
-        # **Bootstrap**-based
-        V = resultpr[solver].get('varcov')
+        V = resultpr[solver].get('v')
         if V is None:
-            raise ValueError(f"No bootstrap varcov found for solver '{solver}'")
+            raise ValueError(f"No bootstrap v matrix found for model '{solver}'")
         M = np.linalg.pinv(V)
         logger.info(f"Using bootstrap var–cov for {solver}")
 
     else:
         raise ValueError(f"Unknown varcov option '{varcov}'")
+
+    # --- Ill-conditioning diagnostics ----------------------------------
+    ill_report = {}
+    try:
+        s = np.linalg.svd(LSA, compute_uv=False)
+        ill_report['Q_singular_values'] = s
+        ill_report['Q_rank'] = int(np.sum(s > s[0] * np.finfo(float).eps))
+        ill_report['Q_cond'] = float(s[0] / s[-1]) if s[-1] > 0 else np.inf
+    except Exception as e:
+        ill_report['Q_error'] = str(e)
+
+    try:
+        eig = np.linalg.eigvalsh(M)
+        ill_report['M_eigenvalues'] = eig
+        ill_report['M_min_eig'] = float(eig.min())
+        ill_report['M_max_eig'] = float(eig.max())
+        ill_report['M_cond'] = float(eig.max() / eig.min()) if eig.min() > 0 else np.inf
+    except Exception as e:
+        ill_report['M_error'] = str(e)
+
+    ill_report['is_rank_deficient'] = ill_report.get('Q_rank', n_active) < n_active
+    ill_report['is_sloppy'] = ill_report.get('M_cond', np.inf) >= _SLOPPY_THRESH
+    ill_report['is_ill_conditioned'] = (
+        ill_report['is_rank_deficient'] or
+        ill_report.get('M_cond', 0) >= _COND_THRESH or
+        ill_report.get('M_min_eig', _TINY_EIG) < _TINY_EIG
+    )
+    ill_report['summary'] = (
+        f"Rank(Q)={ill_report.get('Q_rank','?')}/{n_active}, "
+        f"cond(Q)≈{ill_report.get('Q_cond',np.nan):.2e}, "
+        f"cond(M)≈{ill_report.get('M_cond',np.nan):.2e}, "
+        f"λ_min(M)≈{ill_report.get('M_min_eig',np.nan):.2e}; "
+        f"{'ILL-CONDITIONED' if ill_report['is_ill_conditioned'] else 'OK'}"
+    )
+
+    logger.log(_REPORT_LEVEL, "Conditioning diagnostics: %s", ill_report['summary'])
+
+    # Stash report into resultpr without changing the API
+    try:
+        if isinstance(resultpr.get(solver, None), dict):
+            resultpr[solver]['ill_report'] = ill_report
+    except Exception:
+        pass
 
     # Confidence intervals and t-values
     CI = tcrit * np.sqrt(np.diag(V))
@@ -908,7 +1186,7 @@ def _uncert_metrics(
     t_values = (theta_full[active_idx] * thetac_arr[active_idx]) / CI
 
     # Z-scores (normalized sensitivities)
-    resp_sigs = np.concatenate([np.array([s for _,_,s in var_measurements[v]]) for v in Q_accum])
+    resp_sigs = np.concatenate([np.array([s for _, _, s in var_measurements[v]]) for v in Q_accum])
     Z = LSA * theta_std / resp_sigs[:, None]
 
     # Compute LS, WLS, MLE, Chi, MSE, R2
@@ -918,17 +1196,19 @@ def _uncert_metrics(
     for v, vals in var_measurements.items():
         for y, y_pred, s in vals:
             r = y - y_pred
-            LS += r**2
+            LS  += r**2
             WLS += (r/s)**2
             MLE += 0.5*(np.log(2*np.pi*s**2)+(r/s)**2)
             Chi += r**2/s**2
             total_err += r**2
             R2_data[v]['y'].append(y)
             R2_data[v]['yp'].append(y_pred)
+
     R2_responses = {
-        v: 1 - np.sum((np.array(d['y'])-np.array(d['yp']))**2)/np.sum((np.array(d['y'])-np.mean(d['y']))**2)
-        if len(d['y'])>1 else np.nan
-        for v,d in R2_data.items()
+        v: 1 - np.sum((np.array(d['y'])-np.array(d['yp']))**2) /
+              np.sum((np.array(d['y'])-np.mean(d['y']))**2)
+        if len(d['y']) > 1 else np.nan
+        for v, d in R2_data.items()
     }
     MSE = total_err/obs if obs else np.nan
 
@@ -939,6 +1219,7 @@ def _uncert_metrics(
         tv_output_m, ti_output_m,
         WLS, obs, MSE, R2_responses, M
     )
+
 
 
 def _report(result, mutation, models, logging_flag):

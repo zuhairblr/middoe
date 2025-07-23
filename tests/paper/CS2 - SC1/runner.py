@@ -398,13 +398,14 @@ def main():
     }
 
     iden_opt = {  # Settings for the parameter estimation process
-        'meth': 'SLSQP',  # 'SLSQP', 'SQP', 'DE', 'NM'
-        'ms': True,  # multi starting   # True or False
+        'meth': 'SLSQP',  # 'SLSQP', 'SQP', 'DE', 'NM', 'BFGS'
+        'ms': False,  # multi starting   # True or False
         'sens_m': 'central',  # 'central', 'forward', and 'five' for FDM precision
-        'var-cov': 'M',  # 'H' for based on hessidan, and 'M' for based on fisher
+        'var-cov': 'B',  # 'H' for based on hessidan, and 'M' for based on fisher
+        'nboot': 100,
         'init': None,
         # use 'rand' to have random starting point and use None to start from theta_parameters nominal values (to be avoided in insilico studies)
-        'eps': 1e-3,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)
+        'eps': 1e-3,  # perturbation size of parameters in SA FDM method (in a normalized to 1 space)e-
         # usually 1e-3, or None to perform a mesh independency test, and auto adjustment
         'ob': 'WLS',
         # loss function, 'LS': least squares, 'MLE': maximum likelihood, 'Chi': chi-square, 'WLS': weighted least squares

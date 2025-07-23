@@ -270,8 +270,8 @@ def solve_model(t, y0, tii, tvi, theta):
         args=(tii_vals, {'u1': u1}, theta, te),
         t_eval=t,
         method='BDF',
-        rtol=np.float64(1e-6),
-        atol=np.float64(1e-9)
+        rtol=np.float64(1e-2),
+        atol=np.float64(1e-3)
     )
 
     return {
@@ -283,3 +283,143 @@ def solve_model(t, y0, tii, tvi, theta):
         'tio': {}
     }
 
+
+
+
+
+
+
+# import numpy as np
+# from scipy.integrate import solve_ivp
+#
+# def solve_model(t, y0, tii, tvi, theta):
+#     """
+#     Faster but equivalent version of your MIDDoE batch model.
+#     Only minimal structural changes; same inputs/outputs.
+#     """
+#
+#     # ---------- Precompute / cast once ----------
+#     t = np.asarray(t, dtype=np.float64)
+#     te = t                               # evaluation times
+#     u1 = np.asarray(tvi['u1'], dtype=np.float64)
+#
+#     theta = np.asarray(theta, dtype=np.float64)
+#     kf_ref, Ef, kfs_ref, Efs, Kref, dH = theta
+#
+#     tii_vals = {k: np.float64(v) for k, v in tii.items()}
+#
+#     R      = np.float64(8.314)
+#     T_ref  = np.float64(296.15)
+#
+#     # Precompute interp slopes for temperature (piecewise linear):
+#     # T(t) = a[i]*t + b[i] for t in [te[i], te[i+1]]
+#     dt   = np.diff(te)
+#     dT   = np.diff(u1)
+#     a    = dT / dt
+#     b    = u1[:-1] - a * te[:-1]
+#
+#     # Precompute Arrhenius constants pieces that don't change with T
+#     Af   = -Ef  / R
+#     Afs  = -Efs / R
+#     AdH  =  dH  / R
+#     invTref = 1.0 / T_ref
+#
+#     # Small helper to evaluate T(t) quickly (branchless search via np.searchsorted)
+#     def T_of_t(tloc):
+#         i = np.searchsorted(te, tloc) - 1
+#         if i < 0:
+#             return u1[0]
+#         if i >= len(a):
+#             return u1[-1]
+#         return a[i] * tloc + b[i]
+#
+#     # ---------- RHS ----------
+#     def rhs(t_local, y):
+#         # unpack (no dtype casts)
+#         SM, TMA, QS1Cl, ClDMI, MeCl = y
+#
+#         T = T_of_t(t_local)
+#         invT = 1.0 / T
+#         # Arrhenius terms
+#         kf  = kf_ref  * np.exp(Af  * (invT - invTref))
+#         K   = Kref    * np.exp(AdH * (invT - invTref))
+#         kr  = kf / K
+#         kfs = kfs_ref * np.exp(Afs * (invT - invTref))
+#
+#         r1f = kf * SM * TMA
+#         r1r = kr * QS1Cl
+#         r2  = kfs * QS1Cl
+#
+#         dSM    = -r1f + r1r
+#         dTMA   = -r1f + r1r
+#         dQS1Cl =  r1f - r1r - r2
+#         dClDMI =  r2
+#         dMeCl  =  r2
+#
+#         return np.array([dSM, dTMA, dQS1Cl, dClDMI, dMeCl], dtype=np.float64)
+#
+#     # ---------- Analytic Jacobian (w.r.t. y only; T-dependence ignored, OK for stiff solvers) ----------
+#     def jac(t_local, y):
+#         SM, TMA, QS1Cl, _, _ = y
+#         T = T_of_t(t_local)
+#         invT = 1.0 / T
+#
+#         kf  = kf_ref  * np.exp(Af  * (invT - invTref))
+#         K   = Kref    * np.exp(AdH * (invT - invTref))
+#         kr  = kf / K
+#         kfs = kfs_ref * np.exp(Afs * (invT - invTref))
+#
+#         # partials
+#         j11 = -kf*TMA             # d(dSM)/dSM
+#         j12 = -kf*SM              # d(dSM)/dTMA
+#         j13 =  kr                 # d(dSM)/dQS1Cl
+#
+#         j21 = j11                 # symmetry
+#         j22 = j12
+#         j23 = j13
+#
+#         j31 =  kf*TMA
+#         j32 =  kf*SM
+#         j33 = -kr - kfs
+#
+#         j41 = 0.0
+#         j42 = 0.0
+#         j43 =  kfs
+#
+#         j51 = 0.0
+#         j52 = 0.0
+#         j53 =  kfs
+#
+#         return np.array([
+#             [j11, j12, j13, 0.0, 0.0],
+#             [j21, j22, j23, 0.0, 0.0],
+#             [j31, j32, j33, 0.0, 0.0],
+#             [0.0, 0.0,  j43, 0.0, 0.0],
+#             [0.0, 0.0,  j53, 0.0, 0.0]
+#         ], dtype=np.float64)
+#
+#     # ---------- ICs ----------
+#     y0_arr = np.array([
+#         tii_vals['y10'],
+#         tii_vals['y20'],
+#         0.0, 0.0, 0.0
+#     ], dtype=np.float64)
+#
+#     sol = solve_ivp(
+#         rhs,
+#         (t[0], t[-1]),
+#         y0_arr,
+#         t_eval=t,
+#         method='BDF',
+#         jac=jac,                    # <-- big win
+#         rtol=1e-5, atol=1e-8,       # slightly looser; adjust if needed
+#     )
+#
+#     return {
+#         'tvo': {
+#             'y1': sol.y[0].astype(np.float64).tolist(),
+#             'y2': sol.y[2].astype(np.float64).tolist(),
+#             'y3': sol.y[3].astype(np.float64).tolist()
+#         },
+#         'tio': {}
+#     }
