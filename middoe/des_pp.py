@@ -338,16 +338,7 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     # Solver and optimization settings
     active_solvers = models['can_m']
 
-    if 'normalized_parameters' in models:
-        estimations = models['normalized_parameters']
-    else:
-        estimations = {
-            solver: [1.0] * len(models['theta'][solver])
-            for solver in models['can_m']
-        }
-    ref_thetas = models['theta']
-    theta_parameters = _par_update(ref_thetas, estimations)
-
+    theta_parameters = models['theta']
     # Criterion, iteration, and penalty settings
     design_criteria = des_opt['pp_ob']
     maxpp = des_opt['itr']['maxpp']
@@ -363,7 +354,7 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     else:
         V_matrix = {
             solver: np.array([
-                [1e-50 if i == j else 0 for j in range(len(models['theta'][solver]))]
+                [1e5 if i == j else 0 for j in range(len(models['theta'][solver]))]
                 for i in range(len(models['theta'][solver]))
             ])
             for solver in models['can_m']

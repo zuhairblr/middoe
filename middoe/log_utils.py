@@ -66,6 +66,9 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
     Returns:
     dict: Reference t-value for each model-round observation.
     """
+    if best_uncert_result:
+        result = best_uncert_result['results']
+
     round_key = f'Round {round}'
     dof = {solver: obs - len(result[solver]['estimations']) for solver in models['can_m']}
     trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['can_m']}
@@ -82,6 +85,7 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
         'scaled_params': scaled_params,
         'result': result,
         'iden_opt': iden_opt,
+        'models': models,
         'system': system,
         'est_EA':  best_uncert_result
     }
@@ -113,11 +117,13 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
     if iden_opt['f_plt'] == True:
         plotting1.fit_plot(data_storage, result, system)
 
+    # for solver in models['mutation']:
+    #     models['mutation'][solver] = [True] * len(models['mutation'][solver])
+
     for solver in models['can_m']:
         print(f'reference t value for model {solver} and round {round}: {trv[solver]}')
         print(f'estimated t values for model {solver} and round {round}: {result[solver]["t_values"]}')
         print(f'P-value for model {solver} and round {round}: {result[solver]["P"]}')
-        print(f'eps for model {solver} and round {round}: {result[solver]["found_eps"][solver]}')
     print()
     return trv
 

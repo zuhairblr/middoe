@@ -5,14 +5,553 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="final polishing 29">
+      <change beforePath="$PROJECT_DIR$/.idea/middoe.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/middoe.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_valida.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_valida.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/sc_sensa.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_sensa.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 1/monod.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/confidence/2_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/1 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/design/2 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/estimability/rCC vs k round_1 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/estimability/rCC vs k round_2 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/modelling/2_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/modelling/2_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2 poster/runner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2/model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study 2/runner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/confidence/2_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/estimability/rCC vs k round_3 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/model2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/1_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/2_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/2_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/modelling/2_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_report_2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/M_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/estimability/rCC vs parameters in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/p_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/post_processing/t_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/case study poster/runner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/MI.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/MII.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/MIII.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/MIV.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/1_th_round_MI.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/1_th_round_MII.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/1_th_round_MIII.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/1_th_round_MIV.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/2_th_round_MI.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/confidence/2_th_round_MII.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/design/2 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/modelling/2_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/modelling/2_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/modelling/2_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_report_2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MII_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_report_2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/MI_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/p_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/p_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/t_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/post_processing/t_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1 - SC2/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/MI.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/MII.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/MIII.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/MIV.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/confidence/1_th_round_MI.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/confidence/1_th_round_MII.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/confidence/1_th_round_MIII.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/confidence/1_th_round_MIV.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS1/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/estimability/rCC vs k round_4 in model_M.png" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/estimability/rCC vs k round_4 in model_M.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/indata3.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/meshindep_plots/M_eps_eigenvalue_test.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/meshindep_plots/M_eps_eigenvalue_test.xlsx" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/modelling/1_round_1.png" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/modelling/1_round_1.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/modelling/1_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/modelling/1_round_4.png" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/paper/CS2 - SC1/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/estimability/rCC vs k round_1 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/M_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/estimability/rCC vs parameters in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/p_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/post_processing/t_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 1/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/confidence/2_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/confidence/3_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/1 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/2 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/design/3 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/estimability/rCC vs k round_1 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/estimability/rCC vs k round_2 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/estimability/rCC vs k round_3 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/2_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/2_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/3_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/3_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/modelling/3_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/plot.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_report_2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_report_3.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/M_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/estimability/rCC vs parameters in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/p_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/p_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/p_values_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/t_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/t_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/post_processing/t_values_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster/case 2/runner.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/estimability/rCC vs k round_1 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/estimability/rCC vs k round_2 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/estimability/rCC vs k round_4 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/meshindep_plots/M_eps_dependency_test.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/meshindep_plots/M_eps_dependency_test.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/escapeposter/case 1/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/modelling/1_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/M_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/estimability/rCC vs parameters in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/p_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/post_processing/t_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 1/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/escapeposter/case 1/runner.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/confidence/1_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/confidence/2_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/confidence/3_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/confidence/4_th_round_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/1 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/2 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/3 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 0 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 0 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 1 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 1 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 10 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 10 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 11 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 11 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 12 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 12 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 13 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 13 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 14 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 14 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 15 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 15 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 2 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 2 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 3 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 3 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 4 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 4 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 5 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 5 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 6 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 6 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 7 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 7 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 8 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 8 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 9 core.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/design/4 (round) by 9 core.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_1 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_2 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_3 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/estimability/rCC vs k round_4 in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/iden_results.jac" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/indata.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/escapeposter/case 2/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/1_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/2_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/3_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/4_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/4_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/4_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/modelling/4_round_4.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/escapeposter/case 2/plot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_confidence_space.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_ellipsoid_volume.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_estimates.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_parameter_std_devs.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_pt_tests.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_1.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_2.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_3.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_4.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/M_report_summary.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/estimability/rCC vs parameters in model_M.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/p_values_round_4.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/post_processing/t_values_round_4.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/poster2/case 2/runner.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tests/escapeposter/case 2/runner.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,8 +657,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-09060db00ec0-JavaScript-PY-251.26927.90" />
-        <option value="bundled-python-sdk-41e8cd69c857-64d779b69b7a-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.26927.90" />
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-PY-252.23892.515" />
+        <option value="bundled-python-sdk-7e47963ff851-f0eec537fc84-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.23892.515" />
       </set>
     </attachedChunks>
   </component>
@@ -214,7 +753,104 @@
       <workItem from="1753292548204" duration="303000" />
       <workItem from="1753292867248" duration="548000" />
       <workItem from="1753293433872" duration="548000" />
-      <workItem from="1753294000417" duration="985000" />
+      <workItem from="1753294000417" duration="17793000" />
+      <workItem from="1753362327568" duration="2340000" />
+      <workItem from="1753365629515" duration="1653000" />
+      <workItem from="1753367308211" duration="5938000" />
+      <workItem from="1753375425980" duration="1937000" />
+      <workItem from="1753377444337" duration="1187000" />
+      <workItem from="1753378941922" duration="4171000" />
+      <workItem from="1753427485118" duration="1603000" />
+      <workItem from="1753429333063" duration="1313000" />
+      <workItem from="1753430673604" duration="5516000" />
+      <workItem from="1753436392985" duration="7180000" />
+      <workItem from="1753447314615" duration="1711000" />
+      <workItem from="1753449056984" duration="1379000" />
+      <workItem from="1753450461217" duration="1969000" />
+      <workItem from="1753452491847" duration="1075000" />
+      <workItem from="1753453702908" duration="2045000" />
+      <workItem from="1753455901498" duration="5238000" />
+      <workItem from="1753467581583" duration="692000" />
+      <workItem from="1753468297308" duration="335000" />
+      <workItem from="1753468647434" duration="2118000" />
+      <workItem from="1753470798812" duration="14676000" />
+      <workItem from="1753547816831" duration="1049000" />
+      <workItem from="1753548890216" duration="6669000" />
+      <workItem from="1753555643341" duration="1533000" />
+      <workItem from="1753557252012" duration="2477000" />
+      <workItem from="1753559769610" duration="1949000" />
+      <workItem from="1753561921906" duration="1018000" />
+      <workItem from="1753601414258" duration="2324000" />
+      <workItem from="1753604432695" duration="1062000" />
+      <workItem from="1753605517832" duration="430000" />
+      <workItem from="1753605964524" duration="8919000" />
+      <workItem from="1753624234053" duration="5957000" />
+      <workItem from="1753636312938" duration="678000" />
+      <workItem from="1753637011401" duration="1425000" />
+      <workItem from="1753644997039" duration="1698000" />
+      <workItem from="1753650038823" duration="359000" />
+      <workItem from="1753650413963" duration="1046000" />
+      <workItem from="1753652282047" duration="1384000" />
+      <workItem from="1753653706230" duration="587000" />
+      <workItem from="1753654383561" duration="604000" />
+      <workItem from="1753655101035" duration="768000" />
+      <workItem from="1753655915911" duration="618000" />
+      <workItem from="1753687089564" duration="2213000" />
+      <workItem from="1753689387613" duration="1466000" />
+      <workItem from="1753690882487" duration="2301000" />
+      <workItem from="1753693345100" duration="1229000" />
+      <workItem from="1753695082286" duration="951000" />
+      <workItem from="1753699780215" duration="3962000" />
+      <workItem from="1753704016559" duration="1264000" />
+      <workItem from="1753705309775" duration="748000" />
+      <workItem from="1753706080275" duration="293000" />
+      <workItem from="1753706389597" duration="758000" />
+      <workItem from="1753707170456" duration="235000" />
+      <workItem from="1753707421655" duration="8106000" />
+      <workItem from="1753719485181" duration="10797000" />
+      <workItem from="1753777341727" duration="1543000" />
+      <workItem from="1753778914156" duration="960000" />
+      <workItem from="1753779897181" duration="2968000" />
+      <workItem from="1753785572052" duration="1277000" />
+      <workItem from="1753786876866" duration="1686000" />
+      <workItem from="1753788596029" duration="1314000" />
+      <workItem from="1753789972702" duration="1501000" />
+      <workItem from="1753791502924" duration="548000" />
+      <workItem from="1753792070855" duration="895000" />
+      <workItem from="1753793021972" duration="1957000" />
+      <workItem from="1753795148884" duration="1746000" />
+      <workItem from="1753797114687" duration="611000" />
+      <workItem from="1753797749245" duration="1892000" />
+      <workItem from="1753799675464" duration="334000" />
+      <workItem from="1753800077192" duration="887000" />
+      <workItem from="1753800987600" duration="1062000" />
+      <workItem from="1753802075590" duration="1651000" />
+      <workItem from="1753803757293" duration="4030000" />
+      <workItem from="1753808184415" duration="4631000" />
+      <workItem from="1753814488589" duration="11701000" />
+      <workItem from="1753859578324" duration="6004000" />
+      <workItem from="1753866079930" duration="27736000" />
+      <workItem from="1753903982580" duration="398000" />
+      <workItem from="1753904398008" duration="636000" />
+      <workItem from="1753905054603" duration="521000" />
+      <workItem from="1753905652882" duration="293000" />
+      <workItem from="1753942911266" duration="397000" />
+      <workItem from="1753943327089" duration="740000" />
+      <workItem from="1753944156532" duration="285000" />
+      <workItem from="1753944517241" duration="269000" />
+      <workItem from="1753944846199" duration="304000" />
+      <workItem from="1753945167277" duration="725000" />
+      <workItem from="1753945911448" duration="770000" />
+      <workItem from="1753946768860" duration="645000" />
+      <workItem from="1753947530228" duration="3028000" />
+      <workItem from="1753950607052" duration="3455000" />
+      <workItem from="1753954831159" duration="259000" />
+      <workItem from="1753955144080" duration="31477000" />
+      <workItem from="1754050202618" duration="21592000" />
+      <workItem from="1754820289382" duration="718000" />
+      <workItem from="1756294016384" duration="217000" />
+      <workItem from="1756294584600" duration="594000" />
+      <workItem from="1756295202830" duration="12702000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -496,7 +1132,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753037283075</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="final polishing 29">
+      <option name="closed" value="true" />
+      <created>1753295371861</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1753295371861</updated>
+    </task>
+    <option name="localTasksCounter" value="39" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -549,11 +1193,6 @@
           <line>289</line>
           <option name="timeStamp" value="30" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/middoe/iden_uncert.py</url>
-          <line>531</line>
-          <option name="timeStamp" value="69" />
-        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -587,11 +1226,11 @@
     <SUITE FILE_PATH="coverage/middoe$runner_new.coverage" NAME="runner new Coverage Results" MODIFIED="1747400751054" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/middoe$sc_estima.coverage" NAME="sc_estima Coverage Results" MODIFIED="1748545978186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$pyy.coverage" NAME="pyy Coverage Results" MODIFIED="1745935284828" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1753285082695" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
+    <SUITE FILE_PATH="coverage/middoe$runner.coverage" NAME="runner Coverage Results" MODIFIED="1753629329544" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
     <SUITE FILE_PATH="coverage/middoe$modelsim2.coverage" NAME="modelsim2 Coverage Results" MODIFIED="1749730578972" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ionics" />
     <SUITE FILE_PATH="coverage/middoe$ff.coverage" NAME="ff Coverage Results" MODIFIED="1750835947239" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/case study 2" />
     <SUITE FILE_PATH="coverage/middoe$scratch_24.coverage" NAME="scratch_24 Coverage Results" MODIFIED="1742549927425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
-    <SUITE FILE_PATH="coverage/middoe$model.coverage" NAME="model Coverage Results" MODIFIED="1748424590422" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/2" />
+    <SUITE FILE_PATH="coverage/middoe$model.coverage" NAME="model Coverage Results" MODIFIED="1753359928358" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/paper/CS2 - SC1" />
     <SUITE FILE_PATH="coverage/middoe$iden_uncert.coverage" NAME="iden_uncert Coverage Results" MODIFIED="1751283284141" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/middoe" />
     <SUITE FILE_PATH="coverage/middoe$plot.coverage" NAME="plot Coverage Results" MODIFIED="1751557689710" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/poster2/case 2" />
     <SUITE FILE_PATH="coverage/middoe$gpastester.coverage" NAME="gpastester Coverage Results" MODIFIED="1745402187879" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
