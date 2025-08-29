@@ -1,4 +1,4 @@
-from middoe.des_utils import _slicer, _reporter, _par_update, configure_logger
+from middoe.des_utils import _slicer, _reporter,  configure_logger
 from functools import partial
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
@@ -22,34 +22,118 @@ def mbdoe_md(
     num_parallel_runs: int = 1
 ) -> Dict[str, Union[Dict[str, Any], float]]:
     """
-    Execute the Model-Based Design of Experiments for Model Discrimination (MBDoE-MD).
+    Perform Model-Based Design of Experiments for Model Discrimination (MBDoE-MD).
 
-    This function orchestrates the optimization process for model discrimination
-    using either parallel or single-core execution. It filters out failed runs
-    and returns the best design decisions along with associated metrics.
+    This function identifies experimental designs that maximise the ability to
+    discriminate between competing models. Optimisation can run in parallel or
+    single-core mode. Failed runs are discarded, and the best valid design is returned.
 
-    Args:
-        des_opt (Dict[str, Any]): A dictionary containing design optimization parameters.
-        system (Dict[str, Any]): A dictionary representing the system configuration,
-                                 including time intervals, variable bounds, and constraints.
-        models (Dict[str, Any]): A dictionary containing model-related data, such as
-                                 active solvers, parameter estimates, and mutation settings.
-        round (int): The current round of the optimization process.
-        num_parallel_runs (int, optional): The number of parallel optimization runs to execute.
-                                           Defaults to 1 (single-core execution).
+    Parameters
+    ----------
+    des_opt : dict
+        Optimisation settings, including:
+            - 'criteria' : dict[str, str]
+                Discrimination criterion (e.g., {'MBDOE_MD_criterion': 'T'}).
+            - 'iteration_settings' : dict
+                Iteration controls:
+                    * 'maxmd': int — maximum iterations
+                    * 'tolmd': float — convergence tolerance
+            - 'eps' : float
+                Perturbation step size for numerical derivatives.
 
-    Returns:
-        Dict[str, Union[Dict[str, Any], float]]: A dictionary containing the best design decisions
-                                                 and associated metrics, including:
-                                                 - 'tii': Time-independent input variables.
-                                                 - 'tvi': Time-varying input variables.
-                                                 - 'swps': Switching points.
-                                                 - 'St': Sampling times.
-                                                 - 'md_obj': The model discrimination objective value.
-                                                 - 't_values': Time values used in the optimization.
+    system : dict
+        System model and constraints:
+            - 'tf', 'ti' : float
+                Final and initial times for simulation.
+            - 'tv_iphi', 'ti_iphi' : dict
+                Time-variant and time-invariant input definitions.
+            - 'tv_ophi', 'ti_ophi' : dict
+                Output definitions (time-variant/invariant).
+            - 'tv_iphi_seg' : dict[str, int]
+                Control variable segmentation (CVP).
+            - 'tv_iphi_offsett', 'tv_iphi_offsetl' : dict
+                Time/level offsets for switching logic.
+            - 'tv_ophi_matching' : dict[str, bool]
+                Synchronised sampling across outputs.
+            - 'sampling_constraints' : dict
+                Sampling restrictions:
+                    * 'min_interval': float — minimum time between samples
+                    * 'max_samples_per_response': int
+                    * 'total_samples': int
+                    * 'forbidden_times': dict[str, list[float]]
+                    * 'forced_times': dict[str, list[float]]
+                    * 'sync_sampling': bool
 
-    Raises:
-        RuntimeError: If all parallel runs fail or if the single-core optimization fails.
+    models : dict
+        Model definitions and settings:
+            - 'active_models' : list[str]
+                Competing models to discriminate.
+            - 'theta_parameters' : dict[str, list[float]]
+                Nominal parameter values for each model.
+            - 'mutation' : dict[str, list[bool]]
+                Parameter masks for optimisation.
+            - 'ext_models' : dict[str, Callable]
+                Mapping of model names to simulator functions.
+
+    round : int
+        Current experimental design round (used for logging/conditional logic).
+
+    num_parallel_runs : int, optional
+        Number of optimisation runs in parallel (default: 1, single-core mode).
+
+    Returns
+    -------
+    results : dict
+        Best design found:
+            - 'tii' : dict[str, Any]
+                Time-invariant input variables.
+            - 'tvi' : dict[str, Any]
+                Time-variant input variables.
+            - 'swps' : dict[str, list[float]]
+                Switching times for time-variant controls.
+            - 'St' : list[float]
+                Sampling times.
+            - 'md_obj' : float
+                Model discrimination objective value.
+
+    Raises
+    ------
+    RuntimeError
+        If all parallel runs fail or if the single-core run encounters an exception.
+
+    Notes
+    -----
+    MBDoE-MD aims to design experiments that enhance the ability to reject
+    incorrect models by maximising discrimination criteria such as:
+        - T-optimality (maximise pairwise model separation)
+        - HR (maximise weighted Kullback–Leibler divergence)
+        - BFF (Bayesian/Frequentist hybrid measures)
+
+    Supported constraints include:
+        - Control level bounds and switching rules
+        - Minimum sampling intervals
+        - Total/maximum samples per output
+        - Forced or forbidden sampling times
+        - Synchronised sampling across outputs
+
+    References
+    ----------
+    Chen, C., & Asprey, S. P. (2003).
+    On the design of optimally informative dynamic experiments for model discrimination
+    in multiresponse nonlinear situations.
+    Industrial & Engineering Chemistry Research, 42(6), 1379–1390.
+    https://doi.org/10.1021/ie020468o
+
+    See Also
+    --------
+    _safe_run_md : Parallel optimisation wrapper.
+    _run_single_md : Single-core optimisation routine.
+
+    Examples
+    --------
+    >>> result = mbdoe_md(des_opt, system, models, round=1, num_parallel_runs=4)
+    >>> print("Best objective value:", result['md_obj'])
+    >>> print("Optimal design:", result['tii'], result['tvi'])
     """
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
@@ -122,15 +206,7 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     ti_ophi_vars = [var for var in system['tio'].keys() if system['tio'][var].get('meas', True)]
 
     active_solvers = models['can_m']
-    if 'normalized_parameters' in models:
-        estimations = models['normalized_parameters']
-    else:
-        estimations = {
-            solver: [1.0] * len(models['theta'][solver])
-            for solver in models['can_m']
-        }
-    ref_thetas = models['theta']
-    theta_parameters = _par_update(ref_thetas, estimations)
+    theta_parameters = models['theta']
 
     design_criteria = des_opt['md_ob']
     maxmd = des_opt['itr']['maxmd']
@@ -225,383 +301,6 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
 
 
     return design_decisions, md_obj, swps
-
-# def _optimiser_md(
-#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
-#     ti_ophi_vars,
-#     tf, ti,
-#     active_solvers, theta_parameters,
-#     eps, maxmd, tolmd,population_size,
-#     mutation, design_criteria,
-#     system, models
-# ):
-#     bounds = []
-#     x0 = []
-#     index_dict = {
-#         'ti': {},
-#         'swps': {},
-#         'st': {}
-#     }
-#
-#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-#         lo, hi = mn / mx, 1.0
-#         bounds.append((lo, hi))
-#         x0.append((lo + hi) / 2)
-#         index_dict['ti'][name] = [i]
-#
-#     start = len(x0)
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
-#         lo = mn / mx
-#         level_idxs = list(range(start, start + seg - 1))
-#         index_dict['swps'][name + 'l'] = level_idxs
-#         for _ in range(seg - 1):
-#             bounds.append((lo, 1.0))
-#             x0.append((lo + 1.0) / 2)
-#         start += seg - 1
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         lo, hi = ti / tf, 1 - ti / tf
-#         time_idxs = list(range(start, start + seg - 2))
-#         index_dict['swps'][name + 't'] = time_idxs
-#         for _ in range(seg - 2):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += seg - 2
-#
-#     sampling_groups = defaultdict(list)
-#     for var in tv_ophi_vars:
-#         group_id = tv_ophi_sampling[var]
-#         sampling_groups[group_id].append(var)
-#
-#     for group_id, group_vars in sampling_groups.items():
-#         var = group_vars[0]
-#         i = tv_ophi_vars.index(var)
-#         seg = tv_ophi_seg[i]
-#         num_forced = len(tv_ophi_forcedsamples[var])
-#         num_free = seg - num_forced
-#         lo, hi = ti / tf, 1 - ti / tf
-#
-#         idxs = list(range(start, start + num_free))
-#         for var_in_group in group_vars:
-#             index_dict['st'][var_in_group] = idxs
-#
-#         for _ in range(num_free):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += num_free
-#
-#     lower = np.array([b[0] for b in bounds])
-#     upper = np.array([b[1] for b in bounds])
-#     x0 = np.array(x0)
-#
-#     constraint_index_list = []
-#     for i, name in enumerate(tv_iphi_vars):
-#         const = tv_iphi_const[i]
-#         if const != 'rel':
-#             idxs = index_dict['swps'][name + 'l']
-#             for j in range(len(idxs) - 1):
-#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         idxs = index_dict['swps'][name + 't']
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_ophi_vars):
-#         idxs = index_dict['st'][name]
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
-#
-#     total_constraints = len(constraint_index_list)
-#
-#     local_obj = partial(
-#         _md_of,
-#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-#         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
-#         tv_ophi_sampling=tv_ophi_sampling,
-#         active_solvers=active_solvers, theta_parameters=theta_parameters,
-#         tf=tf, eps=eps, mutation=mutation,
-#         design_criteria=design_criteria,
-#         index_dict=index_dict, system=system, models=models
-#     )
-#
-#     class Problem(ElementwiseProblem):
-#         def __init__(self):
-#             super().__init__(
-#                 n_var=len(bounds),
-#                 n_obj=1,
-#                 n_constr=total_constraints,
-#                 xl=lower,
-#                 xu=upper
-#             )
-#
-#         def _evaluate(self, x, out, *args, **kwargs):
-#             f_val = local_obj(x)
-#             g = []
-#             for kind, i, i1, i2 in constraint_index_list:
-#                 if kind == 'lvl':
-#                     offs = tv_iphi_offsetl[i]
-#                     const = tv_iphi_const[i]
-#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
-#                     g.append(offs - diff)
-#                 elif kind == 't':
-#                     offs = tv_iphi_offsett[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#                 elif kind == 'st':
-#                     offs = tv_ophi_offsett_ophi[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#             out['F'] = f_val
-#             out['G'] = np.array(g, dtype=np.float64)
-#
-#
-#     problem = Problem()
-#
-#     algorithm = NelderMead()
-#
-#     res = pymoo_minimize(problem,
-#                    algorithm,
-#                    seed=None,
-#                    verbose=False)
-#
-#     #
-#     #
-#     # # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
-#     # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/best/1/hypercube', CR=0.7)
-#     #
-#     # # res_de = pymoo_minimize(
-#     # #     problem,
-#     # #     algo,
-#     # #     termination=('n_gen', maxmd),
-#     # #     seed=None,
-#     # #     verbose=True,
-#     # #     constraint_tolerance=tolmd
-#     # # )
-#     #
-#     # res_de = pymoo_minimize(
-#     #     problem,
-#     #     algo,
-#     #     termination=('n_gen', maxmd),
-#     #     seed=None,
-#     #     verbose=True,
-#     #     constraint_tolerance=tolmd,
-#     #     save_history=True
-#     # )
-#     #
-#     #
-#     # algo_nm = PatternSearch()
-#     #
-#     # res_nm = pymoo_minimize(
-#     #     problem,
-#     #     algo_nm,
-#     #     termination=('n_gen', int(maxmd/4)),
-#     #     seed=None,
-#     #     verbose=True,
-#     #     constraint_tolerance=tolmd,
-#     #     x0=res_de.X
-#     # )
-#     #
-#     # res = res_nm if res_nm.F[0] < res_de.F[0] else res_de
-#
-#     return res, index_dict
-
-
-
-
-# def _optimiser_md(
-#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
-#     ti_ophi_vars,
-#     tf, ti,
-#     active_solvers, theta_parameters,
-#     eps, maxmd, tolmd,population_size,
-#     mutation, design_criteria,
-#     system, models, optmethod
-# ):
-#     bounds = []
-#     x0 = []
-#     index_dict = {
-#         'ti': {},
-#         'swps': {},
-#         'st': {}
-#     }
-#
-#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-#         lo, hi = mn / mx, 1.0
-#         bounds.append((lo, hi))
-#         x0.append((lo + hi) / 2)
-#         index_dict['ti'][name] = [i]
-#
-#     start = len(x0)
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
-#         lo = mn / mx
-#         level_idxs = list(range(start, start + seg - 1))
-#         index_dict['swps'][name + 'l'] = level_idxs
-#         for _ in range(seg - 1):
-#             bounds.append((lo, 1.0))
-#             x0.append((lo + 1.0) / 2)
-#         start += seg - 1
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         lo, hi = ti / tf, 1 - ti / tf
-#         time_idxs = list(range(start, start + seg - 2))
-#         index_dict['swps'][name + 't'] = time_idxs
-#         for _ in range(seg - 2):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += seg - 2
-#
-#     sampling_groups = defaultdict(list)
-#     for var in tv_ophi_vars:
-#         group_id = tv_ophi_sampling[var]
-#         sampling_groups[group_id].append(var)
-#
-#     for group_id, group_vars in sampling_groups.items():
-#         var = group_vars[0]
-#         i = tv_ophi_vars.index(var)
-#         seg = tv_ophi_seg[i]
-#         num_forced = len(tv_ophi_forcedsamples[var])
-#         num_free = seg - num_forced
-#         lo, hi = ti / tf, 1 - ti / tf
-#
-#         idxs = list(range(start, start + num_free))
-#         for var_in_group in group_vars:
-#             index_dict['st'][var_in_group] = idxs
-#
-#         for _ in range(num_free):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += num_free
-#
-#     lower = np.array([b[0] for b in bounds])
-#     upper = np.array([b[1] for b in bounds])
-#     x0 = np.array(x0)
-#
-#     constraint_index_list = []
-#     for i, name in enumerate(tv_iphi_vars):
-#         const = tv_iphi_const[i]
-#         if const != 'rel':
-#             idxs = index_dict['swps'][name + 'l']
-#             for j in range(len(idxs) - 1):
-#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         idxs = index_dict['swps'][name + 't']
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_ophi_vars):
-#         idxs = index_dict['st'][name]
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
-#
-#     total_constraints = len(constraint_index_list)
-#
-#     local_obj = partial(
-#         _md_of,
-#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-#         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
-#         tv_ophi_sampling=tv_ophi_sampling,
-#         active_solvers=active_solvers, theta_parameters=theta_parameters,
-#         tf=tf, eps=eps, mutation=mutation,
-#         design_criteria=design_criteria,
-#         index_dict=index_dict, system=system, models=models
-#     )
-#
-#     class Problem(ElementwiseProblem):
-#         def __init__(self):
-#             super().__init__(
-#                 n_var=len(bounds),
-#                 n_obj=1,
-#                 n_constr=total_constraints,
-#                 xl=lower,
-#                 xu=upper
-#             )
-#
-#         def _evaluate(self, x, out, *args, **kwargs):
-#             f_val = local_obj(x)
-#             g = []
-#             for kind, i, i1, i2 in constraint_index_list:
-#                 if kind == 'lvl':
-#                     offs = tv_iphi_offsetl[i]
-#                     const = tv_iphi_const[i]
-#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
-#                     g.append(offs - diff)
-#                 elif kind == 't':
-#                     offs = tv_iphi_offsett[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#                 elif kind == 'st':
-#                     offs = tv_ophi_offsett_ophi[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#             out['F'] = f_val
-#             out['G'] = np.array(g, dtype=np.float64)
-#
-#
-#     problem = Problem()
-#
-#     algorithm = PatternSearch()
-#
-#     res = pymoo_minimize(problem,
-#                    algorithm,
-#                    seed=None,
-#                    verbose=True)
-#
-#     #
-#     #
-#     # # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
-#     # algo = DE(pop_size=population_size, sampling=LHS(), variant='DE/best/1/hypercube', CR=0.7)
-#     #
-#     # # res_de = pymoo_minimize(
-#     # #     problem,
-#     # #     algo,
-#     # #     termination=('n_gen', maxmd),
-#     # #     seed=None,
-#     # #     verbose=True,
-#     # #     constraint_tolerance=tolmd
-#     # # )
-#     #
-#     # res_de = pymoo_minimize(
-#     #     problem,
-#     #     algo,
-#     #     termination=('n_gen', maxmd),
-#     #     seed=None,
-#     #     verbose=True,
-#     #     constraint_tolerance=tolmd,
-#     #     save_history=True
-#     # )
-#     #
-#     #
-#     # algo_nm = PatternSearch()
-#     #
-#     # res_nm = pymoo_minimize(
-#     #     problem,
-#     #     algo_nm,
-#     #     termination=('n_gen', int(maxmd/4)),
-#     #     seed=None,
-#     #     verbose=True,
-#     #     constraint_tolerance=tolmd,
-#     #     x0=res_de.X
-#     # )
-#     #
-#     # res = res_nm if res_nm.F[0] < res_de.F[0] else res_de
-#
-#     return res, index_dict
-
-
 
 
 def _optimiser_md(
@@ -800,8 +499,7 @@ def _md_of(
     index_dict, system, models
 ):
     """
-    Objective function wrapper for MBDOE-MD. Returns the negative MD objective
-    for maximization purposes, with penalty fallback in case of exceptions.
+    Objective function wrapper for MBDOE-MD.
     """
     try:
         _, _, _, md_obj, _, _, _, _ = _runner_md(
@@ -978,156 +676,3 @@ def _runner_md(
     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
 
     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp
-
-
-
-
-# def _runner_md(
-#     x,
-#     tv_iphi_vars,
-#     tv_iphi_max,
-#     ti_iphi_vars,
-#     ti_iphi_max,
-#     tv_ophi_vars,
-#     ti_ophi_vars,
-#     active_solvers,
-#     theta_parameters,
-#     tv_iphi_cvp,
-#     tv_ophi_forcedsamples,
-#     tv_ophi_sampling,
-#     design_criteria,
-#     tf,
-#     eps,
-#     mutation,
-#     index_dict,
-#     system,
-#     models
-# ):
-#     """
-#     Simulate models and evaluate the MD objective.
-#     Returns the sliced inputs, objective value, time vector, and outputs.
-#     """
-#
-#     x = x.tolist() if not isinstance(x, list) else x
-#
-#     # Time slicing
-#     dt_real = system['t_r']
-#     nodes = int(round(tf / dt_real)) + 1
-#     tlin = np.linspace(0, 1, nodes)
-#     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
-#     St = {var: np.array(sorted(St[var])) for var in St}
-#     t_values_flat = [tp for times in St.values() for tp in times]
-#     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
-#
-#     LSA = defaultdict(lambda: defaultdict(dict))
-#     y_values_dict = defaultdict(dict)
-#     y_i_values_dict = defaultdict(dict)
-#     indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars}
-#
-#     J_dot = defaultdict(
-#         lambda: np.zeros(
-#             (len(theta_parameters[active_solvers[0]]),
-#              len(theta_parameters[active_solvers[0]]))
-#         )
-#     )
-#     tv_ophi = {}
-#     ti_ophi = {}
-#     phit_interp = {}
-#
-#     for solver_name in active_solvers:
-#         thetac = theta_parameters[solver_name]
-#         theta = np.array([1.0] * len(thetac))
-#         ti_iphi_data = ti
-#         swps_data = swps
-#         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
-#         phitsc = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
-#         tsc = tf
-#
-#         tv_out, ti_out, interp_data = simula(
-#             t_values, swps_data, ti_iphi_data,
-#             phisc, phitsc, tsc,
-#             theta, thetac,
-#             tv_iphi_cvp, {},
-#             solver_name,
-#             system,
-#             models
-#         )
-#
-#         tv_ophi[solver_name] = tv_out
-#         ti_ophi[solver_name] = ti_out
-#         phit_interp = interp_data
-#
-#         for var in tv_ophi_vars:
-#             y_values_dict[solver_name][var] = np.array(tv_out[var])
-#         for var in ti_ophi_vars:
-#             y_values_dict[solver_name][var] = np.array([ti_out[var]])
-#
-#         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
-#
-#         for para_idx in free_params_indices:
-#             modified_theta = theta.copy()
-#             modified_theta[para_idx] += eps
-#
-#             tv_out_mod, ti_out_mod, _ = simula(
-#                 t_values, swps_data, ti_iphi_data,
-#                 phisc, phitsc, tsc,
-#                 modified_theta, thetac,
-#                 tv_iphi_cvp, {},
-#                 solver_name,
-#                 system,
-#                 models
-#             )
-#
-#             for var in tv_ophi_vars:
-#                 y_i_values_dict[solver_name][var] = np.array(tv_out_mod[var])
-#             for var in ti_ophi_vars:
-#                 y_i_values_dict[solver_name][var] = np.array([ti_out_mod[var]])
-#
-#             for var in indices:
-#                 LSA[var][solver_name][para_idx] = (
-#                     y_i_values_dict[solver_name][var] - y_values_dict[solver_name][var]
-#                 ) / eps
-#
-#     md_obj = 0.0
-#     if design_criteria == 'HR':
-#         for i, s1 in enumerate(active_solvers):
-#             for s2 in active_solvers[i+1:]:
-#                 for var, mask in indices.items():
-#                     y1 = y_values_dict[s1][var]
-#                     y2 = y_values_dict[s2][var]
-#                     md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
-#
-#     elif design_criteria == 'BFF':
-#         std_dev = {var: system['tvo'][var]['unc'] for var in tv_ophi_vars}
-#         Sigma_y = np.diag([std_dev[var] ** 2 for var in tv_ophi_vars])
-#         for i, s1 in enumerate(active_solvers):
-#             for s2 in active_solvers[i+1:]:
-#                 for t_idx, t in enumerate(t_values):
-#                     y1 = np.array([y_values_dict[s1][var][t_idx] for var in tv_ophi_vars])
-#                     y2 = np.array([y_values_dict[s2][var][t_idx] for var in tv_ophi_vars])
-#                     diff = y1 - y2
-#
-#                     free_s1 = [i for i, v in enumerate(mutation[s1]) if v]
-#                     thetac_s1 = np.array(theta_parameters[s1])[free_s1]
-#                     V1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in tv_ophi_vars])
-#                     Sigma_theta_s1_inv = np.diag(1 / (thetac_s1 ** 2 + 1e-50))
-#                     W1 = V1 @ Sigma_theta_s1_inv @ V1.T
-#
-#                     free_s2 = [i for i, v in enumerate(mutation[s2]) if v]
-#                     thetac_s2 = np.array(theta_parameters[s2])[free_s2]
-#                     V2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in tv_ophi_vars])
-#                     Sigma_theta_s2_inv = np.diag(1 / (thetac_s2 ** 2 + 1e-50))
-#                     W2 = V2 @ Sigma_theta_s2_inv @ V2.T
-#
-#                     try:
-#                         S = Sigma_y + W1 + W2
-#                         md_obj += diff.T @ np.linalg.inv(S) @ diff
-#                     except np.linalg.LinAlgError:
-#                         md_obj += 1e6  # Penalise ill-conditioned cases
-#
-#
-#     logger = configure_logger()
-#     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")
-#
-#
-#     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp

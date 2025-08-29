@@ -14,14 +14,19 @@ def sensa(gsa, models, system):
     """
     Perform Sobol sensitivity analysis for the given settings and model structure.
 
-    Parameters:
-    gsa (dict): Dictionary containing the settings for the global sensitivity analysis.
-    models (dict): Dictionary containing the settings for the modelling process.
-    system (dict): Dictionary containing the structure of the model.
-    framework_settings (dict): Dictionary containing the settings for the framework.
+    Parameters
+    ----------
+    gsa : dict
+        Dictionary containing the settings for the global sensitivity analysis.
+    models : dict
+        Dictionary containing the settings for the modelling process.
+    system : dict
+        Dictionary containing the structure of the model.
 
-    Returns:
-    tuple: A tuple containing the Sobol analysis results and the Sobol problem definition.
+    Returns
+    -------
+    tuple
+        A tuple containing the Sobol analysis results and the Sobol problem definition.
     """
     phi_nom = gsa['tii_n']  # Nominal values for time-invariant variables
     phit_nom = gsa['tvi_n']  # Nominal values for time-variant variables

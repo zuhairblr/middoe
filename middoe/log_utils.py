@@ -46,25 +46,41 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
     """
     Save data for each round of model identification, and append to prior.
 
-    Parameters:
-    round (int): Round number, the current round of the design - conduction and identification procedure.
-    ranking (list): Ranking of parameters, from estimability analysis.
-    k_optimal_value (float): Optimal number of parameters to be estimated, from estimability analysis.
-    rCC_values (list): Corrected critical ratios for models.
-    J_k_values (list): Objectives of weighted least square method based optimization for models.
-    result (dict): Result of the identification procedure (estimation and uncertainty analysis) for models.
-    design_type (str): Type of design (classic or DOE).
-    round_data (dict): Dictionary to append the data for the current round.
-    models (dict): User provided - The settings for the modelling process.
-    iden_opt (dict): Settings for the estimation process, including active solvers and plotting options.
-    framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
-    obs (int): Number of observations.
-    case (str): Case identifier, used for naming files and directories.
-    data_storage (dict): Dictionary to store data of experiments.
-    system (dict): User provided - The model structure information.
+    Parameters
+    ----------
+    round : int
+        Round number, the current round of the design - conduction and identification procedure.
+    result : dict
+        Result of the identification procedure (estimation and uncertainty analysis) for models.
+    design_type : str
+        Type of design (classic or DOE).
+    round_data : dict
+        Dictionary to append the data for the current round.
+    models : dict
+        User provided - The settings for the modelling process.
+    iden_opt : dict
+        Settings for the estimation process, including active solvers and plotting options.
+    obs : int
+        Number of observations.
+    data_storage : dict
+        Dictionary to store data of experiments.
+    system : dict
+        User provided - The model structure information.
+    ranking : list, optional
+        Ranking of parameters, from estimability analysis.
+    k_optimal_value : float, optional
+        Optimal number of parameters to be estimated, from estimability analysis.
+    rCC_values : list, optional
+        Corrected critical ratios for models.
+    J_k_values : list, optional
+        Objectives of weighted least square method based optimization for models.
+    best_uncert_result : dict, optional
+        Best uncertainty analysis result, if available.
 
-    Returns:
-    dict: Reference t-value for each model-round observation.
+    Returns
+    -------
+    dict
+        Reference t-value for each model-round observation.
     """
     if best_uncert_result:
         result = best_uncert_result['results']
@@ -101,14 +117,6 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
         else:
             round_data[round_key]['original_positions'][solver] = []  # Or handle as needed
 
-
-    # for solver in models['can_m']:
-    #     models['theta'][solver] = scaled_params[solver]
-    #
-    # # ranking, k_optimal_value, rCC_values, J_k_values = None, None, None, None
-    # for solver in models['can_m']:
-    #     models['V_matrix'][solver] = result[solver]['V_matrix']
-
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
     plotting1 = Plotting_Results(models, iden_opt['plt_s'], round)  # Instantiate Plotting class
@@ -116,9 +124,6 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, d
         plotting1.conf_plot(scaled_params, solver_cov_matrices, solver_confidence_intervals)
     if iden_opt['f_plt'] == True:
         plotting1.fit_plot(data_storage, result, system)
-
-    # for solver in models['mutation']:
-    #     models['mutation'][solver] = [True] * len(models['mutation'][solver])
 
     for solver in models['can_m']:
         print(f'reference t value for model {solver} and round {round}: {trv[solver]}')
@@ -226,44 +231,6 @@ def add_norm_par(modelling_settings):
         raise KeyError("The dictionary must contain 'theta_parameters' as a key.")
 
     return modelling_settings
-
-# def save_sobol_results_to_excel(sensa):
-#     """
-#     Saves Sobol analysis results to 'sobol_results.xlsx' in the current working directory.
-#
-#     Parameters:
-#     - sensa: Dictionary containing Sobol analysis results (must have a top-level 'analysis' key).
-#     """
-#     if not sensa or not isinstance(sensa, dict) or 'analysis' not in sensa:
-#         print("Error: Sobol results are not available. No file will be created.")
-#         return
-#
-#     file_path = os.path.join(os.getcwd(), "sobol_results.xlsx")
-#     sobol_analysis = sensa['analysis']
-#
-#     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-#         for model_name, model_data in sobol_analysis.items():
-#             data = {'x_axis_steps': []}
-#
-#             # Determine if step data is a list or dict
-#             steps = model_data.get(model_name)
-#             if isinstance(steps, list):
-#                 for step_index, step_data in enumerate(steps):
-#                     data['x_axis_steps'].append(step_index)
-#                     for i, st_val in enumerate(step_data.get('ST', [])):
-#                         col = f"Parameter_{i + 1}"
-#                         data.setdefault(col, []).append(st_val)
-#             elif isinstance(steps, dict):
-#                 for step, step_data in steps.items():
-#                     data['x_axis_steps'].append(step)
-#                     for i, st_val in enumerate(step_data.get('ST', [])):
-#                         col = f"Parameter_{i + 1}"
-#                         data.setdefault(col, []).append(st_val)
-#
-#             pd.DataFrame(data).to_excel(writer, sheet_name=model_name, index=False)
-#
-#     print(f"Sobol analysis results have been saved to: {file_path}")
-
 
 def save_to_xlsx(sensa):
     """

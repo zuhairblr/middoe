@@ -62,11 +62,6 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         for var in system['tvi'].keys()
     }
 
-    # base_path = framework_settings['path']
-    # modelling_folder = str(framework_settings['case'])
-    # output_path = Path(base_path) / modelling_folder
-    # output_path.mkdir(parents=True, exist_ok=True)
-
     # Retrieve the model name and related simulation parameters
     model_name = insilicos.get('tr_m')
     errortype = insilicos.get('errt', 'abs')
@@ -312,7 +307,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         Scaling factor for time.
     theta, thetac : list
         Parameter vectors.
-    piecewise_func : dict
+    cvp : dict
         Dictionary of piecewise functions defining variable trajectories.
     std_dev : dict
         Dictionary of standard deviations keyed by variable name.
@@ -320,19 +315,26 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         Global set of time points for simulation.
     case : str
         Indicates the type of run ('initial', 'doe', etc.).
-    model_func : callable
-        The simulation function used to generate tv_ophi, ti_ophi, phit_interp.
     model_name : str
         The name of the model being simulated.
     system : dict
         Defines the structure of the model, including variable attributes.
     models : dict
         Additional modelling settings.
+    errortype : str
+        Type of error to be applied ('abs' for absolute, 'rel' for relative).
 
     Returns
     -------
     pd.DataFrame
         A combined DataFrame with simulation results, noisy measurements, piecewise function info, and switching points.
+
+    Raises
+    ------
+    ValueError
+        If the case is unsupported or if the number of independent variables does not match the dependent variables.
+    KeyError
+        If a dependent variable is missing in the simulation results.
     """
 
     # Run the model to get tv_ophi, ti_ophi, phit_interp

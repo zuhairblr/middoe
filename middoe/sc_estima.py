@@ -9,18 +9,34 @@ def estima(result, system, models, iden_opt, round, data):
     """
     Perform estimability analysis to rank parameters and determine the optimal number of parameters to estimate.
 
-    Parameters:
-    result (dict): The result from the last identification (estimation - uncertainty analysis).
-    system (dict): User provided - The model structure information.
-    models (dict): User provided - The settings for the modelling process.
-    iden_opt (dict): User provided - The settings for the estimation process.
-    round (int): The current round of the design - conduction and identification procedure.
-    framework_settings (dict): User provided - The settings for the framework.
-    data (dict): prior information for estimability analysis (observations, inputs, etc.).
-    run_solver (function): The function to run the model (simulator-bridger).
+    This function evaluates the estimability of model parameters by analyzing the sensitivity matrix
+    and ranking parameters based on their contribution to the model's output. It also determines the
+    optimal number of parameters to estimate using MSE-based selection criteria.
 
-    Returns:
-    tuple: A tuple containing rankings, rCC values (corrected critical ratios), and J_k values (objectives of weighted least square method based optimization).
+    Parameters
+    ----------
+    result : dict
+        The result from the last identification (estimation - uncertainty analysis).
+    system : dict
+        User provided - The model structure information.
+    models : dict
+        User provided - The settings for the modelling process.
+    iden_opt : dict
+        User provided - The settings for the estimation process.
+    round : int
+        The current round of the design - conduction and identification procedure.
+    data : dict
+        Prior information for estimability analysis (observations, inputs, etc.).
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - rankings (dict): Parameter rankings for each solver.
+        - k_optimal_values (dict): Optimal number of parameters to estimate for each solver.
+        - rCC_values (dict): Corrected critical ratios for each solver.
+        - J_k_values (dict): Objectives of weighted least square method-based optimization for each solver.
+        - best_uncert_result (dict): Best uncertainty analysis result for each solver.
     """
     rankings = {}
     k_optimal_values = {}
@@ -29,12 +45,7 @@ def estima(result, system, models, iden_opt, round, data):
     iden_opt['init']= None
     iden_opt['log']= False
     modelsbase = copy.deepcopy(models)
-    # # Override theta in modelsbase with thetastart
-    # for sv in models.get('can_m', []):
-    #     if sv in models.get('thetastart', {}):
-    #         scpr_result = result.get(sv, {}).get('optimization_result', {}).get(sv, {})
-    #         if 'scpr' in scpr_result:
-    #             modelsbase['theta'][sv] = scpr_result['scpr_raw']
+
     for sv in models.get('can_m', []):
         if sv in models.get('thetastart', {}):
             modelsbase['theta'][sv] = models['thetastart'][sv]
@@ -131,22 +142,45 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     """
     Perform MSE-based selection to determine the optimal number of parameters to estimate.
 
-    Parameters:
-    n_parameters (int): The total number of parameters.
-    ranking_known (list): The list of parameter indices ranked by estimability.
-    system (dict): User provided - The model structure information.
-    models (dict): User provided - The settings for the modelling process.
-    iden_opt (dict): User provided - The settings for the estimation process.
-    solvera (str): The name of the model(s).
-    round (int): The current round of the design - conduction and identification procedure.
-    data (dict): Prior information for estimability analysis (observations, inputs, etc.).
-    result (dict): Baseline estimation results (with all parameters free).
-    varcovorig (any): Original variance-covariance configuration to restore for best-case.
+    This function evaluates the estimability of model parameters by iterating over subsets of parameters,
+    computing corrected critical ratios (rCC) and weighted least squares (WLS) objective values (J_k),
+    and identifying the optimal number of parameters to estimate. It also performs uncertainty analysis
+    for the selected subset of parameters.
 
-    Returns:
-    tuple: A tuple containing the optimal number of parameters for estimation in the ranking,
-           rCC values (corrected critical ratios), J_k values (WLS objective values),
-           and the best uncertainty result dictionary (or None if all parameters are selected)."""
+    Parameters
+    ----------
+    n_parameters : int
+        The total number of parameters.
+    ranking_known : list
+        The list of parameter indices ranked by estimability.
+    system : dict
+        User provided - The model structure information.
+    models : dict
+        User provided - The settings for the modelling process.
+    iden_opt : dict
+        User provided - The settings for the estimation process.
+    solvera : str
+        The name of the model(s).
+    round : int
+        The current round of the design - conduction and identification procedure.
+    data : dict
+        Prior information for estimability analysis (observations, inputs, etc.).
+    result : dict
+        Baseline estimation results (with all parameters free).
+    varcovorig : any
+        Original variance-covariance configuration to restore for best-case.
+    meth : str
+        The method used for parameter estimation.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - k_optimal (int): The optimal number of parameters for estimation in the ranking.
+        - rCC_values (list): Corrected critical ratios for each subset of parameters.
+        - J_k_values (list): WLS objective values for each subset of parameters.
+        - best_uncert (dict): The best uncertainty analysis result dictionary (or None if all parameters are selected).
+    """
     rCC_values = []
     J_k_values = []
     uncert_results_list = []

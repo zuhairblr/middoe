@@ -4,7 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="ready for release of paper" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="ready for release of paper">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/des_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/iden_valida.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_valida.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middoe/sc_sensa.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_sensa.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -302,7 +316,7 @@
       <workItem from="1754820289382" duration="718000" />
       <workItem from="1756294016384" duration="217000" />
       <workItem from="1756294584600" duration="594000" />
-      <workItem from="1756295202830" duration="13011000" />
+      <workItem from="1756295202830" duration="15524000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -600,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756468185776</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="ready for release of paper">
+      <option name="closed" value="true" />
+      <created>1756468283033</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1756468283033</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

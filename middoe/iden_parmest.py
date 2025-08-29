@@ -9,19 +9,15 @@ warnings.filterwarnings(
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-import time
-import numpy as np
+
 from scipy.stats import truncnorm
 import numpy as np
 import copy
 import multiprocessing as mp
 from operator import attrgetter
 from concurrent.futures import ProcessPoolExecutor, as_completed
-
 from numdifftools import Hessian
 from scipy.optimize import minimize, differential_evolution
-
-# External project imports
 from middoe.krnl_simula import simula
 from middoe.iden_utils import _initialize_dictionaries
 
@@ -46,20 +42,33 @@ def _in_child():
 # Helpers
 # ============================================================
 
-
 def _initialise_theta_parameters(theta_min, theta_max, active_models,  mutation=None, theta_fixed=None):
     """
-    Sample theta values within bounds for each active model,
-    but keep masked (inactive) ones fixed at theta_fixed.
+    Initialize theta parameters for each active model.
 
-    Args:
-        theta_min, theta_max: bound dictionaries
-        active_models: list of solver keys
-        mutation: dict of boolean masks per solver (True=active)
-        theta_fixed: dict of fixed theta values per solver
+    This function samples theta values within the specified bounds for each active model.
+    If a mutation mask is provided, inactive parameters are fixed to the values in `theta_fixed`.
 
-    Returns:
-        theta_parameters: dict of initial theta lists per solver
+    Parameters
+    ----------
+    theta_min : dict
+        Dictionary containing the lower bounds for theta values for each solver.
+    theta_max : dict
+        Dictionary containing the upper bounds for theta values for each solver.
+    active_models : list
+        List of solver keys for which theta parameters need to be initialized.
+    mutation : dict, optional
+        Dictionary of boolean masks per solver indicating active parameters (True=active).
+        If not provided, all parameters are considered active.
+    theta_fixed : dict, optional
+        Dictionary of fixed theta values per solver. Inactive parameters (as per `mutation`)
+        are set to these fixed values.
+
+    Returns
+    -------
+    dict
+        A dictionary where each key corresponds to a solver, and the value is a list of
+        initialized theta parameters for that solver.
     """
     theta_parameters = {}
     for sv in active_models:
@@ -110,7 +119,46 @@ def _count_observations(data, system):
 
 def parmest(system, models, iden_opt, data, case=None):
     """
-    Parameter estimation main entry.
+    Perform parameter estimation for a given system and models.
+
+    This function serves as the main entry point for parameter estimation. It initializes
+    the required parameters, handles different estimation cases, and executes the estimation
+    process using single or multi-start optimization, or bootstrap resampling.
+
+    Parameters
+    ----------
+    system : dict
+        Dictionary containing the system configuration, including time intervals, variable bounds,
+        and constraints.
+    models : dict
+        Dictionary containing model-related data, such as active solvers, parameter bounds,
+        and mutation settings.
+    iden_opt : dict
+        Dictionary of identification options, including optimization method, objective function,
+        and other settings.
+    data : dict
+        Dictionary containing the experimental data used for parameter estimation.
+    case : str, optional
+        Specifies the estimation case. Default is None. Supported cases include:
+        - 'freeze': Freezes mutation settings.
+        - 'strov': Uses starting theta values from the models.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the results of the parameter estimation, including optimized
+        parameters, objective function values, and additional metrics.
+
+    Raises
+    ------
+    ValueError
+        If invalid options or configurations are provided.
+
+    Notes
+    -----
+    The function supports multi-start optimization and bootstrap resampling for robust
+    parameter estimation. It also handles logging and variance-covariance matrix computation
+    based on the specified options.
     """
     if case != 'freeze' and 'mutation' in models:
         for solver in models['mutation']:
@@ -132,8 +180,6 @@ def parmest(system, models, iden_opt, data, case=None):
     maxit = iden_opt.get('maxit', 1000)
     tol = iden_opt.get('tol', 1e-6)
 
-
-    # theta_params_r = _initialise_theta_parameters(bound_min, bound_max, active_models)
     if case == 'strov' and 'thetastart' in models:
         theta_params_r = _initialise_theta_parameters(bound_min, bound_max, active_models, mutation=mutation, theta_fixed=models['thetastart'])
         theta_params_f = models['thetastart']
@@ -187,10 +233,6 @@ def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
     tasks = []
     for sv in active_models:
         for _ in range(nstarts):
-            # tasks.append((sv,
-            #               [np.random.uniform(lo, hi) for lo, hi in zip(bmin[sv], bmax[sv])],
-            #               bmin[sv], bmax[sv], mutation[sv], objf, method,
-            #               data, system, models, logging, varcov, maxit, tol))
             thetac = _initialise_theta_parameters(bmin, bmax, [sv], mutation=mutation, theta_fixed=models['theta'])[sv]
             tasks.append((sv, thetac, bmin[sv], bmax[sv], mutation[sv], objf, method,
                           data, system, models, logging, varcov, maxit, tol))
@@ -253,7 +295,6 @@ def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
                    '__boot_idx__': boot_idx}
 
     if multi:
-        # theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models)
         theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models, mutation=mutation, theta_fixed=models['theta'])
         ref = _multi_start_runner_serial(active_models, theta_params_r, bmax, bmin,
                                          mutation, objf, method, data, system,
@@ -263,43 +304,6 @@ def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
                       x0, method, data, system, models_boot, logging, varcov, maxit, tol)
     return ref
 
-# def truncated_moments_from_data(X, eps=1e-10):
-#     """
-#     Compute mean and covariance matrix from truncated normal samples
-#     using analytical univariate moments and empirical correlations.
-#     """
-#     N, ndim = X.shape
-#     mu_emp = np.mean(X, axis=0)
-#     sigma_emp = np.std(X, axis=0, ddof=1)
-#     bmin = np.min(X, axis=0)
-#     bmax = np.max(X, axis=0)
-#
-#     mu_trunc = np.zeros(ndim)
-#     var_trunc = np.zeros(ndim)
-#
-#     for i in range(ndim):
-#         loc = mu_emp[i]
-#         scale = max(sigma_emp[i], eps)
-#         a = (bmin[i] - loc) / scale
-#         b = (bmax[i] - loc) / scale
-#         dist = truncnorm(a, b, loc=loc, scale=scale)
-#         mu_trunc[i] = dist.mean()
-#         var_trunc[i] = dist.var()
-#
-#     # Constant dimensions
-#     constant_mask = sigma_emp < eps
-#     if np.any(constant_mask):
-#         print("Warning: constant parameters detected at:", np.where(constant_mask)[0])
-#
-#     with np.errstate(invalid='ignore', divide='ignore'):
-#         corr_emp = np.corrcoef(X.T)
-#     corr_emp[np.isnan(corr_emp)] = 0.0
-#     np.fill_diagonal(corr_emp, 1.0)
-#
-#     sigma_trunc = np.sqrt(var_trunc)
-#     cov_trunc = np.outer(sigma_trunc, sigma_trunc) * corr_emp
-#
-#     return mu_trunc, cov_trunc
 
 def truncated_moments_from_data(X, eps=1e-10):
     """
@@ -369,7 +373,6 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     if multi:
         trunc_mc_samps = nboot
         nstarts = max(1, int(0.7 * mp.cpu_count()))
-        # theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models)
         theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models, mutation=mutation, theta_fixed=models['theta'])
         ref = _multi_start_runner(active_models, theta_params_r, bmax, bmin,
                                   mutation, objf, method, data, system, models,
@@ -414,17 +417,6 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
         # Attach bootstrap samples and stats
         ref_sv.samples = bootR[sv]
         if bootR[sv]:
-            # X = np.stack([s.scpr for s in bootR[sv]])
-            # mu_raw = np.mean(X, axis=0)
-            # cov_raw = np.cov(X, rowvar=False, ddof=1)
-            #
-            # mu_trunc, cov_trunc = truncated_moments_from_data(X)
-            #
-            # ref_sv.X = X
-            # ref_sv.scpr = mu_trunc
-            # ref_sv.v = cov_trunc
-            # ref_sv.scpr_raw = mu_raw
-            # ref_sv.v_raw = cov_raw
             X_full = np.stack([s.scpr for s in bootR[sv]])  # shape: (nboot, nparams)
             mu_raw = np.mean(X_full, axis=0)
 
@@ -557,11 +549,8 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
 
 def _objective_function(theta, data, active, thetac, system, models,
                         logging, objf, bootstrap, boot_idx):
-    # start = time.time()
     _, m = _objective(theta, data, active, thetac, system, models,
                       bootstrap=bootstrap, boot_idx=boot_idx)
-    # if logging:
-    #     print(f"Obj '{objf}'|{active[0]}|{time.time()-start:.3f}s")
     return {'LS': m['LS'], 'WLS': m['WLS'], 'MLE': m['MLE'], 'Chi': m['Chi']}[objf]
 
 

@@ -3,25 +3,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import sys
-
 import pandas as pd
 
 
 def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
     """
-    Slice optimization variables into structured design variables including time-invariant inputs, switching points, and sampling times.
-    Handles shared sampling groups and fixed sampling points.
+    Slice optimization variables into structured design variables including time-invariant inputs,
+    switching points, and sampling times. Handles shared sampling groups and fixed sampling points.
 
-    Parameters:
-    x (list): Flat optimization vector.
-    index_dict (dict): Dictionary with index mappings for 'ti', 'swps', and 'st'.
-    tlin (array): Time grid for snapping.
-    tv_ophi_forcedsamples (dict): Dict of fixed sampling times per output.
-    tv_ophi_sampling (dict): Sampling group index per output.
-    tv_ophi_matching (dict): 1 or 0 flag per output (whether matching is required).
+    Parameters
+    ----------
+    x : list
+        Flat optimization vector containing all design variables.
+    index_dict : dict
+        Dictionary with index mappings for different variable types:
+        - 'ti': Time-invariant input variables.
+        - 'swps': Switching points for time-variant inputs.
+        - 'st': Sampling times for outputs.
+    tlin : array
+        Time grid used for snapping switching and sampling times to valid values.
+    tv_ophi_forcedsamples : dict
+        Dictionary of fixed sampling times for each output variable.
+    tv_ophi_sampling : dict
+        Mapping of output variables to their respective sampling groups.
 
-    Returns:
-    tuple: ti (dict), swps (dict), St (dict of sampling times per output).
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - ti : dict
+            Time-invariant input variables.
+        - swps : dict
+            Switching points for time-variant inputs.
+        - St : dict
+            Sampling times for each output variable.
     """
     ti = {}
     for var, idx_list in index_dict['ti'].items():
@@ -70,19 +85,67 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
               tf, design_criteria, round, pltshow, core_number):
     """
     Report the design results by scaling variables, plotting designs, and saving the plots.
+
+    This function processes the results of a design optimization by scaling the input variables,
+    switching points, and sampling times to their respective ranges. It then generates plots
+    to visualize the design and saves the plots and data for further analysis.
+
+    Parameters
+    ----------
+    phi : dict
+        Dictionary of time-invariant input variables.
+    phit : dict
+        Dictionary of time-variant input variables.
+    swps : dict
+        Dictionary of switching points for time-variant inputs.
+    St : dict
+        Dictionary of sampling times for output variables.
+    performance_metric_value : float
+        The value of the performance metric for the design.
+    t : array-like
+        Time vector used in the design.
+    tv_ophi : dict
+        Dictionary of time-variant output variables.
+    ti_ophi : dict
+        Dictionary of time-invariant output variables.
+    tv_iphi_vars : list
+        List of time-variant input variable names.
+    tv_iphi_max : list
+        List of maximum values for time-variant input variables.
+    ti_iphi_vars : list
+        List of time-invariant input variable names.
+    ti_iphi_max : list
+        List of maximum values for time-invariant input variables.
+    tf : float
+        Final time for scaling time-related variables.
+    design_criteria : str
+        The design criterion used (e.g., 'D-optimality').
+    round : int
+        The current round of the design process.
+    pltshow : bool
+        Whether to display the generated plots.
+    core_number : int
+        The core number used for parallel processing.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the scaled and processed design variables:
+        - phi : dict
+            Scaled time-invariant input variables.
+        - phit : dict
+            Scaled time-variant input variables.
+        - swps : dict
+            Scaled switching points for time-variant inputs.
+        - St : dict
+            Scaled sampling times for output variables.
     """
 
-    ########################################################################
-    # 1) Scale the time-invariant input variables (tii)
-    ########################################################################
     for var in ti_iphi_vars:
         if var in phi:
             max_val = ti_iphi_max[ti_iphi_vars.index(var)]
             phi[var] = np.array(phi[var]) * max_val
 
-    ########################################################################
-    # 2) Scale the time-variant input variables (tvi)
-    ########################################################################
     def convert_or_scale_phit(data):
         """
         Recursively process tvi variables:
@@ -98,9 +161,6 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
     for var in phit:
         phit[var] = convert_or_scale_phit(phit[var])
 
-    ########################################################################
-    # 3) Scale the switching points in `swps`
-    ########################################################################
     for var in swps:
         if var.endswith('l'):  # Level scaling
             var_name = var[:-1]  # Remove 'l' to get the variable name
@@ -110,26 +170,14 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
         elif var.endswith('t'):  # Time scaling
             swps[var] = (np.array(swps[var]) * tf).tolist()
 
-    ########################################################################
-    # 4) Scale the sampling times (St)
-    ########################################################################
     for var in St:
         St[var] = (np.array(St[var]) * tf).tolist()
 
-    ########################################################################
-    # 5) Scale the time vector `t`
-    ########################################################################
     t = np.array(t) * tf
 
-    ########################################################################
-    # 6) Plot results using the `_plot_designs` function
-    ########################################################################
     _plot_designs(phi, phit, swps, St, performance_metric_value, t,
                   tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow)
 
-    ########################################################################
-    # 7) Convert `tii` and `tvi` back to lists for returning
-    ########################################################################
     for var in phi:
         phi[var] = phi[var].tolist()
 
@@ -149,206 +197,6 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 
     return phi, phit, swps, St
 
-# def _plot_designs(phi, phit, swps, St, performance_metric, t,
-#                   tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow):
-#     """
-#     Plot MBDoE (model-based design of experiments) results with multiple y-axes
-#     for time-variant outputs and inputs, including color-coded switching and sampling times.
-#     """
-#
-#     # Decide if we are in MBDOE_MD or MBDOE_PP
-#     if design_criteria in ['HR', 'BFF']:
-#         performance_metric_name = "T-optimality"
-#     elif design_criteria in ['A', 'D', 'E', 'ME']:
-#         performance_metric_name = "PP-optimality"
-#     else:
-#         performance_metric_name = "Unknown"
-#
-#     # Create subplots
-#     fig, axs = plt.subplots(2, 1, figsize=(12, 12))
-#     phi_text = ', '.join([f'{var}: {val:.5e}' for var, val in phi.items()])
-#     performance_metric_text = (
-#         f'Round {round} - {performance_metric_name} of {design_criteria}: '
-#         f'{performance_metric:.20e}'
-#     )
-#     fig.suptitle(f'{phi_text}\n{performance_metric_text}\n{performance_metric_name}')
-#
-#     colors = ['k', 'b', 'r', 'c', 'm', 'y', 'g']
-#     linestyles = ['-', '--', '-.', ':']
-#
-#     # ----------------------------------------------------------------------
-#     # SUBPLOT 1: Time-variant output variables
-#     # ----------------------------------------------------------------------
-#     ax1 = axs[0]
-#     ax1.set_title("Time-variant output variables")
-#     ax1.set_xlabel('Time (s)')
-#
-#     ax_list_1 = [ax1]  # manage multiple y-axes
-#
-#     for solver_idx, (solver_name, solver_tv_ophi) in enumerate(tv_ophi.items()):
-#         for var_idx, (var_name, y_values) in enumerate(solver_tv_ophi.items()):
-#             color = colors[var_idx % len(colors)]
-#             linestyle = linestyles[solver_idx % len(linestyles)]
-#
-#             if var_idx == 0:
-#                 ax1.plot(
-#                     t, y_values, color=color, linestyle=linestyle,
-#                     label=f'{solver_name} - {var_name}'
-#                 )
-#                 ax1.set_ylabel(f'{var_name} [-]', color=color)
-#                 ax1.tick_params(axis='y', labelcolor=color)
-#             else:
-#                 ax_new = ax1.twinx()
-#                 ax_new.spines['left'].set_position(('outward', 60 * (var_idx - 1)))
-#                 ax_new.plot(
-#                     t, y_values, color=color, linestyle=linestyle,
-#                     label=f'{solver_name} - {var_name}'
-#                 )
-#                 ax_new.set_ylabel(f'{var_name} [-]', color=color)
-#                 ax_new.tick_params(axis='y', labelcolor=color)
-#                 ax_list_1.append(ax_new)
-#
-#             # Plot switching times for the current variable
-#             if isinstance(swps, dict) and var_name in swps:
-#                 for s_time in swps[var_name]:
-#                     ax1.axvline(x=s_time, color=color, linestyle='--', alpha=0.5)
-#                     ax1.annotate(
-#                         f'{s_time:.2f}',
-#                         xy=(s_time, ax1.get_ylim()[0]),
-#                         xytext=(0, 5),
-#                         textcoords='offset points',
-#                         ha='center', va='bottom', rotation=90, color=color
-#                     )
-#
-#     # Plot sampling times on the first subplot
-#     if isinstance(St, dict):
-#         # E.g. St = { 'y1': [times], 'y2': [times], ... }
-#         # We'll guess the color by matching var_name in tv_ophi of the first model
-#         # or just do a single color if that is simpler.
-#         first_solver = next(iter(tv_ophi)) if tv_ophi else None
-#         if first_solver:
-#             var_list = list(tv_ophi[first_solver].keys())  # e.g. ["y1", "y2", ...]
-#         else:
-#             var_list = []
-#
-#         for var_name, sampling_times in St.items():
-#             # Try to find color index by var_name in var_list:
-#             if var_name in var_list:
-#                 color_idx = var_list.index(var_name) % len(colors)
-#                 color = colors[color_idx]
-#             else:
-#                 color = 'k'  # fallback color
-#
-#             for s_time in sampling_times:
-#                 ax1.axvline(x=s_time, color=color, linestyle='--', alpha=0.7)
-#                 ax1.annotate(
-#                     f'{s_time:.2f}',
-#                     xy=(s_time, ax1.get_ylim()[1]),
-#                     xytext=(0, -15),
-#                     textcoords='offset points',
-#                     ha='center', va='bottom', rotation=90, color=color
-#                 )
-#     else:
-#         # If St is just a list
-#         for s_time in St:
-#             ax1.axvline(x=s_time, color='k', linestyle='-', alpha=0.7)
-#
-#     # Add legend for the first subplot
-#     handles_1, labels_1 = ax1.get_legend_handles_labels()
-#     for ax in ax_list_1[1:]:
-#         h, l = ax.get_legend_handles_labels()
-#         handles_1 += h
-#         labels_1 += l
-#     if handles_1:
-#         ax1.legend(handles_1, labels_1, loc='upper right')
-#     # ax1.grid(True)
-#
-#     # ----------------------------------------------------------------------
-#     # SUBPLOT 2: "Time-invariant input" or "tvi"
-#     # ----------------------------------------------------------------------
-#     ax2 = axs[1]
-#     ax2.set_title("Time-invariant input variables (tvi)")
-#     ax2.set_xlabel('Time (s)')
-#
-#     ax_list_2 = [ax2]
-#
-#     # Now that we have a dictionary, do the usual loop
-#     for var_idx, (var_name, numeric_value) in enumerate(phit.items()):
-#         color = colors[var_idx % len(colors)]
-#         linestyle = linestyles[var_idx % len(linestyles)]
-#
-#         if var_idx == 0:
-#             ax2.plot(
-#                 t, numeric_value, color=color, linestyle=linestyle,
-#                 label=f'{var_name}', linewidth=2.5  # Line thickness
-#             )
-#             ax2.set_ylabel(f'{var_name} [-]', color=color)
-#             ax2.tick_params(axis='y', labelcolor=color)
-#         else:
-#             ax_new = ax2.twinx()
-#             ax_new.spines['right'].set_position(('outward', 60 * (var_idx - 1)))
-#             ax_new.plot(
-#                 t, numeric_value, color=color, linestyle=linestyle,
-#                 label=f'{var_name}', linewidth=2.5  # Line thickness
-#             )
-#             ax_new.set_ylabel(f'{var_name} [-]', color=color)
-#             ax_new.tick_params(axis='y', labelcolor=color)
-#             ax_list_2.append(ax_new)
-#
-#     # Plot switching times on the second subplot
-#     if isinstance(swps, dict):
-#         for var_name, switching_times in swps.items():
-#             # Typically we only plot "time" switching points here
-#             if not var_name.endswith('t'):
-#                 continue
-#             base_var_name = var_name[:-1]  # Remove trailing 't'
-#             # Find a color from tvi if possible
-#             color = 'k'
-#             if isinstance(phit, dict):
-#                 # For each design, check if base_var_name is in its dictionary
-#                 for design_name, subdict in phit.items():
-#                     if isinstance(subdict, dict) and (base_var_name in subdict):
-#                         idx = list(subdict.keys()).index(base_var_name)
-#                         color = colors[idx % len(colors)]
-#                         break
-#
-#             # Plot the switching lines
-#             for s_time in switching_times:
-#                 ax2.axvline(x=s_time, color=color, linestyle='--', alpha=0.2)
-#                 ax2.annotate(
-#                     f'{s_time:.2f}',
-#                     xy=(s_time, ax2.get_ylim()[0]),
-#                     xytext=(0, 5),
-#                     textcoords='offset points',
-#                     ha='center', va='bottom', rotation=90, color=color
-#                 )
-#
-#     # Add legend for the second subplot
-#     handles_2, labels_2 = ax2.get_legend_handles_labels()
-#     for ax in ax_list_2[1:]:
-#         h, l = ax.get_legend_handles_labels()
-#         handles_2 += h
-#         labels_2 += l
-#     if handles_2:
-#         ax2.legend(handles_2, labels_2, loc='upper right')
-#     # ax2.grid(True)
-#
-#     plt.tight_layout()
-#
-#     # Save the figure
-#     # Create the 'design' subfolder in the current project directory if it doesn't exist
-#     design_folder = Path.cwd() / 'design'
-#     design_folder.mkdir(parents=True, exist_ok=True)
-#
-#     # Build the filename
-#     final_filename = design_folder / f"{round} (round) by {core_number} core.png"
-#
-#     plt.savefig(final_filename, dpi=300)
-#     if pltshow == True:
-#         from IPython.display import Image, display
-#         display(Image(final_filename))
-#         plt.show()
-#     plt.close()
 
 def _plot_designs(phi, phit, swps, St, performance_metric, t,
                   tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow):
@@ -515,27 +363,6 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in excel_data.items()]))
     df.to_excel(excel_filename, index=False)
 
-def _par_update(theta_parameters, estimations):
-    """
-    Multiplies corresponding elements in lists or arrays of two dictionaries for matching keys.
-
-    Parameters:
-    -----------
-    theta_parameters (dict) : dict of model parameters (lists or NumPy arrays).
-    estimations (dict)      : dict of normalized parameters (lists or NumPy arrays).
-
-    Returns:
-    --------
-    dict : A dictionary where each key has values that are element-wise multiplications
-           of the corresponding lists or arrays in theta_parameters and estimations.
-    """
-    result = {}
-    for key in theta_parameters:
-        if key in estimations:
-            param_values = np.array(theta_parameters[key])
-            estimation_values = np.array(estimations[key])
-            result[key] = (param_values * estimation_values).tolist()
-    return result
 
 def get_var_info(var, var_groups):
     """

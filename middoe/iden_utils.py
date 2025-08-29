@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib import cm, rcParams
+from matplotlib import cm
 from matplotlib.patches import Ellipse, Patch
 from matplotlib.ticker import MaxNLocator
 from scipy.stats import norm, chi2
@@ -377,12 +377,6 @@ class Plotting_Results:
             # Only take one model for subplot 2
             single_solver = next(iter(result.keys()))
 
-            # if sheet_data['piecewise_func'].iloc[0] != 'none':
-            #     # DOE case: use @ data for this subplot
-            #     if '@t' in sheet_data:
-            #         doe_t = np.array(sheet_data['@t'], dtype=float)  # Use time data from `data`
-            #     else:
-            #         raise KeyError(f"Missing '@t' key in data for sheet '{sheet_name}'.")
 
             # controls
             doe_vars = {key: np.array(sheet_data[key], dtype=float)
@@ -415,40 +409,6 @@ class Plotting_Results:
                 ax_new.set_ylabel(f'{var_name} (Input)', color='black')
                 ax_new.tick_params(axis='y', labelcolor='black')
 
-            # else:
-            #     # Classic case or sheets where `piecewise_func` is 'none': use `tv_input_m` data
-            #     t_model = np.array(result[single_solver]['t_m'][sheet_name], dtype=float)
-            #
-            #     # Plot time-invariant inputs in the second subplot
-            #     for var_index, var_name in enumerate(result[single_solver]['tv_input_m'][sheet_name].keys()):
-            #         input_data = np.array(result[single_solver]['tv_input_m'][sheet_name][var_name], dtype=float)
-            #         min_len = min(len(t_model), len(input_data))
-            #         t_model_trimmed = t_model[:min_len]
-            #         input_trimmed = input_data[:min_len]
-            #
-            #         if var_name not in variable_styles:
-            #             variable_styles[var_name] = line_styles[var_index % len(line_styles)]
-            #
-            #         # Create a new y-axis for each variable (except the first one)
-            #         if var_index > 0:
-            #             ax_new = ax_list_2[0].twinx()  # Create a new axis sharing the same x-axis
-            #             ax_new.spines['right'].set_position(('outward', 60 * (var_index - 1)))  # Closer positioning
-            #             ax_list_2.append(ax_new)
-            #         else:
-            #             ax_new = ax_list_2[0]
-            #
-            #         # Plot input data (time-invariant inputs only)
-            #         ax_new.plot(t_model_trimmed, input_trimmed, color='black',  # All lines in black
-            #                     linestyle=variable_styles[var_name],
-            #                     label=f'{var_name} (input)', alpha=0.8)
-            #
-            #         # Slightly adjust the y-axis limits to avoid overlapping straight lines
-            #         y_min, y_max = ax_new.get_ylim()
-            #         ax_new.set_ylim([y_min - 0.05 * y_max, y_max + 0.05 * y_max])  # Adding small margins
-            #
-            #         # Set y-axis label and tick colors for the variable
-            #         ax_new.set_ylabel(f'{var_name} (Input)', color='black')
-            #         ax_new.tick_params(axis='y', labelcolor='black')
 
             # **Add legend for the second subplot**
             # Collect handles and labels from all the y-axes for ax2 and its twinned axes
@@ -1205,116 +1165,6 @@ class Plotting_FinalResults:
         plt.savefig(filename, dpi=300)
         plt.show()
 
-    # def reporter(self, filename):
-    #     """
-    #     Write an Excel file for each round in self.selected_rounds (or all if none are specified).
-    #     Each file will contain experimental data, model simulations, and input data (if available),
-    #     one sheet per experiment for that round.
-    #
-    #     Parameters
-    #     ----------
-    #     filename : str
-    #         Base filename. The round number is appended (e.g. "my_file_2.xlsx" for Round 2).
-    #     """
-    #     if not self.round_data:
-    #         logger.warning("No round data found. Aborting reporter.")
-    #         return
-    #
-    #     # Decide which rounds to use
-    #     if not self.selected_rounds:
-    #         all_lbls = self._get_round_labels()
-    #         used_nums = [self._get_round_number(lbl) for lbl in all_lbls]
-    #     else:
-    #         used_nums = self.selected_rounds
-    #
-    #     used_nums.sort()
-    #     for rnd_num in used_nums:
-    #         round_label = f"Round {rnd_num}"
-    #         if round_label not in self.round_data:
-    #             logger.info(f"Skipping {round_label}: not found in round_data.")
-    #             continue
-    #
-    #         solvers_data = self.round_data[round_label].get('result', {})
-    #         if self.winner_solver not in solvers_data:
-    #             logger.info(f"Skipping {round_label}: model {self.winner_solver} not found.")
-    #             continue
-    #
-    #         solver_info = solvers_data[self.winner_solver]
-    #         if 'data' not in solver_info:
-    #             logger.info(f"Skipping {round_label}: no 'data' key in model info.")
-    #             continue
-    #
-    #         exp_data_dict = solver_info['data']
-    #         excel_filename = f"{filename}_{rnd_num}.xlsx"
-    #         combined_dataframes = {}
-    #
-    #         # Check if 'tv_output_m' is available
-    #         if 'tv_output_m' not in solver_info:
-    #             logger.info(f"Skipping {round_label}: no 'tv_output_m' found in model info.")
-    #             continue
-    #
-    #         # Build data for each experiment
-    #         for exp_name, sheet_data in exp_data_dict.items():
-    #             # Check if we have time-variable outputs for this experiment
-    #             if exp_name not in solver_info['tv_output_m']:
-    #                 logger.info(f"No 'tv_output_m' entry for {exp_name} in {round_label}. Skipping experiment.")
-    #                 continue
-    #
-    #             variables = list(solver_info['tv_output_m'][exp_name].keys())
-    #
-    #             # 1) Experimental
-    #             df_exp = pd.DataFrame()
-    #             for var_name in variables:
-    #                 mx_col = f"MES_X:{var_name}"
-    #                 my_col = f"MES_Y:{var_name}"
-    #                 if mx_col in sheet_data and my_col in sheet_data:
-    #                     t_arr = np.array(sheet_data[mx_col], dtype=float)
-    #                     y_arr = np.array(sheet_data[my_col], dtype=float)
-    #                     df_exp[mx_col] = t_arr
-    #                     df_exp[my_col] = y_arr
-    #
-    #             # 2) Model
-    #             df_model = pd.DataFrame()
-    #             if 't_m' in solver_info and exp_name in solver_info['t_m']:
-    #                 t_model = np.array(solver_info['t_m'][exp_name], dtype=float)
-    #                 df_model["SIM_t_model"] = t_model
-    #                 for var_name in variables:
-    #                     vals = solver_info['tv_output_m'][exp_name].get(var_name, [])
-    #                     df_model[f"SIM_{var_name}"] = np.array(vals, dtype=float)
-    #
-    #             # 3) Input
-    #             df_input = pd.DataFrame()
-    #             if exp_name in solver_info.get('tv_input_m', {}):
-    #                 input_vars = solver_info['tv_input_m'][exp_name]
-    #                 # If we have model time, align inputs with model time
-    #                 if not df_model.empty and 'SIM_t_model' in df_model.columns:
-    #                     t_mod = df_model['SIM_t_model'].values
-    #                     df_input['INP_t_model'] = t_mod
-    #                     for iname, ivals in input_vars.items():
-    #                         if 't_input' in sheet_data:
-    #                             t_in = np.array(sheet_data['t_input'], dtype=float)
-    #                         else:
-    #                             t_in = np.linspace(t_mod[0], t_mod[-1], len(ivals))
-    #                         ivals_arr = np.array(ivals, dtype=float)
-    #                         f_int = interp1d(t_in, ivals_arr, kind='linear',
-    #                                          bounds_error=False, fill_value='extrapolate')
-    #                         df_input[f"INP_{iname}"] = f_int(t_mod)
-    #                 else:
-    #                     # Just store them raw if there's no model time
-    #                     for iname, ivals in input_vars.items():
-    #                         df_input[f"INP_{iname}"] = ivals
-    #
-    #             # Concatenate all data horizontally
-    #             df_combined = pd.concat([df_exp, df_model, df_input], axis=1)
-    #             combined_dataframes[exp_name] = df_combined
-    #
-    #         # Write each experiment's DataFrame to a separate sheet
-    #         with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
-    #             for exp_name, cdf in combined_dataframes.items():
-    #                 cdf.to_excel(writer, sheet_name=exp_name, index=False)
-    #
-    #         logger.info(f"Reporter wrote data for {round_label} to '{excel_filename}'.")
-
     def reporter(self, filename):
         """
         Write an Excel file for each round and a summary text file for the last round.
@@ -1468,7 +1318,6 @@ class Plotting_FinalResults:
                         summary_file.write("Parameter Ranking: N/A\n")
 
             logger.info(f"Summary written to '{summary_filename}'.")
-
 
     def pcomp_plot(self, save_path):
         """

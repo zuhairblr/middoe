@@ -14,8 +14,42 @@ def uncert(data, resultpr, system, models, iden_opt, case=None):
     """
     Perform uncertainty analysis on the optimization results.
 
-    If iden_opt['varcov']=='B', will use the bootstrap variance–covariance
-    stored in resultpr[solver]['varcov'].
+    This function evaluates the uncertainty in the optimization results by analyzing
+    the variance-covariance structure of the estimated parameters. It supports multiple
+    methods for sensitivity analysis and variance-covariance computation.
+
+    Parameters
+    ----------
+    data : dict
+        Experimental data used for the analysis.
+    resultpr : dict
+        Dictionary containing the optimization results for each solver.
+    system : dict
+        System configuration, including variable definitions and constraints.
+    models : dict
+        Model definitions and settings, including mutation masks and parameter bounds.
+    iden_opt : dict
+        Identification options, including sensitivity method and variance-covariance type.
+        - 'sens_m': str, optional
+            Sensitivity method ('central' or 'forward'). Default is 'central'.
+        - 'varcov': str, optional
+            Variance-covariance type ('M', 'H', or 'B'). Default is 'H'.
+    case : str, optional
+        Specifies the analysis case. Default is None.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the uncertainty analysis results, including:
+        - 'results': dict
+            Detailed results for each solver.
+        - 'obs': Any
+            Observed values from the analysis.
+
+    Notes
+    -----
+    If `iden_opt['varcov'] == 'B'`, the function uses the bootstrap variance-covariance
+    matrix stored in `resultpr[solver]['varcov']`.
     """
     # Sensitivity method and varcov selection
     sens_method = iden_opt.get('sens_m', 'central')
