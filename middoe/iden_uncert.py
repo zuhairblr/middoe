@@ -178,6 +178,18 @@ def uncert(data, resultpr, system, models, iden_opt, case=None):
 
             models['theta'][sv]    = scaled_params[sv]
             models['V_matrix'][sv] = resultun[sv]['V_matrix']
+            # Initialize 'LSA' as a dict if it does not exist; otherwise keep existing
+            if 'LSA' not in models or not isinstance(models['LSA'], dict):
+                models['LSA'] = {}
+
+            # Update (or add) the LSA values for each solver key
+            for sv in models['can_m']:
+                models['theta'][sv] = scaled_params.get(sv)
+                models['V_matrix'][sv] = resultun.get(sv, {}).get('V_matrix')
+
+                lsa_value = resultun.get(sv, {}).get('LSA')
+                if lsa_value is not None:
+                    models['LSA'][sv] = lsa_value
 
     return {'results': resultun2, 'obs': observed_values}
 
@@ -432,7 +444,7 @@ def _uncert_metrics(
     # t_values = (theta_full[active_idx] * thetac_arr[active_idx]) / CI
     with np.errstate(divide='ignore', invalid='ignore'):
         numer = theta_full[active_idx] * thetac_arr[active_idx]
-        t_values = np.where(CI != 0, numer / CI, np.inf)
+        t_values = np.where(CI != 0, numer / np.sqrt(np.diag(V))[active_idx], np.inf)
 
     # Z-scores (normalized sensitivities)
     resp_sigs = np.concatenate([np.array([s for _, _, s in var_measurements[v]]) for v in Q_accum])
