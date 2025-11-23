@@ -953,13 +953,14 @@ def _count_observations(data, system):
 # ============================================================
 
 def parmest(system, models, iden_opt, case=None):
-    """
+    r"""
     Perform parameter estimation for dynamic models using experimental data.
 
     This is the main entry point for parameter estimation. It supports single-start
-    and multi-start optimization, multiple objective functions (LS, WLS, MLE, Chi-squared),
-    various optimization algorithms (SLSQP, L-BFGS-B, Nelder-Mead, Differential Evolution),
-    and bootstrap-based uncertainty quantification with truncated normal approximation.
+    and multi-start optimization, multiple objective functions (LS, WLS, MLE, CS),
+    various optimization algorithms, and uncertainty quantification methods including
+    Hessian-based, Jacobian-based, and bootstrap resampling with truncated normal
+    approximation.
 
     Parameters
     ----------
@@ -967,6 +968,8 @@ def parmest(system, models, iden_opt, case=None):
         System configuration including:
             - 't_s' : tuple[float, float]
                 Start and end times.
+            - 't_d' : tuple[float, float]
+                Restricted initial/final intervals (dead time).
             - 't_r' : float
                 Time resolution.
             - 'tvi' : dict
@@ -979,6 +982,7 @@ def parmest(system, models, iden_opt, case=None):
                     * 'unc': float — measurement standard deviation
             - 'tio' : dict
                 Time-invariant output definitions.
+
     models : dict
         Model definitions and parameter bounds:
             - 'can_m' : list[str]
@@ -993,28 +997,30 @@ def parmest(system, models, iden_opt, case=None):
                 Parameter masks (True=free, False=fixed).
             - 'thetastart' : dict[str, list[float]], optional
                 Starting parameter values (used when case='strov').
+
     iden_opt : dict
         Identification options:
             - 'meth' : str
-                Optimization method:
+                Optimization method (from paper Table S3):
                     * 'SLSQP': Sequential Least Squares Programming
-                    * 'LBFGSB': Limited-memory BFGS with bounds
-                    * 'SQP': Trust-region SQP
-                    * 'NM': Nelder-Mead simplex
+                    * 'LMBFGS': L-M BFGS (Limited-memory BFGS for large parameter spaces)
+                    * 'TC': Trust-region method
+                    * 'NMS': Nelder-Mead simplex
                     * 'BFGS': BFGS quasi-Newton
                     * 'DE': Differential Evolution (global)
             - 'ob' : str
-                Objective function:
-                    * 'LS': Least Squares
-                    * 'WLS': Weighted Least Squares
-                    * 'MLE': Maximum Likelihood (relative errors)
-                    * 'Chi': Chi-squared (normalized residuals)
+                Objective function (from paper Table S2):
+                    * 'LS': Least Squares (deterministic models, no error information)
+                    * 'WLS': Weighted Least Squares (heteroscedastic errors)
+                    * 'MLE': Maximum Likelihood Estimation (incorporates uncertainty)
+                    * 'CS': Chi-Square (normalized residuals)
             - 'ms' : bool, optional
                 Enable multi-start optimization (default: False).
             - 'var-cov' : str, optional
-                Covariance estimation method:
-                    * 'H': Hessian-based (default)
-                    * 'B': Bootstrap resampling
+                Covariance estimation method (from paper Table S3):
+                    * 'H': Hessian-based (local, from optimizer)
+                    * 'J': Jacobian-based (local, from sensitivity matrix)
+                    * 'B': Bootstrap resampling (global, computationally expensive)
             - 'nboot' : int, optional
                 Number of bootstrap replicates (default: 100).
             - 'log' : bool, optional
@@ -1023,6 +1029,7 @@ def parmest(system, models, iden_opt, case=None):
                 Maximum optimization iterations (default: 1000).
             - 'tol' : float, optional
                 Convergence tolerance (default: 1e-6).
+
     case : str, optional
         Estimation mode:
             - None: Standard estimation with all parameters active.
@@ -1047,7 +1054,7 @@ def parmest(system, models, iden_opt, case=None):
             - 'hess_inv' : np.ndarray, optional
                 Inverse Hessian / covariance matrix (if var-cov='H').
             - 'v' : np.ndarray, optional
-                Bootstrap covariance matrix (if var-cov='B').
+                Covariance matrix (if var-cov='B' or 'J').
             - 'X' : np.ndarray, optional
                 Bootstrap parameter samples (if var-cov='B').
             - 'samples' : list, optional
@@ -1070,19 +1077,37 @@ def parmest(system, models, iden_opt, case=None):
     guesses sampled uniformly within bounds. The best result (lowest objective) is returned.
     Default number of starts: 70% of CPU cores.
 
-    **Bootstrap Uncertainty Quantification**:
-    When var-cov='B':
-        1. Perform reference estimation on full dataset.
-        2. Generate bootstrap replicates by resampling residuals with replacement.
-        3. Re-estimate parameters for each replicate.
-        4. Compute covariance using truncated normal approximation (accounts for bounds).
-        5. Return both raw and truncated-normal statistics.
+    **Uncertainty Quantification Methods**:
 
-    **Objective Functions**:
+    - **Hessian-based (H)**: Local uncertainty from optimizer's Hessian matrix at optimum.
+      Fast but assumes local linearity and may be inaccurate for ill-conditioned problems.
+
+    - **Jacobian-based (J)**: Local uncertainty from sensitivity matrix (Fisher Information).
+      More robust than Hessian for parameter-sensitive models.
+
+    - **Bootstrap (B)**: Global uncertainty via residual resampling with replacement.
+      Most robust but computationally expensive. Uses truncated normal approximation
+      to account for parameter bounds.
+
+    **Bootstrap Procedure**:
+        1. Perform reference estimation on full dataset
+        2. Generate bootstrap replicates by resampling residuals
+        3. Re-estimate parameters for each replicate
+        4. Compute covariance using truncated normal approximation
+        5. Return both raw and truncated-normal statistics
+
+    **Objective Functions** (from paper Table S2):
         - **LS**: \( \sum_i (y_i - \hat{y}_i)^2 / N \)
+          Suitable for deterministic models with no error information.
+
         - **WLS**: \( \sum_i [(y_i - \hat{y}_i) / \sigma_i]^2 / N \)
+          Accounts for heteroscedastic measurement errors.
+
         - **MLE**: \( \sum_i [\log(2\pi\sigma_i^2) + (y_i - \hat{y}_i)^2 / \sigma_i^2] / (2N) \)
-        - **Chi**: \( \sum_i [(y_i - \hat{y}_i) / y_i]^2 / N \) (relative errors)
+          Full probabilistic framework incorporating measurement uncertainty.
+
+        - **CS**: \( \sum_i [(y_i - \hat{y}_i) / y_i]^2 / N \)
+          Normalized residuals for relative error minimization.
 
     **Fixed Parameters**:
     Parameters with mutation[i]=False are held constant during optimization. Their
@@ -1090,23 +1115,27 @@ def parmest(system, models, iden_opt, case=None):
 
     **Experimental Data Format**:
     Data is loaded via read_excel() and should contain columns:
-        - 'X:all': All simulation time points.
-        - '{var}t', '{var}l': Switching times and levels for time-variant inputs.
-        - '{var}': Time-invariant input values.
-        - 'MES_X:{var}', 'MES_Y:{var}': Measurement times and values.
-        - 'MES_E:{var}': Measurement uncertainties (optional, defaults to unc in system).
+        - 'X:all': All simulation time points
+        - '{var}t', '{var}l': Switching times and levels for time-variant inputs
+        - '{var}': Time-invariant input values
+        - 'MES_X:{var}', 'MES_Y:{var}': Measurement times and values
+        - 'MES_E:{var}': Measurement uncertainties (optional, defaults to unc in system)
 
     References
     ----------
-    .. [1] Bard, Y. (1974).
-       *Nonlinear Parameter Estimation*. Academic Press.
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+       See Supplementary Material Tables S2 and S3 for details.
 
-    .. [2] Efron, B., & Tibshirani, R. J. (1993).
-       *An Introduction to the Bootstrap*. Chapman & Hall/CRC.
+    .. [2] Bard, Y. (1974).
+       *Nonlinear Parameter Estimation*. Academic Press, New York.
+       Referenced for MLE formulation and R² calculation.
 
     .. [3] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
+       https://doi.org/10.1016/j.ces.2008.07.006
 
     See Also
     --------
@@ -1114,24 +1143,38 @@ def parmest(system, models, iden_opt, case=None):
     _multi_start_runner : Multi-start parallelization.
     _bootstrap_runner : Bootstrap uncertainty quantification.
     _objective : Objective function computation.
+    uncert : Post-estimation uncertainty and sensitivity analysis.
 
     Examples
     --------
-    >>> # Basic single-start estimation
-    >>> results = parmest(system, models, iden_opt={'meth': 'SLSQP', 'ob': 'WLS'})
-    >>> print(results['M1'].scpr)  # Optimized parameters
+    >>> # Basic single-start estimation with WLS
+    >>> iden_opt = {'meth': 'SLSQP', 'ob': 'WLS'}
+    >>> results = parmest(system, models, iden_opt)
+    >>> print(f"Optimized parameters: {results['M1'].scpr}")
+    >>> print(f"Final objective: {results['M1'].fun:.6f}")
 
-    >>> # Multi-start with bootstrap uncertainty
+    >>> # Multi-start with Jacobian-based uncertainty
     >>> iden_opt = {
     ...     'meth': 'DE',
     ...     'ob': 'MLE',
     ...     'ms': True,
-    ...     'var-cov': 'B',
-    ...     'nboot': 200
+    ...     'var-cov': 'J'
     ... }
     >>> results = parmest(system, models, iden_opt)
-    >>> print(results['M1'].v)  # Bootstrap covariance matrix
+    >>> print(f"Parameter covariance: {results['M1'].v}")
+
+    >>> # Bootstrap uncertainty quantification
+    >>> iden_opt = {
+    ...     'meth': 'LMBFGS',
+    ...     'ob': 'WLS',
+    ...     'var-cov': 'B',
+    ...     'nboot': 500
+    ... }
+    >>> results = parmest(system, models, iden_opt)
+    >>> print(f"Bootstrap covariance: {results['M1'].v}")
+    >>> print(f"Bootstrap samples shape: {results['M1'].X.shape}")
     """
+
     data = read_excel()
     if case != 'freeze' and 'mutation' in models:
         for solver in models['mutation']:
@@ -1202,7 +1245,7 @@ def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
     thetas : list[bool]
         Mutation mask (True=free, False=fixed).
     objf : str
-        Objective function ('LS', 'WLS', 'MLE', 'Chi').
+        Objective function ('LS', 'WLS', 'MLE', 'CS').
     method : str
         Optimization method ('SLSQP', 'LBFGSB', etc.).
     data : dict
@@ -1963,15 +2006,15 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
     mutation : dict[str, list[bool]]
         Parameter masks (True=free to optimize, False=fixed).
     objf : str
-        Objective function: 'LS', 'WLS', 'MLE', or 'Chi'.
+        Objective function: 'LS', 'WLS', 'MLE', or 'CS'.
     x0_dict : dict[str, list[float]]
         Normalized starting points (typically [1.0, 1.0, ...] or perturbed values).
     method : str
         Optimization method:
             - 'SLSQP': Sequential Least Squares Programming.
-            - 'LBFGSB': Limited-memory BFGS with bounds.
-            - 'SQP': Trust-region Sequential Quadratic Programming.
-            - 'NM': Nelder-Mead simplex (derivative-free).
+            - 'LMBFGS': L-M BFGS (Limited-memory BFGS for large parameter spaces).
+            - 'TC': Trust-region method.
+            - 'NMS': Nelder-Mead simplex (derivative-free).
             - 'BFGS': Broyden-Fletcher-Goldfarb-Shanno.
             - 'DE': Differential Evolution (global, stochastic).
     data : dict
@@ -2085,15 +2128,15 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
                 res = minimize(_objective_function, x0, args=args, method='SLSQP',
                                bounds=bounds,
                                options={'maxiter': maxit, 'ftol': tol, 'disp': False})
-            elif method == 'LBFGSB':
+            elif method == 'LMBFGS':
                 res = minimize(_objective_function, x0, args=args, method='L-BFGS-B',
                                bounds=bounds,
                                options={'maxiter': maxit, 'ftol': tol, 'disp': False})
-            elif method == 'SQP':
+            elif method == 'TC':
                 res = minimize(_objective_function, x0, args=args, method='trust-constr',
                                bounds=bounds,
                                options={'maxiter': maxit, 'xtol': tol, 'gtol': 1e-2})
-            elif method == 'NM':
+            elif method == 'NMS':
                 res = minimize(_objective_function, x0, args=args, method='Nelder-Mead',
                                options={'maxiter': maxit, 'fatol': tol, 'disp': False})
             elif method == 'BFGS':

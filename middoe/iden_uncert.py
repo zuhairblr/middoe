@@ -604,7 +604,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     This function evaluates parameter uncertainties using variance-covariance matrices,
     computes confidence intervals, performs sensitivity analysis via finite-difference
     methods, and assesses model quality through multiple statistical metrics (R², MSE,
-    likelihood). It supports Hessian-based, bootstrap, and measurement-error-based
+    likelihood). It supports Hessian-based, Jacobian-based, and bootstrap-based
     covariance estimation.
 
     Parameters
@@ -614,11 +614,12 @@ def uncert(resultpr, system, models, iden_opt, case=None):
             - 'scpr' : np.ndarray
                 Optimized parameters.
             - 'hess_inv' : np.ndarray, optional
-                Inverse Hessian (for varcov='H').
+                Inverse Hessian (for var-cov='H').
             - 'v' : np.ndarray, optional
-                Bootstrap covariance matrix (for varcov='B').
+                Bootstrap covariance matrix (for var-cov='B').
             - 'fun' : float
                 Final objective function value.
+
     system : dict
         System configuration including:
             - 'tvi' : dict
@@ -631,6 +632,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
                     * 'unc' : float — measurement standard deviation
             - 'tio' : dict
                 Time-invariant output definitions.
+
     models : dict
         Model definitions:
             - 'can_m' : list[str]
@@ -643,20 +645,30 @@ def uncert(resultpr, system, models, iden_opt, case=None):
                 Covariance matrices (updated in-place if case=None).
             - 'LSA' : dict[str, np.ndarray]
                 Local sensitivity analysis matrices (updated in-place if case=None).
+
     iden_opt : dict
         Identification options:
             - 'sens_m' : str, optional
-                Sensitivity method: 'central' or 'forward' (default: 'central').
+                Sensitivity method (from paper Table S3):
+                    * 'central': Central finite difference (second-order accuracy,
+                                 requires 2 evaluations per parameter)
+                    * 'forward': Forward finite difference (first-order accuracy,
+                                 requires 1 evaluation per parameter)
+                Default: 'central'.
+
             - 'var-cov' : str, optional
-                Covariance method:
-                    * 'M': Measurement-error-based (default for this function)
-                    * 'H': Hessian-based (from optimization)
-                    * 'B': Bootstrap-based (from parmest with var-cov='B')
+                Covariance method (from paper Table S3):
+                    * 'H': Hessian-based (from optimizer, local approximation)
+                    * 'J': Jacobian-based (from sensitivity matrix, local approximation)
+                    * 'B': Bootstrap-based (global, requires var-cov='B' in parmest)
+                Default: 'J' if not specified.
+
             - 'eps' : float or dict[str, float], optional
                 Finite-difference step size. If None, automatically determined via
                 mesh-independency test for each model.
             - 'log' : bool, optional
                 Enable verbose logging (default: False).
+
     case : str, optional
         Analysis mode:
             - None: Update models dictionary in-place with results.
@@ -680,7 +692,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
                         Maximum Likelihood Estimation objective.
                     * 'MSE' : float
                         Mean Squared Error.
-                    * 'Chi' : float
+                    * 'CS' : float
                         Chi-squared statistic.
                     * 'LSA' : np.ndarray, shape (n_observations, n_active_params)
                         Local Sensitivity Analysis matrix (Jacobian).
@@ -724,18 +736,30 @@ def uncert(resultpr, system, models, iden_opt, case=None):
         - **Forward**: \( \frac{\partial y}{\partial \theta_i} \approx \frac{y(\theta + h e_i) - y(\theta)}{h} \)
         - **Central**: \( \frac{\partial y}{\partial \theta_i} \approx \frac{y(\theta + h e_i) - y(\theta - h e_i)}{2h} \)
 
-    Central differences are more accurate but require twice as many simulations.
+    Central differences are more accurate (second-order) but require twice as many simulations.
 
-    **Variance-Covariance Estimation**:
-        - **'M'**: Assumes heteroscedastic measurement errors. Constructs Fisher Information
-          Matrix as \( M = (Q^T W Q) \), where \( Q \) is the sensitivity matrix and
-          \( W = \text{diag}(1/\sigma_i^2) \). Covariance: \( V = M^{-1} \).
+    **Variance-Covariance Estimation Methods** (from paper Table S3):
 
-        - **'H'**: Uses inverse Hessian from optimization: \( V = \sigma^2 H^{-1} \),
+        - **'H' (Hessian-based)**: Local uncertainty from optimizer's Hessian matrix.
+          \[
+          \mathbf{V} = \sigma^2 \mathbf{H}^{-1}
+          \]
           where \( \sigma^2 \) is estimated from residual variance.
+          Advantages: Fast, automatic from optimizer
+          Disadvantages: Assumes local linearity, may be inaccurate for ill-conditioned problems
 
-        - **'B'**: Uses bootstrap covariance from parmest (requires running parmest
-          with var-cov='B'). Accounts for parameter bounds via truncated normal correction.
+        - **'J' (Jacobian-based)**: Local uncertainty from Fisher Information Matrix.
+          \[
+          \mathbf{M} = \mathbf{Q}^T \mathbf{W} \mathbf{Q}, \quad \mathbf{V} = \mathbf{M}^{-1}
+          \]
+          where \( \mathbf{Q} \) is the sensitivity matrix and \( \mathbf{W} = \text{diag}(1/\sigma_i^2) \).
+          Advantages: More robust than Hessian for parameter-sensitive models
+          Disadvantages: Requires explicit sensitivity computation
+
+        - **'B' (Bootstrap)**: Global uncertainty via residual resampling.
+          Accounts for parameter bounds via truncated normal correction.
+          Advantages: Most robust, accounts for non-linearity
+          Disadvantages: Computationally expensive, requires running parmest with var-cov='B'
 
     **Confidence Intervals**:
     95% confidence intervals are computed using t-distribution:
@@ -749,33 +773,34 @@ def uncert(resultpr, system, models, iden_opt, case=None):
         \[
         t_i = \frac{\theta_i}{\sqrt{V_{ii}}}
         \]
-    Large \( |t_i| \) (typically > 2) indicates the parameter is significantly different from zero.
+    Large \( |t_i| \) (typically > 1.96 for 95% confidence) indicates the parameter
+    is significantly different from zero.
 
-    **Z-Scores (Normalized Sensitivities)**:
+    **Normalized Sensitivities (Z-scores)**:
     Sensitivities are normalized by parameter uncertainties and measurement errors:
         \[
         Z_{ij} = \frac{\partial y_i}{\partial \theta_j} \cdot \frac{\sqrt{V_{jj}}}{\sigma_i}
         \]
     This quantifies the relative influence of parameter \( j \) on observable \( i \).
 
-    **Model Weights**:
-    When multiple models are analyzed, relative probabilities are computed:
+    **Model Weights (P-test)**:
+    When multiple models are analyzed, relative probabilities are computed via P-test:
         \[
-        P_k = \frac{1/\chi_k^2}{\sum_m 1/\chi_m^2} \times 100\%
+        P_k = \frac{\exp(-\chi_k^2 / 2)}{\sum_m \exp(-\chi_m^2 / 2)} \times 100\%
         \]
-    This provides a simple model comparison metric (lower Chi-squared → higher weight).
+    This provides model comparison based on goodness-of-fit (higher probability → better model).
 
     **Mesh-Independency Test**:
     If epsilon is not provided, it is automatically determined by varying \( h \) over
-    \( [10^{-12}, 10^{-1}] \) and selecting the value that minimizes eigenvalue variance
-    of the covariance matrix. Results are saved in './meshindep_plots/'.
+    \( [10^{-12}, 10^{-1}] \) and selecting the value that minimizes sensitivity matrix
+    variance. Results are saved in './meshindep_plots/'.
 
     **Ill-Conditioning Diagnostics**:
     The function automatically logs conditioning metrics:
-        - Rank of sensitivity matrix \( Q \)
-        - Condition numbers of \( Q \) and \( M \)
-        - Minimum eigenvalue of \( M \)
-        - Warnings if system is ill-conditioned (cond > \( 10^8 \))
+        - Rank of sensitivity matrix \( \mathbf{Q} \)
+        - Condition numbers of \( \mathbf{Q} \) and \( \mathbf{M} \)
+        - Minimum eigenvalue of \( \mathbf{M} \)
+        - Warnings if system is ill-conditioned (condition number > \( 10^8 \))
 
     **In-Place Updates** (case=None):
     When case=None, the function updates models dictionary:
@@ -786,15 +811,18 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     References
     ----------
-    .. [1] Bard, Y. (1974).
-       *Nonlinear Parameter Estimation*. Academic Press.
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+       See Supplementary Material Table S3 for uncertainty methods.
 
-    .. [2] Franceschini, G., & Macchietto, S. (2008).
+    .. [2] Bard, Y. (1974).
+       *Nonlinear Parameter Estimation*. Academic Press, New York.
+
+    .. [3] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
-
-    .. [3] Beck, J. V., & Arnold, K. J. (1977).
-       *Parameter Estimation in Engineering and Science*. Wiley.
+       https://doi.org/10.1016/j.ces.2008.07.006
 
     See Also
     --------
@@ -807,21 +835,28 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     >>> # After parameter estimation
     >>> results_pe = parmest(system, models, iden_opt={'meth': 'SLSQP', 'ob': 'WLS'})
     >>>
-    >>> # Uncertainty analysis with Hessian-based covariance
-    >>> iden_opt_ua = {'sens_m': 'central', 'var-cov': 'H', 'log': True}
+    >>> # Uncertainty analysis with Jacobian-based covariance (recommended)
+    >>> iden_opt_ua = {'sens_m': 'central', 'var-cov': 'J', 'log': True}
     >>> uncert_results = uncert(results_pe, system, models, iden_opt_ua)
     >>>
     >>> # Access results
     >>> for model in uncert_results['results']:
+    ...     res = uncert_results['results'][model]
     ...     print(f"Model {model}:")
-    ...     print(f"  R² = {uncert_results['results'][model]['R2_total']:.3f}")
-    ...     print(f"  CI = {uncert_results['results'][model]['CI']}")
-    ...     print(f"  t-values = {uncert_results['results'][model]['t_values']}")
+    ...     print(f"  R² = {res['R2_total']:.4f}")
+    ...     print(f"  Parameters: {res['estimations']}")
+    ...     print(f"  CI (95%): {res['CI']}")
+    ...     print(f"  t-values: {res['t_values']}")
+    ...     print(f"  Significant (|t|>1.96): {np.abs(res['t_values']) > 1.96}")
 
-    >>> # Bootstrap-based uncertainty (requires bootstrap estimation first)
-    >>> results_boot = parmest(system, models, iden_opt={'meth': 'SLSQP', 'ob': 'WLS', 'var-cov': 'B', 'nboot': 200})
+    >>> # Bootstrap-based uncertainty (requires bootstrap in parmest)
+    >>> results_boot = parmest(system, models,
+    ...                       iden_opt={'meth': 'SLSQP', 'ob': 'WLS',
+    ...                                 'var-cov': 'B', 'nboot': 500})
     >>> uncert_boot = uncert(results_boot, system, models, {'var-cov': 'B'})
+    >>> print(f"Bootstrap covariance:\n{uncert_boot['results']['M1']['V_matrix']}")
     """
+
     # Sensitivity method and varcov selection
     data = read_excel()
     sens_method = iden_opt.get('sens_m', 'central')

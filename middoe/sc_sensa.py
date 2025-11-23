@@ -730,13 +730,23 @@ def sensa(gsa, models, system):
 
     References
     ----------
-    .. [1] Sobol', I. M. (2001).
-       Global sensitivity indices for nonlinear mathematical models.
-       *Mathematics and Computers in Simulation*, 55(1-3), 271-280.
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+       See Supplementary Material Section S1 for Sobol' methodology.
 
-    .. [2] Saltelli, A., et al. (2010).
-       Variance based sensitivity analysis of model output.
-       *Computer Physics Communications*, 181(2), 259-270.
+    .. [2] Jansen, M.J.W. (1999).
+       Analysis of variance designs for model output.
+       *Computer Physics Communications*, 117(1-3), 35–43.
+       https://doi.org/10.1016/S0010-4655(98)00154-4
+       Referenced for Jansen's estimator (equations S3-S4).
+
+    .. [3] Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., & Tarantola, S. (2010).
+       Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index.
+       *Computer Physics Communications*, 181(2), 259–270.
+       https://doi.org/10.1016/j.cpc.2009.09.018
+       Referenced for Saltelli-type quasi-Monte Carlo sampling.
+
 
     See Also
     --------

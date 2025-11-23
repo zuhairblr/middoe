@@ -712,12 +712,22 @@ def mbdoe_md(
     ----------
     des_opt : dict
         Optimisation settings, including:
-            - 'md_ob' : str
-                Discrimination criterion ('HR' for Hunter–Reiner, 'BFF' for Bayesian).
+            - 'mdob' : str
+                Discrimination criterion:
+                    * 'HR': Hunter-Reiner T-optimality
+                        Maximises sum of squared differences between model predictions
+                        across all time points and measured outputs. Suitable for
+                        discriminating models with significant structural differences.
+
+                    * 'BFF': Buzzi-Ferraris-Forzatti T-optimality
+                        Alternative T-optimality criterion with different weighting
+                        scheme for model divergence computation. Accounts for signal
+                        magnitude in discrimination objective.
+
             - 'itr' : dict
                 Iteration controls:
                     * 'maxmd': int — maximum iterations
-                    * 'tolmd': float — convergence tolerance
+                    * 'toldmd': float — convergence tolerance
                     * 'pps': int — population size
             - 'eps' : float
                 Perturbation step size for numerical derivatives.
@@ -730,6 +740,8 @@ def mbdoe_md(
         System model and constraints:
             - 't_s' : tuple[float, float]
                 Start and end times (ti, tf).
+            - 't_d' : tuple[float, float]
+                Restricted initial/final intervals (dead time).
             - 't_r' : float
                 Time resolution for simulation.
             - 'tvi' : dict
@@ -739,7 +751,8 @@ def mbdoe_md(
                     * 'const': str — constraint type ('inc', 'dec', 'rel')
                     * 'offt': float — minimum time offset between switches
                     * 'offl': float — minimum level offset
-                    * 'cvp': bool — control variable parameterisation flag
+                    * 'cvp': str — control variable profile ('CPF' piecewise-constant,
+                                   'LPF' piecewise-linear)
             - 'tii' : dict
                 Time-invariant input definitions ('max', 'min').
             - 'tvo' : dict
@@ -749,7 +762,7 @@ def mbdoe_md(
                     * 'offt': float — minimum time between samples
                     * 'samp_s': str — sampling synchronisation group
                     * 'samp_f': list[float] — forced sampling times
-                    * 'unc': float — measurement uncertainty (for BFF criterion)
+                    * 'unc': float — measurement uncertainty (standard deviation)
             - 'tio' : dict
                 Time-invariant output definitions.
 
@@ -762,7 +775,7 @@ def mbdoe_md(
             - 'mutation' : dict[str, list[bool]]
                 Parameter masks indicating which parameters are free (True) vs fixed (False).
             - 'V_matrix' : dict[str, np.ndarray], optional
-                Parameter covariance matrices (default: diagonal with 1e-50).
+                Parameter covariance matrices (default: diagonal with small values).
 
     round : int
         Current experimental design round (used for logging/reporting).
@@ -795,29 +808,41 @@ def mbdoe_md(
     Notes
     -----
     MBDoE-MD aims to design experiments that enhance the ability to reject
-    incorrect models by maximising discrimination criteria:
+    incorrect models by maximising discrimination criteria based on T-optimality.
 
-    - **HR (Hunter–Reiner)**: Maximises sum of squared differences between model predictions.
-    - **BFF (Bayesian-Frequentist Fusion)**: Accounts for parameter uncertainty via sensitivity matrices.
+    The discrimination objective maximises the divergence between competing model
+    predictions, enabling statistical tests (P-test, t-test) to identify the most
+    representative model.
+
+    **Workflow for Model Discrimination:**
+    1. Calibrate all candidate models on available data
+    2. Design discriminative experiment using MBDoE-MD (HR or BFF criterion)
+    3. Conduct designed experiment
+    4. Re-calibrate models with new data
+    5. Compute model probabilities via P-test
+    6. Select model with highest posterior probability
+    7. Validate selected model
 
     Supported constraints include:
-        - Control level bounds and switching rules (monotonic increase/decrease)
-        - Minimum sampling intervals
-        - Total/maximum samples per output
+        - Control level bounds and switching rules (increasing, decreasing, relaxed)
+        - Minimum sampling intervals and total sample limits
         - Forced or forbidden sampling times
         - Synchronised sampling across outputs
+        - Piecewise-constant (CPF) or piecewise-linear (LPF) control profiles
 
     References
     ----------
-    .. [1] Chen, C., & Asprey, S. P. (2003).
-       On the design of optimally informative dynamic experiments for model discrimination
-       in multiresponse nonlinear situations.
-       *Industrial & Engineering Chemistry Research*, 42(6), 1379–1390.
-       https://doi.org/10.1021/ie020468o
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
 
-    .. [2] Buzzi-Ferraris, G., & Manenti, F. (2009).
-       Outlier detection in model calibration and improvement.
-       *Computers & Chemical Engineering*, 33(1), 59–64.
+    .. [2] Hunter, W.G., & Reiner, A.M. (1965).
+       Designs for discriminating between two rival models.
+       *Technometrics*, 7(3), 307–323.
+
+    .. [3] Buzzi-Ferraris, G., & Forzatti, P. (1983).
+       Sequential experimental design for model discrimination in the case of
+       multiple responses. *Chemical Engineering Science*, 38(2), 225–232.
 
     See Also
     --------
@@ -827,9 +852,65 @@ def mbdoe_md(
 
     Examples
     --------
-    >>> result = mbdoe_md(des_opt, system, models, round=1, num_parallel_runs=4)
-    >>> print("Best objective value:", result['md_obj'])
-    >>> print("Optimal sampling times:", result['St'])
+    >>> import numpy as np
+    >>> from middoe import des_md
+    >>>
+    >>> # Define system with 4 competing models
+    >>> system = {
+    ...     'tvo': {
+    ...         'X': {'init': 0.5, 'meas': True, 'unc': 0.05, 'sp': 17},
+    ...         'S': {'init': 15.0, 'meas': True, 'unc': 1.0, 'sp': 17},
+    ...         'P': {'init': 0.0, 'meas': True, 'unc': 0.05, 'sp': 17}
+    ...     },
+    ...     'tvi': {
+    ...         'T': {'min': 296.15, 'max': 306.15, 'stps': 5, 'cvp': 'CPF',
+    ...               'const': 'rel', 'offt': 2.0, 'offl': 0.5}
+    ...     },
+    ...     'tii': {
+    ...         'S0': {'min': 0.366, 'max': 0.65},
+    ...         'X0': {'min': 0.19, 'max': 0.595}
+    ...     },
+    ...     't_s': (0.0, 20.0),
+    ...     't_d': (1.0, 1.0)
+    ... }
+    >>>
+    >>> # Define 4 competing models (after calibration)
+    >>> models = {
+    ...     'can_m': ['M1', 'M2', 'M3', 'M4'],
+    ...     'krt': {'M1': 'fermentation_model_1', 'M2': 'fermentation_model_2',
+    ...             'M3': 'fermentation_model_3', 'M4': 'fermentation_model_4'},
+    ...     'theta': {
+    ...         'M1': [0.408, 0.22, 71.5, 0.28, 0.607, 0.1],
+    ...         'M2': [0.450, 0.20, 65.0, 0.30, 0.550, 0.12],
+    ...         'M3': [0.380, 0.24, 75.0, 0.26, 0.630, 0.09],
+    ...         'M4': [0.420, 0.21, 70.0, 0.29, 0.580, 0.11]
+    ...     },
+    ...     'mutation': {
+    ...         'M1': [True, True, True, False, False, False],
+    ...         'M2': [True, True, True, False, False, False],
+    ...         'M3': [True, True, True, False, False, False],
+    ...         'M4': [True, True, True, False, False, False]
+    ...     }
+    ... }
+    >>>
+    >>> # Configure MBDoE-MD with Hunter-Reiner criterion
+    >>> des_opt = {
+    ...     'mdob': 'HR',
+    ...     'meth': 'DEPS',
+    ...     'itr': {'maxmd': 5000, 'toldmd': 1e-8, 'pps': 50},
+    ...     'eps': 0.01,
+    ...     'plt': True
+    ... }
+    >>>
+    >>> # Run MBDoE-MD (parallel mode with 4 cores)
+    >>> design = des_md.mbdoe_md(des_opt, system, models, round=2, num_parallel_runs=4)
+    >>>
+    >>> # Access results
+    >>> print(f"Optimal temperature profile: {design['tvi']['T']}")
+    >>> print(f"Optimal initial substrate: {design['tii']['S0']:.4f} mol/L")
+    >>> print(f"Optimal initial biomass: {design['tii']['X0']:.4f} mol/L")
+    >>> print(f"Sampling times: {design['St']['X']}")
+    >>> print(f"HR discrimination value: {design['md_obj']:.4e}")
     """
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:

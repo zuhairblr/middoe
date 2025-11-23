@@ -769,16 +769,36 @@ def mbdoe_pp(
     ----------
     des_opt : dict
         Optimisation settings, including:
-            - 'pp_ob' : str
+            - 'ppob' : str
                 Precision criterion ('D', 'A', 'E', 'ME'):
-                    * 'D': D-optimality (maximise det(FIM))
-                    * 'A': A-optimality (maximise trace(FIM))
-                    * 'E': E-optimality (maximise min eigenvalue)
-                    * 'ME': Modified E-optimality (minimise condition number)
+                    * 'D': D-optimality
+                        Scale-invariant criterion that minimises the volume of the
+                        confidence ellipsoid by maximising det(FIM).
+                        Advantages: Strong overall precision
+                        Disadvantages: May excessively prioritise sensitive parameters
+
+                    * 'A': A-optimality
+                        Minimises the average parameter variance (trace of inverse FIM).
+                        Advantages: Balances overall precision
+                        Disadvantages: Not scale-invariant, ignores parameter correlations
+
+                    * 'E': E-optimality
+                        Maximises the minimum eigenvalue of FIM (minimises worst-case
+                        parameter variance).
+                        Advantages: Targets most uncertain parameter
+                        Disadvantages: May be overly conservative, sensitive to ill-conditioning
+
+                    * 'ME': ME-optimality (Modified E-optimality)
+                        Reduces the disparity between the most and least identifiable
+                        directions in parameter space. Promotes uniform precision
+                        distribution and avoids elongated confidence ellipsoids.
+                        Advantages: Enhanced robustness, uniform precision across parameters
+                        Disadvantages: Sensitive to ill-conditioning for poorly observable parameters
+
             - 'itr' : dict
                 Iteration controls:
                     * 'maxpp': int — maximum iterations
-                    * 'tolpp': float — convergence tolerance
+                    * 'toldpp': float — convergence tolerance
                     * 'pps': int — population size
             - 'eps' : float
                 Perturbation step size for numerical derivatives.
@@ -793,8 +813,8 @@ def mbdoe_pp(
         System model and constraints:
             - 't_s' : tuple[float, float]
                 Start and end times (ti, tf).
-            - 't_d' : float
-                Dead time / initial delay.
+            - 't_d' : tuple[float, float]
+                Restricted initial/final intervals (dead time).
             - 't_r' : float
                 Time resolution for simulation.
             - 'tvi' : dict
@@ -804,7 +824,8 @@ def mbdoe_pp(
                     * 'const': str — constraint type ('inc', 'dec', 'rel')
                     * 'offt': float — minimum time offset between switches
                     * 'offl': float — minimum level offset
-                    * 'cvp': bool — control variable parameterisation flag
+                    * 'cvp': str — control variable profile ('CPF' piecewise-constant,
+                                   'LPF' piecewise-linear)
             - 'tii' : dict
                 Time-invariant input definitions ('max', 'min').
             - 'tvo' : dict
@@ -862,19 +883,7 @@ def mbdoe_pp(
     Notes
     -----
     MBDoE-PP designs experiments that maximise information for parameter estimation,
-    using precision-based criteria:
-
-    - **D-optimality**: Maximises \( \det(\mathbf{M}) \), where \( \mathbf{M} \) is the
-      Fisher Information Matrix. Minimises the volume of confidence ellipsoid.
-
-    - **A-optimality**: Maximises \( \text{trace}(\mathbf{M}) \). Minimises average
-      parameter variance.
-
-    - **E-optimality**: Maximises \( \lambda_{\min}(\mathbf{M}) \). Minimises
-      worst-case parameter variance (most conservative).
-
-    - **ME-optimality**: Minimises \( \text{cond}(\mathbf{M}) \). Improves numerical
-      conditioning and reduces correlation.
+    using precision-based criteria derived from the Fisher Information Matrix.
 
     The Fisher Information Matrix is computed as:
 
@@ -886,26 +895,25 @@ def mbdoe_pp(
     measurement covariance, and \( \mathbf{V} \) is the prior parameter covariance.
 
     **Parameter Ranking**: If pre-computed LSA matrices are available, initial parameter
-    estimability ranking is computed and logged.
+    estimability ranking is computed and logged using orthogonalisation procedure.
 
     Supported constraints include:
-        - Control level bounds and switching rules
-        - Minimum sampling intervals
-        - Total/maximum samples per output
+        - Control level bounds and switching rules (increasing, decreasing, relaxed)
+        - Minimum sampling intervals and total sample limits
         - Forced or forbidden sampling times
         - Synchronised sampling across outputs
+        - Piecewise-constant (CPF) or piecewise-linear (LPF) control profiles
 
     References
     ----------
-    .. [1] Franceschini, G., & Macchietto, S. (2008).
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+
+    .. [2] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
        https://doi.org/10.1016/j.ces.2008.07.006
-
-    .. [2] Galvanin, F., Macchietto, S., & Bezzo, F. (2007).
-       Model-based design of parallel experiments.
-       *Industrial & Engineering Chemistry Research*, 46(3), 871–882.
-       https://doi.org/10.1021/ie0611406
 
     See Also
     --------
@@ -914,13 +922,59 @@ def mbdoe_pp(
     _optimiser : Core optimisation problem setup and solver.
     parameter_ranking : Compute parameter estimability ranking from LSA.
 
-    Examples
-    --------
-    >>> result = mbdoe_pp(des_opt, system, models, round=1, num_parallel_runs=4)
-    >>> print("Best objective value:", result['pp_obj'])
-    >>> print("Optimal sampling times:", result['St'])
-    >>> print("Parameter precision achieved")
+Examples
+--------
+>>> import numpy as np
+>>> from middoe import des_pp
+>>>
+>>> # Define system configuration
+>>> system = {
+...     'tvo': {
+...         'mu0': {'init': 1e15, 'meas': True, 'unc': 1e13, 'sp': 8},
+...         'mu1': {'init': 1e-4, 'meas': True, 'unc': 1e-6, 'sp': 8},
+...         'mu2': {'init': 1e-12, 'meas': True, 'unc': 1e-14, 'sp': 8}
+...     },
+...     'tvi': {
+...         'T': {'min': 278, 'max': 313, 'stps': 3, 'cvp': 'CPF',
+...               'const': 'rel', 'offt': 5.0, 'offl': 1.0}
+...     },
+...     'tii': {
+...         'C0': {'min': 0.15, 'max': 0.35}
+...     },
+...     't_s': (0.0, 180.0),
+...     't_d': (10.0, 10.0)
+... }
+>>>
+>>> # Define model with mutation mask
+>>> models = {
+...     'can_m': ['M1'],
+...     'krt': {'M1': 'crystallization_model'},
+...     'theta': {'M1': [0.42, 2.5e5, 1.2e11, 3e4, 5e3, 1.5]},
+...     't_l': {'M1': [0.1, 1e4, 1e10, 1e3, 1e2, 0.5]},
+...     't_u': {'M1': [1.0, 1e6, 1e12, 1e5, 1e4, 3.0]},
+...     'mutation': {'M1': [False, False, True, True, True, True]},
+...     'V_matrix': {'M1': np.diag([0.01, 0.01, 0.01, 0.01])}
+... }
+>>>
+>>> # Configure MBDoE-PP with D-optimality
+>>> des_opt = {
+...     'ppob': 'D',
+...     'meth': 'DEPS',
+...     'itr': {'maxpp': 5000, 'toldpp': 1e-8, 'pps': 40},
+...     'eps': 0.01,
+...     'plt': False
+... }
+>>>
+>>> # Run MBDoE-PP
+>>> design = des_pp.mbdoe_pp(des_opt, system, models, round=2)
+>>>
+>>> # Access results
+>>> print(f"Optimal initial concentration: {design['tii']['C0']:.4f} mol/L")
+>>> print(f"Optimal temperature profile: {design['tvi']['T']}")
+>>> print(f"Sampling times: {design['St']['mu0']}")
+>>> print(f"D-optimality value: {design['pp_obj']:.4e}")
     """
+
     # Assuming active solvers and mutation info available
     active_solvers = models['can_m']
     solver_name = active_solvers[0] if active_solvers else None

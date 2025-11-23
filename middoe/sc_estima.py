@@ -387,17 +387,23 @@ def estima(result, system, models, iden_opt, round):
 
     References
     ----------
-    .. [1] Brun, R., Reichert, P., & Künsch, H. R. (2001).
-       Practical identifiability analysis of large environmental simulation models.
-       *Water Resources Research*, 37(4), 1015-1030.
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+       See Supplementary Material Section S3 for orthogonalisation procedure and rCC.
 
-    .. [2] Transtrum, M. K., Machta, B. B., & Sethna, J. P. (2011).
-       Geometry of nonlinear least squares with applications to sloppy models and optimization.
-       *Physical Review E*, 83(3), 036701.
+    .. [2] Yao, K.Z., Shaw, B.M., Kou, B., McAuley, K.B., & Bacon, D.W. (2003).
+       Modeling ethylene/butene copolymerization with multi-site catalysts:
+       Parameter estimability and experimental design.
+       *Polymer Reaction Engineering*, 11(3), 563–588.
+       https://doi.org/10.1081/PRE-120024426
 
-    .. [3] Franceschini, G., & Macchietto, S. (2008).
-       Model-based design of experiments for parameter precision: State of the art.
-       *Chemical Engineering Science*, 63(19), 4846-4872.
+    .. [3] Wu, S., McLean, K.A.P., Harris, T.J., & McAuley, K.B. (2011).
+       Selection of optimal parameter set using estimability analysis and MSE-based
+       model-selection criterion.
+       *International Journal of Advanced Mechatronic Systems*, 3(3), 188.
+       https://doi.org/10.1504/IJAMECHS.2011.042615
+
 
     See Also
     --------

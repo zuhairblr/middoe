@@ -4,48 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="ready for release of paper 2">
-      <change afterPath="$PROJECT_DIR$/docs/source/api.rst" afterDir="false" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 1">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/des_md.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_md.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/des_pp.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_pp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/des_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/des_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_parmest.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_parmest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_uncert.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_uncert.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/iden_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/iden_valida.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/iden_valida.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_expera.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_expera.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/krnl_simula.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/krnl_simula.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/middoe/log_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/log_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/sc_estima.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_estima.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/middoe/sc_sensa.py" beforeDir="false" afterPath="$PROJECT_DIR$/middoe/sc_sensa.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/cop.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/data.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelTL3.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelsim.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelsim2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelsim2csh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modeltl2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modeltlpde.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelwithTl.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modelwithparmest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/modewithT.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/paper fig6.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/parmest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/parmest2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/parmestpde.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/plot6a.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/plot9.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/ionics/table.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/case study 2 - scenario 1/model.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/case study 2 - scenario 1/runner.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/case study 2 - scenario 2/model.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/case study 2 - scenario 2/runner.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/tst5/test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/paper/tst5/tst2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/semwet/gg.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/semwet/simul-Tcon.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/semwet/simul-Teff.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -391,7 +358,7 @@
       <workItem from="1763299825113" duration="62744000" />
       <workItem from="1763456940156" duration="40698000" />
       <workItem from="1763910044521" duration="1007000" />
-      <workItem from="1763911099853" duration="17690000" />
+      <workItem from="1763911099853" duration="19998000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -713,7 +680,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763024336348</updated>
     </task>
-    <option name="localTasksCounter" value="43" />
+    <task id="LOCAL-00043" summary="paper version 1">
+      <option name="closed" value="true" />
+      <created>1763930332182</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1763930332182</updated>
+    </task>
+    <task id="LOCAL-00044" summary="paper version 1">
+      <option name="closed" value="true" />
+      <created>1763930383967</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1763930383967</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -731,7 +714,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 7" />
     <MESSAGE value="final polishing 8" />
     <MESSAGE value="final polishing 9" />
     <MESSAGE value="final polishing 10" />
@@ -756,7 +738,8 @@
     <MESSAGE value="final polishing 29" />
     <MESSAGE value="ready for release of paper" />
     <MESSAGE value="ready for release of paper 2" />
-    <option name="LAST_COMMIT_MESSAGE" value="ready for release of paper 2" />
+    <MESSAGE value="paper version 1" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper version 1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

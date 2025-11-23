@@ -147,7 +147,7 @@ from middoe.log_utils import read_excel
 
 
 def validation(system, models, iden_opt, round_data):
-    """
+    r"""
     Perform leave-one-out cross-validation to assess parameter estimation generalization.
 
     This function implements k-fold cross-validation where k equals the number of experimental
@@ -168,6 +168,7 @@ def validation(system, models, iden_opt, round_data):
                 Time-variant output definitions with measurement flags.
             - 'tio' : dict
                 Time-invariant output definitions with measurement flags.
+
     models : dict
         Model definitions:
             - 'can_m' : list[str]
@@ -178,16 +179,20 @@ def validation(system, models, iden_opt, round_data):
                 Parameter activity masks (updated from round_data).
             - 't_u', 't_l' : dict
                 Parameter bounds.
+
     iden_opt : dict
         Identification options:
             - 'meth' : str
-                Optimization method ('SLSQP', 'DE', etc.).
+                Optimization method (from paper Table S3):
+                    * 'SLSQP', 'LMBFGS', 'TC', 'NMS', 'BFGS', 'DE'
             - 'ob' : str
-                Objective function ('LS', 'WLS', 'MLE', 'Chi').
+                Objective function (from paper Table S2):
+                    * 'LS', 'WLS', 'MLE', 'CS'
             - 'var-cov' : str
-                Covariance method (forced to 'M' for validation).
+                Covariance method (internally overridden to 'J' for validation).
             - 'log' : bool
                 Logging flag.
+
     round_data : dict
         Results from previous estimation rounds. Used to:
             - Extract final parameter activity masks from last round.
@@ -232,15 +237,17 @@ def validation(system, models, iden_opt, round_data):
         3. Generate validation plots (R² envelope, MSE envelope)
         4. Compute summary statistics
 
-    **Covariance Method Override**:
-    The function forces var-cov='M' (measurement-based) regardless of input setting.
-    This ensures consistent uncertainty quantification across folds without requiring
-    Hessian computation or bootstrap resampling.
+    **R² Calculation** (from paper, referenced to Bard 1974):
+        \[
+        R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}
+        \]
+    where \( y_i \) are observations, \( \hat{y}_i \) are predictions, and \( \bar{y} \)
+    is the mean of observations.
 
     **Interpretation**:
         - **R²_val ≈ R²_pred**: Model generalizes well (no overfitting)
         - **R²_val << R²_pred**: Overfitting (model memorizes training data)
-        - **Low R²_val std**: Consistent performance across folds
+        - **Low R²_val std**: Consistent performance across folds (robust model)
         - **High R²_val std**: Performance depends strongly on specific data selection
 
     **Output Plots**:
@@ -251,17 +258,29 @@ def validation(system, models, iden_opt, round_data):
     **Case Parameter**:
     'strov' (start from previous round optimal values) ensures parameter estimation
     starts from the best estimates obtained in previous rounds, improving convergence
-    and reducing computational cost.
+    and reducing computational cost for each fold.
+
+    **Best Practices**:
+        - Use LOOCV after completing sequential MBDoE rounds
+        - High validation R² (>0.95) indicates good model quality
+        - Small std deviation (<0.05) indicates robust parameter estimates
+        - Large difference between prediction and validation R² suggests need for more data
 
     References
     ----------
-    .. [1] Stone, M. (1974).
-       Cross-validatory choice and assessment of statistical predictions.
-       *Journal of the Royal Statistical Society*, 36(2), 111-147.
+    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+       MIDDoE: An MBDoE Python package for model identification, discrimination,
+       and calibration. *Computers & Chemical Engineering*.
+       See paper Section 2.7 for validation methodology.
 
-    .. [2] Kohavi, R. (1995).
-       A study of cross-validation and bootstrap for accuracy estimation and model selection.
-       *IJCAI*, 14(2), 1137-1145.
+    .. [2] Stone, M. (1974).
+       Cross-validatory choice and assessment of statistical predictions.
+       *Journal of the Royal Statistical Society: Series B (Methodological)*, 36(2), 111–147.
+       Referenced for LOOCV methodology.
+
+    .. [3] Bard, Y. (1974).
+       *Nonlinear Parameter Estimation*. Academic Press, New York.
+       Referenced for R² calculation.
 
     See Also
     --------
@@ -272,27 +291,49 @@ def validation(system, models, iden_opt, round_data):
 
     Examples
     --------
-    >>> # After completing estimation rounds
+    >>> import numpy as np
+    >>> from middoe import iden_valida
+    >>>
+    >>> # After completing 3 rounds of sequential MBDoE-PP
     >>> round_data = {
-    ...     'Round 1': {...},
-    ...     'Round 2': {...},
-    ...     'Round 3': {...}  # Final round
+    ...     'Round 1': {...},  # Preliminary experiments
+    ...     'Round 2': {...},  # First MBDoE-PP design
+    ...     'Round 3': {...}   # Second MBDoE-PP design (final)
     ... }
     >>>
-    >>> # Run cross-validation
-    >>> valid_results = validation(system, models, iden_opt, round_data)
+    >>> # Configure validation
+    >>> iden_opt = {
+    ...     'meth': 'SLSQP',
+    ...     'ob': 'WLS',
+    ...     'log': True
+    ... }
+    >>>
+    >>> # Run leave-one-out cross-validation
+    >>> valid_results = iden_valida.validation(system, models, iden_opt, round_data)
     >>>
     >>> # Check generalization quality
     >>> for solver in models['can_m']:
-    ...     print(f"Solver {solver}:")
-    ...     print(f"  Training R²: {valid_results['R2_stats'][solver]['prediction_mean']:.3f} "
-    ...           f"± {valid_results['R2_stats'][solver]['prediction_std']:.3f}")
-    ...     print(f"  Validation R²: {valid_results['R2_stats'][solver]['validation_mean']:.3f} "
-    ...           f"± {valid_results['R2_stats'][solver]['validation_std']:.3f}")
+    ...     stats = valid_results['R2_stats'][solver]
+    ...     print(f"\nModel {solver}:")
+    ...     print(f"  Training R²:   {stats['prediction_mean']:.4f} ± {stats['prediction_std']:.4f}")
+    ...     print(f"  Validation R²: {stats['validation_mean']:.4f} ± {stats['validation_std']:.4f}")
+    ...
+    ...     # Check for overfitting
+    ...     diff = stats['prediction_mean'] - stats['validation_mean']
+    ...     if diff > 0.05:
+    ...         print(f"  ⚠️  Warning: Possible overfitting (ΔR² = {diff:.4f})")
+    ...     elif stats['validation_mean'] > 0.95:
+    ...         print(f"  ✓ Excellent generalization!")
+    ...     else:
+    ...         print(f"  ✓ Good generalization")
 
-    >>> # Good generalization: validation ≈ training
-    >>> # Poor generalization: validation << training (overfitting)
+    >>> # Example output:
+    >>> # Model M1:
+    >>> #   Training R²:   0.9987 ± 0.0008
+    >>> #   Validation R²: 0.9985 ± 0.0015
+    >>> #   ✓ Excellent generalization!
     """
+
     data = read_excel()
     iden_optc = copy.deepcopy(iden_opt)
     iden_optc['var-cov'] = 'M'
