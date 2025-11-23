@@ -397,7 +397,7 @@ import pandas as pd
 
 
 def _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling):
-    """
+    r"""
     Slice optimisation decision vector into structured design variables.
 
     This function decodes the flat optimisation vector into physically meaningful
@@ -535,7 +535,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
               tv_iphi_vars, tv_iphi_max,
               ti_iphi_vars, ti_iphi_max,
               tf, design_criteria, round, pltshow, core_number):
-    """
+    r"""
     Scale, visualise, and report optimised experimental design results.
 
     This function denormalises all design variables (inputs, switching points,
@@ -697,7 +697,7 @@ def _reporter(phi, phit, swps, St, performance_metric_value, t, tv_ophi, ti_ophi
 
 def _plot_designs(phi, phit, swps, St, performance_metric, t,
                   tv_ophi, ti_ophi, design_criteria, round, core_number, pltshow):
-    """
+    r"""
     Generate and save visualisation plots for MBDoE experimental designs.
 
     This function creates a two-panel figure showing:
@@ -934,7 +934,7 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
 
 
 def _get_var_info(var, var_groups):
-    """
+    r"""
     Retrieve group and index information for a variable from grouped variable definitions.
 
     This utility function searches through grouped variable dictionaries to find
@@ -989,7 +989,7 @@ def _get_var_info(var, var_groups):
 
 
 def configure_logger(name=None, level=logging.INFO):
-    """
+    r"""
     Configure a logger with standard output formatting for MBDoE operations.
 
     This function creates or reconfigures a logger with a consistent format and

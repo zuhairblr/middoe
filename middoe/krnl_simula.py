@@ -328,7 +328,7 @@ import importlib.util
 
 
 def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, system, models):
-    """
+    r"""
     Execute forward model simulation with flexible solver and interpolation support.
 
     This is the main simulation kernel that orchestrates the complete forward modeling
@@ -564,7 +564,7 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
 
 
 def _Piecewiser(t, swps, cvp, phit):
-    """
+    r"""
     Construct piecewise interpolated trajectories for time-variant input variables.
 
     This function implements control variable parameterization (CVP) by creating
@@ -718,7 +718,7 @@ def _Piecewiser(t, swps, cvp, phit):
 
 
 def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model, system, models, model_name):
-    """
+    r"""
     Scale normalized inputs to physical units and prepare for ODE integration.
 
     This internal function reverses the normalization applied for optimization,
@@ -842,7 +842,7 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 
 
 def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
-    """
+    r"""
     Select and execute appropriate ODE solver backend with automatic retry logic.
 
     This function dispatches to the correct integration backend based on model type,

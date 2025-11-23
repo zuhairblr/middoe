@@ -297,7 +297,7 @@ from pathlib import Path
 
 
 def fun_globalizer(func_name):
-    """
+    r"""
     Register a function in the kernel_simulator module namespace for dynamic access.
 
     This utility enables runtime registration of functions in the kernel_simulator module,
@@ -358,7 +358,7 @@ def fun_globalizer(func_name):
 
 
 def read_excel():
-    """
+    r"""
     Read experimental data from 'data.xlsx' in the current working directory.
 
     This is the standard data loading function used throughout the MBDoE package.
@@ -456,7 +456,7 @@ def read_excel():
 def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, system,
                 ranking=None, k_optimal_value=None, rCC_values=None, J_k_values=None,
                 best_uncert_result=None):
-    """
+    r"""
     Save and organize results from a single experimental round for post-processing.
 
     This function consolidates all results from one round of the MBDoE workflow
@@ -651,7 +651,7 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
 
 
 def save_to_jac(results, purpose):
-    """
+    r"""
     Serialize and save results to a binary .jac file using pickle.
 
     This function provides persistent storage for estimation or sensitivity analysis
@@ -742,7 +742,7 @@ def save_to_jac(results, purpose):
 
 
 def load_from_jac():
-    """
+    r"""
     Load previously saved identification and sensitivity analysis results.
 
     This function attempts to deserialize .jac files from the current directory,
@@ -833,7 +833,7 @@ def load_from_jac():
 
 
 def data_appender(df_combined, experiment_number, data_storage):
-    """
+    r"""
     Accumulate experimental data in memory during sequential experiment generation.
 
     This function provides an alternative to Excel file accumulation for in-silico
@@ -903,7 +903,7 @@ def data_appender(df_combined, experiment_number, data_storage):
 
 
 def add_norm_par(modelling_settings):
-    """
+    r"""
     Initialize normalized parameter vectors for all models.
 
     This utility creates 'normalized_parameters' entries (all ones) from the
@@ -978,7 +978,7 @@ def add_norm_par(modelling_settings):
 
 
 def save_to_xlsx(sensa, sobol_problem):
-    """
+    r"""
     Export Sobol sensitivity analysis results to Excel for visualization and reporting.
 
     This function converts nested Sobol analysis results (time-varying sensitivity

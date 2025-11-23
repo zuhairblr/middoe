@@ -793,7 +793,7 @@ def _in_child():
 # ============================================================
 
 def _initialise_theta_parameters(theta_min, theta_max, active_models,  mutation=None, theta_fixed=None):
-    """
+    r"""
     Initialize parameter vectors for active models with optional masking.
 
     This function samples parameter values uniformly within specified bounds for
@@ -870,7 +870,7 @@ def _initialise_theta_parameters(theta_min, theta_max, active_models,  mutation=
 
 
 def _count_observations(data, system):
-    """
+    r"""
     Count total number of scalar measurements in experimental data.
 
     This function computes the total number of data points (N) that will be used
@@ -1000,8 +1000,10 @@ def parmest(system, models, iden_opt, case=None):
 
     iden_opt : dict
         Identification options:
+
             - 'meth' : str
                 Optimization method (from paper Table S3):
+
                     * 'SLSQP': Sequential Least Squares Programming
                     * 'LMBFGS': L-M BFGS (Limited-memory BFGS for large parameter spaces)
                     * 'TC': Trust-region method
@@ -1125,17 +1127,17 @@ def parmest(system, models, iden_opt, case=None):
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
-       See Supplementary Material Tables S2 and S3 for details.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
-       Referenced for MLE formulation and R² calculation.
 
     .. [3] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
-       https://doi.org/10.1016/j.ces.2008.07.006
+       https://doi.org/10.1016/j.ces.2007.11.034
 
     See Also
     --------
@@ -1226,7 +1228,7 @@ def parmest(system, models, iden_opt, case=None):
 
 def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
                       method, data, system, models, logging, varcov, maxit, tol):
-    """
+    r"""
     Execute a single optimization start for one model (multi-start worker function).
 
     This function is designed to be called by ProcessPoolExecutor workers. It wraps
@@ -1304,7 +1306,7 @@ def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
 
 def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
                         method, data, system, models, logging, varcov, maxit, tol, nstarts=None):
-    """
+    r"""
     Perform multi-start parameter estimation with parallel execution.
 
     This function runs multiple optimization attempts in parallel from different
@@ -1417,7 +1419,7 @@ def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
 def _multi_start_runner_serial(active_models, _unused, bmax, bmin,
                                mutation, objf, method, data, system, models,
                                logging, varcov, maxit, tol, nstarts=None):
-    """
+    r"""
     Perform multi-start parameter estimation with serial execution.
 
     This is a serial (single-threaded) version of _multi_start_runner, used
@@ -1513,7 +1515,7 @@ def _multi_start_runner_serial(active_models, _unused, bmax, bmin,
 def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
                       objf, x0, method, data, system, models, logging, multi, varcov, maxit, tol,
                       boot_idx):
-    """
+    r"""
     Execute a single bootstrap replicate estimation (worker function).
 
     This function performs parameter estimation on a bootstrap-resampled dataset
@@ -1611,7 +1613,7 @@ def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
 
 
 def truncated_moments_from_data(X, eps=1e-10):
-    """
+    r"""
     Compute mean and covariance from parameter samples assuming truncated normal distribution.
 
     This function fits a truncated normal distribution to parameter samples (constrained
@@ -1717,7 +1719,7 @@ def truncated_moments_from_data(X, eps=1e-10):
 
 
 def compute_trunc_mean_cov_from_empirical(resultpr, solver='M', scpr_key='scpr', include_X=True):
-    """
+    r"""
     Compute truncated normal statistics from bootstrap result object.
 
     This is a convenience wrapper around truncated_moments_from_data that operates
@@ -1780,7 +1782,7 @@ def compute_trunc_mean_cov_from_empirical(resultpr, solver='M', scpr_key='scpr',
 def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
                       objf, x0, method, data, system, models, logging,
                       nboot, multi, varcov, maxit, tol):
-    """
+    r"""
     Perform bootstrap-based parameter estimation with truncated normal uncertainty.
 
     This function executes the full bootstrap workflow:
@@ -1986,7 +1988,7 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
 
 def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
             x0_dict, method, data, system, models, logging, varcov, maxit, tol):
-    """
+    r"""
     Execute parameter estimation for one or more models using specified optimization method.
 
     This is the core optimization routine that performs parameter estimation for a single
@@ -2198,7 +2200,7 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
 
 def _objective_function(theta, data, active, thetac, system, models,
                         logging, objf, bootstrap, boot_idx):
-    """
+    r"""
     Wrapper for objective function computation (called by scipy optimizers).
 
     This thin wrapper extracts the requested objective from the metrics dictionary
@@ -2252,7 +2254,7 @@ def _objective_function(theta, data, active, thetac, system, models,
 
 def _objective(theta, data, active, thetac, system, models,
                bootstrap=False, boot_idx=None):
-    """
+    r"""
     Compute all objective function metrics for parameter estimation.
 
     This function performs forward simulation for all experiments with the given

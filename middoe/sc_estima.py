@@ -389,8 +389,9 @@ def estima(result, system, models, iden_opt, round):
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
-       See Supplementary Material Section S3 for orthogonalisation procedure and rCC.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Yao, K.Z., Shaw, B.M., Kou, B., McAuley, K.B., & Bacon, D.W. (2003).
        Modeling ethylene/butene copolymerization with multi-site catalysts:
@@ -401,8 +402,7 @@ def estima(result, system, models, iden_opt, round):
     .. [3] Wu, S., McLean, K.A.P., Harris, T.J., & McAuley, K.B. (2011).
        Selection of optimal parameter set using estimability analysis and MSE-based
        model-selection criterion.
-       *International Journal of Advanced Mechatronic Systems*, 3(3), 188.
-       https://doi.org/10.1504/IJAMECHS.2011.042615
+       *International Journal of Advanced Mechatronic Systems*, 3(3), 188-197.
 
 
     See Also

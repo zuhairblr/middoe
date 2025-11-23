@@ -769,88 +769,74 @@ def mbdoe_pp(
     ----------
     des_opt : dict
         Optimisation settings, including:
-            - 'ppob' : str
-                Precision criterion ('D', 'A', 'E', 'ME'):
-                    * 'D': D-optimality
-                        Scale-invariant criterion that minimises the volume of the
-                        confidence ellipsoid by maximising det(FIM).
-                        Advantages: Strong overall precision
-                        Disadvantages: May excessively prioritise sensitive parameters
 
-                    * 'A': A-optimality
-                        Minimises the average parameter variance (trace of inverse FIM).
-                        Advantages: Balances overall precision
-                        Disadvantages: Not scale-invariant, ignores parameter correlations
+        - 'ppob' : str
+            Precision criterion ('D', 'A', 'E', 'ME'):
 
-                    * 'E': E-optimality
-                        Maximises the minimum eigenvalue of FIM (minimises worst-case
-                        parameter variance).
-                        Advantages: Targets most uncertain parameter
-                        Disadvantages: May be overly conservative, sensitive to ill-conditioning
+            * 'D': D-optimality - Scale-invariant criterion that minimises the volume of the confidence ellipsoid by maximising det(FIM). Advantages: Strong overall precision. Disadvantages: May excessively prioritise sensitive parameters.
 
-                    * 'ME': ME-optimality (Modified E-optimality)
-                        Reduces the disparity between the most and least identifiable
-                        directions in parameter space. Promotes uniform precision
-                        distribution and avoids elongated confidence ellipsoids.
-                        Advantages: Enhanced robustness, uniform precision across parameters
-                        Disadvantages: Sensitive to ill-conditioning for poorly observable parameters
+            * 'A': A-optimality - Minimises the average parameter variance (trace of inverse FIM). Advantages: Balances overall precision. Disadvantages: Not scale-invariant, ignores parameter correlations.
 
-            - 'itr' : dict
-                Iteration controls:
-                    * 'maxpp': int — maximum iterations
-                    * 'toldpp': float — convergence tolerance
-                    * 'pps': int — population size
-            - 'eps' : float
-                Perturbation step size for numerical derivatives.
-            - 'plt' : bool
-                Enable plotting of results.
-            - 'meth' : str, optional
-                Optimisation method ('DE', 'PS', 'DEPS').
-            - 'initial_ranking' : list[int], optional
-                Pre-computed parameter ranking (set automatically if LSA available).
+            * 'E': E-optimality - Maximises the minimum eigenvalue of FIM (minimises worst-case parameter variance). Advantages: Targets most uncertain parameter. Disadvantages: May be overly conservative, sensitive to ill-conditioning.
+
+            * 'ME': ME-optimality (Modified E-optimality) - Reduces the disparity between the most and least identifiable directions in parameter space. Promotes uniform precision distribution and avoids elongated confidence ellipsoids. Advantages: Enhanced robustness, uniform precision across parameters. Disadvantages: Sensitive to ill-conditioning for poorly observable parameters.
+
+        - 'itr' : dict
+            Iteration controls with keys 'maxpp' (int, maximum iterations), 'toldpp' (float, convergence tolerance), 'pps' (int, population size).
+
+        - 'eps' : float
+            Perturbation step size for numerical derivatives.
+
+        - 'plt' : bool
+            Enable plotting of results.
+
+        - 'meth' : str, optional
+            Optimisation method ('DE', 'PS', 'DEPS').
+
+        - 'initial_ranking' : list[int], optional
+            Pre-computed parameter ranking (set automatically if LSA available).
 
     system : dict
         System model and constraints:
-            - 't_s' : tuple[float, float]
-                Start and end times (ti, tf).
-            - 't_d' : tuple[float, float]
-                Restricted initial/final intervals (dead time).
-            - 't_r' : float
-                Time resolution for simulation.
-            - 'tvi' : dict
-                Time-variant input definitions with keys:
-                    * 'max', 'min': float — bounds
-                    * 'stps': int — number of switching segments
-                    * 'const': str — constraint type ('inc', 'dec', 'rel')
-                    * 'offt': float — minimum time offset between switches
-                    * 'offl': float — minimum level offset
-                    * 'cvp': str — control variable profile ('CPF' piecewise-constant,
-                                   'LPF' piecewise-linear)
-            - 'tii' : dict
-                Time-invariant input definitions ('max', 'min').
-            - 'tvo' : dict
-                Time-variant output definitions:
-                    * 'meas': bool — include in measurement
-                    * 'sp': int — number of sampling points
-                    * 'offt': float — minimum time between samples
-                    * 'samp_s': str — sampling synchronisation group
-                    * 'samp_f': list[float] — forced sampling times
-                    * 'unc': float — measurement uncertainty (standard deviation)
-            - 'tio' : dict
-                Time-invariant output definitions.
+
+        - 't_s' : tuple[float, float]
+            Start and end times (ti, tf).
+
+        - 't_d' : tuple[float, float]
+            Restricted initial/final intervals (dead time).
+
+        - 't_r' : float
+            Time resolution for simulation.
+
+        - 'tvi' : dict
+            Time-variant input definitions with keys 'max', 'min' (float bounds), 'stps' (int, number of switching segments), 'const' (str, constraint type 'inc'/'dec'/'rel'), 'offt' (float, minimum time offset between switches), 'offl' (float, minimum level offset), 'cvp' (str, control variable profile 'CPF' piecewise-constant or 'LPF' piecewise-linear).
+
+        - 'tii' : dict
+            Time-invariant input definitions ('max', 'min').
+
+        - 'tvo' : dict
+            Time-variant output definitions with keys 'meas' (bool, include in measurement), 'sp' (int, number of sampling points), 'offt' (float, minimum time between samples), 'samp_s' (str, sampling synchronisation group), 'samp_f' (list[float], forced sampling times), 'unc' (float, measurement uncertainty standard deviation).
+
+        - 'tio' : dict
+            Time-invariant output definitions.
 
     models : dict
         Model definitions and settings:
-            - 'can_m' : list[str]
-                Active model names (typically single model for PP).
-            - 'theta' : dict[str, list[float]]
-                Nominal parameter values for each model.
-            - 'mutation' : dict[str, list[bool]]
-                Parameter masks indicating which parameters are free (True) vs fixed (False).
-            - 'V_matrix' : dict[str, np.ndarray]
-                Prior parameter covariance matrices (typically diagonal).
-            - 'LSA' : dict[str, np.ndarray], optional
-                Pre-computed local sensitivity analysis matrices for initial ranking.
+
+        - 'can_m' : list[str]
+            Active model names (typically single model for PP).
+
+        - 'theta' : dict[str, list[float]]
+            Nominal parameter values for each model.
+
+        - 'mutation' : dict[str, list[bool]]
+            Parameter masks indicating which parameters are free (True) vs fixed (False).
+
+        - 'V_matrix' : dict[str, np.ndarray]
+            Prior parameter covariance matrices (typically diagonal).
+
+        - 'LSA' : dict[str, np.ndarray], optional
+            Pre-computed local sensitivity analysis matrices for initial ranking.
 
     round : int
         Current experimental design round (used for logging/reporting).
@@ -861,19 +847,14 @@ def mbdoe_pp(
     Returns
     -------
     results : dict
-        Best design found:
-            - 'tii' : dict[str, float]
-                Optimal time-invariant input values.
-            - 'tvi' : dict[str, Any]
-                Optimal time-variant input profiles.
-            - 'swps' : dict[str, list[float]]
-                Switching times for time-variant controls.
-            - 'St' : dict[str, np.ndarray]
-                Sampling times for each output variable.
-            - 'pp_obj' : float
-                Parameter precision objective value (maximised).
-            - 't_values' : list[float]
-                Full simulation time vector.
+        Best design found with keys:
+
+        - 'tii' : dict[str, float] - Optimal time-invariant input values.
+        - 'tvi' : dict[str, Any] - Optimal time-variant input profiles.
+        - 'swps' : dict[str, list[float]] - Switching times for time-variant controls.
+        - 'St' : dict[str, np.ndarray] - Sampling times for each output variable.
+        - 'pp_obj' : float - Parameter precision objective value (maximised).
+        - 't_values' : list[float] - Full simulation time vector.
 
     Raises
     ------
@@ -887,33 +868,33 @@ def mbdoe_pp(
 
     The Fisher Information Matrix is computed as:
 
-    \[
-    \mathbf{M} = \mathbf{M}_0 + \mathbf{M}_p = \mathbf{Q}^T \mathbf{\Sigma}_y^{-1} \mathbf{Q} + \mathbf{V}^{-1}
-    \]
+    .. math::
+        \\mathbf{M} = \\mathbf{M}_0 + \\mathbf{M}_p = \\mathbf{Q}^T \\mathbf{\\Sigma}_y^{-1} \\mathbf{Q} + \\mathbf{V}^{-1}
 
-    where \( \mathbf{Q} \) is the sensitivity matrix, \( \mathbf{\Sigma}_y \) is the
-    measurement covariance, and \( \mathbf{V} \) is the prior parameter covariance.
+    where Q is the sensitivity matrix, Sigma_y is the measurement covariance,
+    and V is the prior parameter covariance.
 
-    **Parameter Ranking**: If pre-computed LSA matrices are available, initial parameter
-    estimability ranking is computed and logged using orthogonalisation procedure.
+    If pre-computed LSA matrices are available, initial parameter estimability
+    ranking is computed and logged using orthogonalisation procedure.
 
-    Supported constraints include:
-        - Control level bounds and switching rules (increasing, decreasing, relaxed)
-        - Minimum sampling intervals and total sample limits
-        - Forced or forbidden sampling times
-        - Synchronised sampling across outputs
-        - Piecewise-constant (CPF) or piecewise-linear (LPF) control profiles
+    Supported constraints include control level bounds and switching rules
+    (increasing, decreasing, relaxed), minimum sampling intervals and total
+    sample limits, forced or forbidden sampling times, synchronised sampling
+    across outputs, and piecewise-constant (CPF) or piecewise-linear (LPF)
+    control profiles.
 
     References
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
-       https://doi.org/10.1016/j.ces.2008.07.006
+       https://doi.org/10.1016/j.ces.2007.11.034
 
     See Also
     --------
@@ -922,57 +903,38 @@ def mbdoe_pp(
     _optimiser : Core optimisation problem setup and solver.
     parameter_ranking : Compute parameter estimability ranking from LSA.
 
-Examples
---------
->>> import numpy as np
->>> from middoe import des_pp
->>>
->>> # Define system configuration
->>> system = {
-...     'tvo': {
-...         'mu0': {'init': 1e15, 'meas': True, 'unc': 1e13, 'sp': 8},
-...         'mu1': {'init': 1e-4, 'meas': True, 'unc': 1e-6, 'sp': 8},
-...         'mu2': {'init': 1e-12, 'meas': True, 'unc': 1e-14, 'sp': 8}
-...     },
-...     'tvi': {
-...         'T': {'min': 278, 'max': 313, 'stps': 3, 'cvp': 'CPF',
-...               'const': 'rel', 'offt': 5.0, 'offl': 1.0}
-...     },
-...     'tii': {
-...         'C0': {'min': 0.15, 'max': 0.35}
-...     },
-...     't_s': (0.0, 180.0),
-...     't_d': (10.0, 10.0)
-... }
->>>
->>> # Define model with mutation mask
->>> models = {
-...     'can_m': ['M1'],
-...     'krt': {'M1': 'crystallization_model'},
-...     'theta': {'M1': [0.42, 2.5e5, 1.2e11, 3e4, 5e3, 1.5]},
-...     't_l': {'M1': [0.1, 1e4, 1e10, 1e3, 1e2, 0.5]},
-...     't_u': {'M1': [1.0, 1e6, 1e12, 1e5, 1e4, 3.0]},
-...     'mutation': {'M1': [False, False, True, True, True, True]},
-...     'V_matrix': {'M1': np.diag([0.01, 0.01, 0.01, 0.01])}
-... }
->>>
->>> # Configure MBDoE-PP with D-optimality
->>> des_opt = {
-...     'ppob': 'D',
-...     'meth': 'DEPS',
-...     'itr': {'maxpp': 5000, 'toldpp': 1e-8, 'pps': 40},
-...     'eps': 0.01,
-...     'plt': False
-... }
->>>
->>> # Run MBDoE-PP
->>> design = des_pp.mbdoe_pp(des_opt, system, models, round=2)
->>>
->>> # Access results
->>> print(f"Optimal initial concentration: {design['tii']['C0']:.4f} mol/L")
->>> print(f"Optimal temperature profile: {design['tvi']['T']}")
->>> print(f"Sampling times: {design['St']['mu0']}")
->>> print(f"D-optimality value: {design['pp_obj']:.4e}")
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from middoe import des_pp
+    >>>
+    >>> # Define system configuration
+    >>> system = {
+    ...     'tvo': {'mu0': {'init': 1e15, 'meas': True, 'unc': 1e13, 'sp': 8}},
+    ...     'tvi': {'T': {'min': 278, 'max': 313, 'stps': 3, 'cvp': 'CPF',
+    ...                   'const': 'rel', 'offt': 5.0, 'offl': 1.0}},
+    ...     'tii': {'C0': {'min': 0.15, 'max': 0.35}},
+    ...     't_s': (0.0, 180.0), 't_d': (10.0, 10.0)
+    ... }
+    >>>
+    >>> # Define model
+    >>> models = {
+    ...     'can_m': ['M1'],
+    ...     'theta': {'M1': [0.42, 2.5e5, 1.2e11]},
+    ...     'mutation': {'M1': [True, True, True]},
+    ...     'V_matrix': {'M1': np.diag([0.01, 0.01, 0.01])}
+    ... }
+    >>>
+    >>> # Configure MBDoE-PP
+    >>> des_opt = {
+    ...     'ppob': 'D', 'meth': 'DEPS',
+    ...     'itr': {'maxpp': 5000, 'toldpp': 1e-8, 'pps': 40},
+    ...     'eps': 0.01, 'plt': False
+    ... }
+    >>>
+    >>> # Run MBDoE-PP
+    >>> design = des_pp.mbdoe_pp(des_opt, system, models, round=2)
+    >>> print(f"D-optimality value: {design['pp_obj']:.4e}")
     """
 
     # Assuming active solvers and mutation info available
@@ -1019,7 +981,7 @@ Examples
 
 
 def _safe_run(args):
-    """
+    r"""
     Safely execute a single MBDoE-PP optimisation run with exception handling.
 
     This wrapper function is used for parallel execution to prevent individual
@@ -1068,7 +1030,7 @@ def _safe_run(args):
 
 
 def _run_single_pp(des_opt, system, models, core_number=0, round=round):
-    """
+    r"""
     Execute a single MBDoE-PP optimisation run on one core.
 
     This function unpacks system and model configurations, constructs the
@@ -1279,7 +1241,7 @@ def _optimiser(
     mutation, V_matrix, design_criteria,
     system, models, optmethod
 ):
-    """
+    r"""
     Construct and solve the MBDoE-PP optimisation problem.
 
     This function builds the decision variable vector, bounds, constraints,
@@ -1568,7 +1530,7 @@ def _pp_of(
     system,
     models
 ):
-    """
+    r"""
     Objective function wrapper for MBDoE-PP optimisation.
 
     This function evaluates the parameter precision objective for a given

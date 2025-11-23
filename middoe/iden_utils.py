@@ -1763,7 +1763,7 @@ logger = logging.getLogger(__name__)
 # rcParams['font.family'] = 'arial'
 
 def Plot_estimability(round_data, path, solver):
-    """
+    r"""
     Plot the estimability of parameters across different rounds for a given model. Estimability plotter post analysis.
 
     Parameters:
@@ -1877,7 +1877,7 @@ def Plot_estimability(round_data, path, solver):
 
 
 def plot_rCC_vs_k(x_values, rCC_values, round, solver):
-    """
+    r"""
     Plot rCC values against k for a specific round and model. Estimability plotter while analysis.
 
     Parameters:
@@ -1929,7 +1929,7 @@ def plot_rCC_vs_k(x_values, rCC_values, round, solver):
 
 
 def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solver, response_key):
-    """
+    r"""
     Plot Sobol sensitivity analysis results for a given model
 
     Parameters:
@@ -2005,7 +2005,7 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
 
 
 class Plotting_Results:
-    """
+    r"""
     A class to handle plotting of results while analysis.
 
     Attributes:
@@ -2264,7 +2264,7 @@ class Plotting_Results:
 
 
 class Plotting_FinalResults:
-    """
+    r"""
     A class to handle final plotting and reporting of results, post-identification.
 
     Attributes
@@ -3200,7 +3200,7 @@ class Plotting_FinalResults:
 
 
 def _initialize_dictionaries(models, iden_opt):
-    """
+    r"""
     Initialize dictionaries for modelling settings and estimation settings.
 
     Parameters:
@@ -3277,7 +3277,7 @@ def _initialize_dictionaries(models, iden_opt):
 
 
 def validation_R2(prediction_metric, validation_metric, reference_metric, case):
-    """
+    r"""
     Plot R² prediction, R² validation, and R² reference for each model as an envelope plot.
     Also, create a bar plot with average R² values for prediction, validation, and all the data for each model.
 
@@ -3362,7 +3362,7 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, case):
 
 
 def validation_params(parameters, ref_params):
-    """
+    r"""
     Plot normalized parameters for each model in each fold, divided by the corresponding member in ref_params.
 
     Parameters:
@@ -3419,7 +3419,7 @@ def run_postprocessing(round_data, solvers, selected_rounds,
                        plot_p_and_t_tests=True,
                        export_excel_reports=True,
                        plot_estimability=True):
-    """
+    r"""
     Run post-processing analysis for specified solvers and rounds with plot/excel export options.
 
     Parameters

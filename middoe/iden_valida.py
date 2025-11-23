@@ -270,17 +270,17 @@ def validation(system, models, iden_opt, round_data):
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
-       See paper Section 2.7 for validation methodology.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Stone, M. (1974).
        Cross-validatory choice and assessment of statistical predictions.
-       *Journal of the Royal Statistical Society: Series B (Methodological)*, 36(2), 111–147.
-       Referenced for LOOCV methodology.
+       *Journal of the Royal Statistical Society: Series B (Methodological)*, 36(2), 111–133.
+       https://doi.org/10.1111/j.2517-6161.1974.tb00994.x
 
     .. [3] Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
-       Referenced for R² calculation.
 
     See Also
     --------
@@ -422,7 +422,7 @@ def validation(system, models, iden_opt, round_data):
 
 
 def compute_validation_error(resultun_pred, resultun_val, scaled_params, round_data):
-    """
+    r"""
     Extract and organize validation metrics from uncertainty analysis results.
 
     This helper function processes uncertainty analysis outputs to extract R² and MSE

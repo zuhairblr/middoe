@@ -483,7 +483,7 @@ import os
 
 
 def expera(system, models, insilicos, design_decisions, expr, swps=None):
-    """
+    r"""
     Execute in-silico experiment and generate synthetic measurement data with noise.
 
     This function orchestrates the complete in-silico experimentation workflow: setting up
@@ -771,7 +771,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
 
 def _construct_var(system, classic_des, j):
-    """
+    r"""
     Construct and normalize variable dictionaries from system configuration.
 
     This helper function extracts variable values from preliminary designs and normalizes
@@ -862,7 +862,7 @@ def _construct_var(system, classic_des, j):
 
 
 def _construct_par(model_name, theta_parameters):
-    """
+    r"""
     Construct normalized and scaled parameter vectors for simulation.
 
     This helper function prepares parameter vectors for forward model simulation.
@@ -929,7 +929,7 @@ def _construct_par(model_name, theta_parameters):
 
 def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac, cvp, std_dev,
                   t_valuesc, case, model_name, system, models, errortype):
-    """
+    r"""
     Execute forward simulation and add measurement noise to create synthetic experimental data.
 
     This is the core simulation routine that calls the forward model, generates noisy measurements,

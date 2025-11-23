@@ -639,7 +639,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def sensa(gsa, models, system):
-    """
+    r"""
     Perform global Sobol sensitivity analysis to quantify parameter and variable importance.
 
     This function implements variance-based global sensitivity analysis using Sobol indices,
@@ -732,20 +732,19 @@ def sensa(gsa, models, system):
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
-       See Supplementary Material Section S1 for Sobol' methodology.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Jansen, M.J.W. (1999).
        Analysis of variance designs for model output.
        *Computer Physics Communications*, 117(1-3), 35–43.
        https://doi.org/10.1016/S0010-4655(98)00154-4
-       Referenced for Jansen's estimator (equations S3-S4).
 
     .. [3] Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., & Tarantola, S. (2010).
        Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index.
        *Computer Physics Communications*, 181(2), 259–270.
        https://doi.org/10.1016/j.cpc.2009.09.018
-       Referenced for Saltelli-type quasi-Monte Carlo sampling.
 
 
     See Also
@@ -908,7 +907,7 @@ def sensa(gsa, models, system):
 
 def _sobol_analysis(settings, model_outputs, calc_2nd_order=True, resamples=100, confidence=0.95,
                    use_parallel=False, n_cores=None, keep_resamples=False, rng_seed=None):
-    """
+    r"""
     Compute Sobol sensitivity indices from model outputs using variance decomposition.
 
     This is the core computational routine that estimates first-order (S1) and total-order (ST)
@@ -1014,7 +1013,7 @@ def _sobol_analysis(settings, model_outputs, calc_2nd_order=True, resamples=100,
 
 
 def _split_output_values(output_values, num_params, num_samples, calc_2nd_order):
-    """
+    r"""
     Split model outputs into A, B, AB, and BA matrices for Sobol analysis.
 
     This function reorganizes the flat output array from structured Sobol sampling
@@ -1087,7 +1086,7 @@ def _split_output_values(output_values, num_params, num_samples, calc_2nd_order)
 
 
 def _initialize_sensitivity_storage(num_params, resample_count, keep_resamples, calc_2nd_order):
-    """
+    r"""
     Initialize storage dictionaries for Sobol sensitivity results.
 
     Creates pre-allocated numpy arrays for storing sensitivity indices, confidence
@@ -1161,7 +1160,7 @@ def _initialize_sensitivity_storage(num_params, resample_count, keep_resamples, 
 
 
 def _compute_first_order_sensitivity(A, AB, B):
-    """
+    r"""
     Compute first-order Sobol sensitivity index using Saltelli estimator.
 
     The first-order index S1_j measures the main effect contribution of parameter j
@@ -1230,7 +1229,7 @@ def _compute_first_order_sensitivity(A, AB, B):
 
 
 def _compute_total_order_sensitivity(A, AB, B):
-    """
+    r"""
     Compute total-order Sobol sensitivity index.
 
     The total index ST_j measures the total contribution of parameter j to output
@@ -1296,7 +1295,7 @@ def _compute_total_order_sensitivity(A, AB, B):
 
 
 def _validate_group_membership(settings):
-    """
+    r"""
     Check if group-based sensitivity analysis is requested and valid.
 
     Grouped sensitivity analysis treats multiple parameters as a single entity,
@@ -1351,7 +1350,7 @@ def _validate_group_membership(settings):
 
 
 def _rescale_parameters(sample_set, problem_def):
-    """
+    r"""
     Transform samples from [0,1] to physical parameter space with optional distributions.
 
     This function applies bounds and statistical distributions to rescale normalized
@@ -1418,7 +1417,7 @@ def _rescale_parameters(sample_set, problem_def):
 
 
 def _apply_bounds(sample_set, bounds):
-    """
+    r"""
     Rescale uniform [0,1] samples to specified bounds via linear transformation.
 
     Applies the transformation: x_scaled = x * (upper - lower) + lower
@@ -1474,7 +1473,7 @@ def _apply_bounds(sample_set, bounds):
 
 
 def _apply_distribution(sample_set, bounds, distributions):
-    """
+    r"""
     Transform uniform [0,1] samples to specified non-uniform distributions.
 
     Uses inverse CDF (quantile) transformation to convert uniform samples
@@ -1554,7 +1553,7 @@ def _apply_distribution(sample_set, bounds, distributions):
 
 
 def _extract_unique_groups(settings):
-    """
+    r"""
     Extract unique group names and count from sensitivity analysis settings.
 
     For grouped sensitivity analysis, identifies the distinct groups defined
@@ -1604,7 +1603,7 @@ def _extract_unique_groups(settings):
 
 
 def _generate_group_matrix(groups):
-    """
+    r"""
     Create binary membership matrix for grouped sensitivity analysis.
 
     Constructs a matrix indicating which parameters belong to which groups.
@@ -1669,7 +1668,7 @@ def _generate_group_matrix(groups):
 
 
 def sample(settings, N, calc_second_order=True, scramble=True, skip_values=0, seed=None):
-    """
+    r"""
     Generate structured Sobol sample matrix for variance-based sensitivity analysis.
 
     Creates a low-discrepancy quasi-random sample matrix using Sobol sequences,
@@ -1790,7 +1789,7 @@ def sample(settings, N, calc_second_order=True, scramble=True, skip_values=0, se
 def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, thetac,
                           piecewise_func, tsc, sobol_problem, phi_nom, phit_nom, system,
                           var_sensitivity, par_sensitivity, models):
-    """
+    r"""
     Execute model simulations for a chunk of Sobol samples (parallel worker function).
 
     This function is called by parallel workers to process a subset of the total
@@ -1904,7 +1903,7 @@ def _process_sample_chunk(sobol_sample_chunk, solver, t, phisc, phitsc, theta, t
 
 
 def _process_results(solver, results, t, sobol_problem_solver, plt_show):
-    """
+    r"""
     Aggregate simulation results and compute time-varying Sobol indices.
 
     After all Sobol samples have been simulated, this function organizes outputs

@@ -813,8 +813,9 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
-       See Supplementary Material Table S3 for uncertainty methods.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
@@ -822,7 +823,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     .. [3] Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
-       https://doi.org/10.1016/j.ces.2008.07.006
+       https://doi.org/10.1016/j.ces.2007.11.034
 
     See Also
     --------

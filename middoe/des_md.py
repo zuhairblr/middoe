@@ -834,15 +834,19 @@ def mbdoe_md(
     ----------
     .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
-       and calibration. *Computers & Chemical Engineering*.
+       and calibration.
+       *Digital Chemical Engineering*, 17, 100276.
+       https://doi.org/10.1016/j.dche.2025.100276
 
     .. [2] Hunter, W.G., & Reiner, A.M. (1965).
        Designs for discriminating between two rival models.
        *Technometrics*, 7(3), 307–323.
+       https://doi.org/10.2307/1266591
 
-    .. [3] Buzzi-Ferraris, G., & Forzatti, P. (1983).
+    .. [3] Buzzi-Ferraris, G., & Forzatti, P. (1984).
        Sequential experimental design for model discrimination in the case of
-       multiple responses. *Chemical Engineering Science*, 38(2), 225–232.
+       multiple responses. *Chemical Engineering Science*, 39(1), 81-85.
+       https://doi.org/10.1016/0009-2509(84)80132-3
 
     See Also
     --------
@@ -946,7 +950,7 @@ def mbdoe_md(
 
 
 def _safe_run_md(args):
-    """
+    r"""
     Safely execute a single MBDoE-MD optimisation run with exception handling.
 
     This wrapper function is used for parallel execution to prevent individual
@@ -995,7 +999,7 @@ def _safe_run_md(args):
 
 
 def _run_single_md(des_opt, system, models, core_number=0, round=round):
-    """
+    r"""
     Execute a single MBDoE-MD optimisation run on one core.
 
     This function unpacks system and model configurations, constructs the
@@ -1184,7 +1188,7 @@ def _optimiser_md(
     mutation, design_criteria,
     system, models, optmethod
 ):
-    """
+    r"""
     Construct and solve the MBDoE-MD optimisation problem.
 
     This function builds the decision variable vector, bounds, constraints,
@@ -1469,7 +1473,7 @@ def _md_of(
     tf, eps, mutation, design_criteria,
     index_dict, system, models
 ):
-    """
+    r"""
     Objective function wrapper for MBDoE-MD optimisation.
 
     This function evaluates the model discrimination objective for a given
