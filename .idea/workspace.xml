@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 6" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 7">
+      <change afterPath="$PROJECT_DIR$/docs/requirements.txt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -136,14 +138,6 @@
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
-    <task id="LOCAL-00002" summary="gproms coupling 3">
-      <option name="closed" value="true" />
-      <created>1745569789970</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1745569789970</updated>
-    </task>
     <task active="true" id="Default" summary="Default task">
       <changelist id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="gproms coupling 3" />
       <created>1745570532464</created>
@@ -341,15 +335,7 @@
       <workItem from="1763299825113" duration="62744000" />
       <workItem from="1763456940156" duration="40698000" />
       <workItem from="1763910044521" duration="1007000" />
-      <workItem from="1763911099853" duration="24429000" />
-    </task>
-    <task id="LOCAL-00003" summary="gproms coupling 4">
-      <option name="closed" value="true" />
-      <created>1745608933896</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1745608933896</updated>
+      <workItem from="1763911099853" duration="24729000" />
     </task>
     <task id="LOCAL-00004" summary="final polishing">
       <option name="closed" value="true" />
@@ -727,7 +713,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763936396343</updated>
     </task>
-    <option name="localTasksCounter" value="51" />
+    <task id="LOCAL-00051" summary="paper version 7">
+      <option name="closed" value="true" />
+      <created>1763937071781</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1763937071781</updated>
+    </task>
+    <task id="LOCAL-00052" summary="paper version 7">
+      <option name="closed" value="true" />
+      <created>1763937235455</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1763937235455</updated>
+    </task>
+    <option name="localTasksCounter" value="53" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -745,7 +747,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 13" />
     <MESSAGE value="final polishing 14" />
     <MESSAGE value="final polishing 15" />
     <MESSAGE value="final polishing 16" />
@@ -770,7 +771,8 @@
     <MESSAGE value="paper version 4" />
     <MESSAGE value="paper version 5" />
     <MESSAGE value="paper version 6" />
-    <option name="LAST_COMMIT_MESSAGE" value="paper version 6" />
+    <MESSAGE value="paper version 7" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper version 7" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
