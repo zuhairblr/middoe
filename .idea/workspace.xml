@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 3" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 4">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/index.rst" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -349,7 +352,7 @@
       <workItem from="1763299825113" duration="62744000" />
       <workItem from="1763456940156" duration="40698000" />
       <workItem from="1763910044521" duration="1007000" />
-      <workItem from="1763911099853" duration="22162000" />
+      <workItem from="1763911099853" duration="22851000" />
     </task>
     <task id="LOCAL-00003" summary="gproms coupling 4">
       <option name="closed" value="true" />
@@ -703,7 +706,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763934554595</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="paper version 4">
+      <option name="closed" value="true" />
+      <created>1763934868905</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1763934868905</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -721,7 +732,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 10" />
     <MESSAGE value="final polishing 11" />
     <MESSAGE value="final polishing 12" />
     <MESSAGE value="final polishing 13" />
@@ -746,7 +756,8 @@
     <MESSAGE value="paper version 1" />
     <MESSAGE value="paper version 2" />
     <MESSAGE value="paper version 3" />
-    <option name="LAST_COMMIT_MESSAGE" value="paper version 3" />
+    <MESSAGE value="paper version 4" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper version 4" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
