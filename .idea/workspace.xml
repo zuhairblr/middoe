@@ -4,7 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 8">
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 9">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/index.rst" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -335,15 +336,7 @@
       <workItem from="1763299825113" duration="62744000" />
       <workItem from="1763456940156" duration="40698000" />
       <workItem from="1763910044521" duration="1007000" />
-      <workItem from="1763911099853" duration="31410000" />
-    </task>
-    <task id="LOCAL-00006" summary="final polishing 2">
-      <option name="closed" value="true" />
-      <created>1747127254957</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1747127254957</updated>
+      <workItem from="1763911099853" duration="44114000" />
     </task>
     <task id="LOCAL-00007" summary="final polishing 3">
       <option name="closed" value="true" />
@@ -729,7 +722,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763988977257</updated>
     </task>
-    <option name="localTasksCounter" value="55" />
+    <task id="LOCAL-00055" summary="paper version 9">
+      <option name="closed" value="true" />
+      <created>1763989442691</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1763989442691</updated>
+    </task>
+    <option name="localTasksCounter" value="56" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -747,7 +748,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 15" />
     <MESSAGE value="final polishing 16" />
     <MESSAGE value="final polishing 17" />
     <MESSAGE value="final polishing 18" />
@@ -772,7 +772,8 @@
     <MESSAGE value="paper version 6" />
     <MESSAGE value="paper version 7" />
     <MESSAGE value="paper version 8" />
-    <option name="LAST_COMMIT_MESSAGE" value="paper version 8" />
+    <MESSAGE value="paper version 9" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper version 9" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
