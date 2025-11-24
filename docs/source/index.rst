@@ -1,3 +1,8 @@
+.. image:: https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo-Page-5.png
+   :alt: CAPE-Lab / MIDDoE
+   :align: center
+   :width: 400
+
 MIDDoE: Model-(based) Identification, Discrimination, and Design of Experiments
 ===============================================================================
 
@@ -13,15 +18,12 @@ MIDDoE: Model-(based) Identification, Discrimination, and Design of Experiments
    :target: https://github.com/zuhairblr/middoe/blob/main/LICENSE
    :alt: License
 
-Overview
---------
-
 MIDDoE is an open-source Python package for systematic model identification workflows. It provides an integrated, physics-aware framework that combines **Global Sensitivity Analysis (GSA)**, **Estimability Analysis (EA)**, **Parameter Estimation**, **Uncertainty Quantification**, **Model-Based Design of Experiments (MBDoE)**, and **cross validation** for dynamic systems.
 
 MIDDoE unifies the complete identification pipeline from pre-experimental diagnostics through post-analysis reporting—suitable for experimentalists and engineers with limited programming expertise.
 
-Quick Start: Installation and First Use
-----------------------------------------
+Installation
+============
 
 Install via pip:
 
@@ -33,9 +35,6 @@ MIDDoE requires Python ≥ 3.9 and automatically installs dependencies: NumPy, S
 
 Mathematical Framework
 ======================
-
-General Nonlinear MIMO System
------------------------------
 
 MIDDoE operates on lumped dynamic systems governed by differential-algebraic equations:
 
@@ -57,13 +56,13 @@ MIDDoE operates on lumped dynamic systems governed by differential-algebraic equ
 - :math:`\mathbf{y}(t) \in \mathbb{R}^{N_r}`: measured outputs
 - :math:`\boldsymbol{\varepsilon}(t)`: measurement error (noise)
 
-Core Workflow Steps
-===================
+Workflow Steps
+==============
 
 A complete MIDDoE identification workflow for Basic user follows this sequence:
 
-System and model establishment
-==============================
+1. System and model establishment
+------------------------------
 
 1. **System structure**
    Define the experimental and operational space in the ``system`` dictionary, including all time-variant inputs, time-invariant inputs, measured outputs, and their physical/operational constraints (bounds, sampling limits, dead-times, CVP structure).
@@ -74,8 +73,8 @@ System and model establishment
 3. **Global Sensitivity Analysis**
    Configure the ``gsa`` dictionary and call ``sensa()`` from ``middoe.sc_sensa`` to analyse the influence of parameters and/or controls on the outputs, providing a ranking that guides model reduction and design choices.
 
-Data creation
-=============
+2. Data creation
+-------------
 
 4. **Preliminary data**
    Either create a ``data.xlsx`` file in the project repository containing your experimental measurements, or define the ``insilicos`` dictionary (true model, true parameters, noise type) and generate synthetic data by calling ``expera()`` from ``middoe.krnl_expera``.
@@ -89,8 +88,8 @@ Data creation
 7. **Append data**
    After executing the designed experiments (in the lab or in-silico via ``expera()``), update ``data.xlsx`` or your in-memory data structure so that all newly collected experiments are available for calibration.
 
-Model identification
-====================
+3. Model identification
+--------------------
 
 8. **Parameter estimation**
    With the current dataset and model definitions, run ``parmest()`` from ``middoe.iden_parmest`` using the ``iden_opt`` dictionary to estimate parameters, compute goodness-of-fit metrics, and obtain convergence information.
@@ -107,7 +106,7 @@ Model identification
 12. **Sequential rounds**
     Repeat steps 4–11, updating experimental designs, data, and parameter masks round by round until the desired discrimination and calibration performance indicators (e.g. model selection metrics, confidence intervals, t-tests) are achieved.
 
-Post analysis
+4. Post analysis
 =============
 
 13. **Model validation**
@@ -123,11 +122,8 @@ Post analysis
     Generate global reports and visualisations by calling ``run_postprocessing()`` from ``middoe.iden_utils`` on the stored ``round_data``, producing plots (parameter trajectories, confidence ellipsoids, p/t-tests, estimability evolution) and Excel summaries for documentation and decision-making.
 
 
-Before Writing Code: Prepare Your Data and Model
-=================================================
-
-Files and Directory Structure
------------------------------
+Project structure
+=================
 
 Organise your project as follows:
 
@@ -142,9 +138,10 @@ Organise your project as follows:
    │
    └── workflow.py/                        # analysis and dentification workflow
 
-**1. Prepare experimental data (data/experimental_data.xlsx)**
+Data structure
+==============
 
-Each sheet in ``data.xlsx`` represents one batch/experiment and contains measured outputs (MES), time-invariant controls :math:`\mathbf{w}`, and time-variant controls :math:`\mathbf{u}(t)` in a single table.
+MIDDoE reads data from a data.xlsx file in the project repository, Each sheet in ``data.xlsx`` represents one batch/experiment and contains measured outputs (MES), time-invariant controls :math:`\mathbf{w}`, and time-variant controls :math:`\mathbf{u}(t)` in a single table.
 
 data.xlsx structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -190,9 +187,6 @@ data.xlsx structure
      - :math:`w_1`
      - :math:`\vdots`
 
-Column naming convention
-~~~~~~~~~~~~~~~~~~~~~~~~
-
 - **``MES_X:y1``, ``MES_X:y2``, ..., ``MES_X:yi``:**
   Sampling times :math:`t_{\mathrm{sp}}` used for measurements of :math:`y_1`, :math:`y_2`, ..., :math:`y_i` (system measured response sampled times).
 
@@ -211,10 +205,32 @@ Column naming convention
 - **``u1``, ``u2``, … :**
   Time-variant control profiles :math:`u_i(t_{\mathrm{all}})`; column names must match ``system['tvi']`` keys so that MIDDoE can reconstruct the control trajectories from ``X:all`` and ``u_i``.
 
+model.py structure
+~~~~~~~~~~~~~~~~~~
 
-**2. Define your mechanistic model (model.py)**
+MIDDoE can unboard and tag models in several ways:
 
-MIDDoE requires a standard model interface. Create a Python file with a function following this signature:
+.. list-table::
+   :widths: 15 40 45
+   :header-rows: 1
+
+   * - **Type**
+     - **Configuration**
+     - **When to use**
+   * - External Python script
+     - ``'krt': {'M': 'pys'}, 'src': {'M': 'models/my_model.py'}``
+     - You have your own ODE solver or external simulator (Suggested over global method and suggested for interfacing external tools)
+   * - Built-in models
+     - ``'krt': {'M': 'pym'}``
+     - For testing; MIDDoE provides basic test models (typically solid-fluid reaction models)
+   * - Global Python function
+     - ``'krt': {'M': 'my_solve_function'}``
+     - Function already defined in your script, in a global space.
+   * - gPROMS coupling
+     - ``'krt': {'M': 'gpr'}, 'creds': {'M': 'user:pass@server'}``
+     - gPAS file created by gPROMS, to couple with gPROMS models.
+
+In general it treats models as a black box and requires a standard model interface. Create a Python file with a function following this signature ('pys') approach:
 
 .. code-block:: python
 
@@ -282,35 +298,13 @@ MIDDoE requires a standard model interface. Create a Python file with a function
            'y2': solution[:, 1].tolist()
        }
 
-**Three model interface options:**
-
-.. list-table::
-   :widths: 15 40 45
-   :header-rows: 1
-
-   * - **Type**
-     - **Configuration**
-     - **When to use**
-   * - External Python script
-     - ``'krt': {'M': 'pys'}, 'src': {'M': 'models/my_model.py'}``
-     - You have your own ODE solver or external simulator (Suggested over global method and suggested for interfacing external tools)
-   * - Built-in models
-     - ``'krt': {'M': 'pym'}``
-     - For testing; MIDDoE provides basic test models (typically solid-fluid reaction models)
-   * - Global Python function
-     - ``'krt': {'M': 'my_solve_function'}``
-     - Function already defined in your script, in a global space.
-   * - gPROMS coupling
-     - ``'krt': {'M': 'gpr'}, 'creds': {'M': 'user:pass@server'}``
-     - gPAS file created by gPROMS, to couple with gPROMS models.
-
 Configuration Dictionaries
-===========================
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The **system** and **models** dictionaries are the central hubs for all MIDDoE operations. They specify experimental design space, model structure, and parameter bounds.
 
-System Dictionary: Defining Time, Controls, and Measurements
-------------------------------------------------------------
+**system Dictionary Definition**
+
+The **system** dictionary is a central hub for all MIDDoE operations. It specify system characteristics.
 
 .. code-block:: python
 
@@ -393,8 +387,9 @@ System Dictionary: Defining Time, Controls, and Measurements
        'tio': {}  # Empty for this example; used for steady-state responses
    }
 
-Models Dictionary: Defining Candidate Models and Parameters
------------------------------------------------------------
+**Model Dictionary Definition**
+
+The **model** dictionary is a central hub for all MIDDoE operations. It specify model characteristics.
 
 .. code-block:: python
 
@@ -449,10 +444,10 @@ Models Dictionary: Defining Candidate Models and Parameters
        }
    }
 
-In-Silico Experimenter and Global Sensitivity Analysis
-======================================================
+**insilicos Dictionary Definition**
 
-For synthetic validation and preliminary exploration:
+The **insilicos** dictionary is a settings dictionary to perform insilico experiment data generation.
+
 
 .. code-block:: python
 
@@ -463,8 +458,13 @@ For synthetic validation and preliminary exploration:
        'errt': 'abs',      # Error type:
                            # 'abs' = absolute noise
                            # 'rel' = relative (proportional to signal)
-       'prels': {}         # Classic pre-defined designs (empty here)
+       'prels': {}         # Classic pre-defined designs (empty here) (iso-valued controls)
    }
+
+
+**GSA Dictionary Definition**
+
+The **gsa** dictionary is a settings dictionary to perform Global Sensitivity Analysis with Sobol method.
 
    # Global Sensitivity Analysis configuration
    gsa = {
@@ -484,11 +484,10 @@ For synthetic validation and preliminary exploration:
        'plt': True               # Generate sensitivity plots?
    }
 
-MBDoE Configuration and Optimisation
-====================================
+**MBDoE Dictionary Definition**
 
-Design of Experiments for Parameter Precision (MBDoE-PP)
--------------------------------------------------------
+The **des_opt** dictionary is a settings dictionary to conduct MBDoE-MD adn MBDoE-PP optimisations.
+
 
 .. code-block:: python
 
@@ -529,8 +528,9 @@ Design of Experiments for Parameter Precision (MBDoE-PP)
        'plt': True     # Generate design plots?
    }
 
-Parameter Estimation and Uncertainty Analysis
----------------------------------------------
+**Calibration Dictionary Definition**
+
+The **iden_opt** dictionary is a settings dictionary to conduct parameter estimation and uncertainty analysis.
 
 .. code-block:: python
 
@@ -581,492 +581,32 @@ Parameter Estimation and Uncertainty Analysis
        'log': False        # Verbose logging?
    }
 
-Step-by-Step Workflow: Pharmaceutical CS2 Example
-=================================================
-
-This section walks through a complete identification workflow with concrete code.
-
-**Step 0: Prepare Files**
-
-1. Place experimental data in ``data/experimental_data.xlsx``
-2. Place your model function in ``models/my_model.py`` following the standard interface
-3. Create ``middoe_workflow.py`` with the following steps
-
-**Step 1: Load Data and Define Configuration**
-
-.. code-block:: python
-
-   import pandas as pd
-   from pathlib import Path
-
-   # Load experimental data
-   data_file = Path('data/experimental_data.xlsx')
-   # If multiple sheets (multiple experiments):
-   experiments_data = {}
-   for sheet_name in pd.ExcelFile(data_file).sheet_names:
-       df = pd.read_excel(data_file, sheet_name=sheet_name)
-       experiments_data[sheet_name] = df
-
-   # Define system, models, insilicos (as shown in previous sections)
-   # ...include all dictionaries from above...
-
-**Step 2: Global Sensitivity Analysis (Optional but Recommended)**
-
-.. code-block:: python
-
-   from middoe.sc_sensa import sensa
-   from middoe.log_utils import save_to_jac, load_from_jac, save_to_xlsx
-
-   # Run Sobol analysis
-   sobol_results = sensa(gsa, models, system)
-
-   # Save results
-   save_to_jac(sobol_results, purpose="sensa")
-
-   # Export to Excel for inspection
-   results = load_from_jac()
-   sensa_data = results['sensa']
-   save_to_xlsx(sensa_data)
-
-   # Interpretation:
-   # S_i^(1) = first-order Sobol index (direct effect of parameter i)
-   # S_i^T = total-order Sobol index (all interactions involving i)
-   # S_i^T >> S_i^(1) = parameter has strong interactions with others
-
-**Step 3: MBDoE Design - Round 1**
-
-.. code-block:: python
-
-   from middoe.des_pp import mbdoe_pp
-
-   # Design optimal experiment for parameter precision
-   designs_r1 = mbdoe_pp(
-       des_opt,
-       system,
-       models,
-       round=1,
-       num_parallel_runs=16  # Parallel optimisation on 16 CPU cores
-   )
-
-   # Output contains: optimal controls u(t), initial conditions w, sampling times
-
-**Step 4: Generate Synthetic Data (or Conduct Experiment)**
-
-.. code-block:: python
-
-   from middoe.krnl_expera import expera
-
-   # Generate in-silico data using the designed experiment
-   expera(
-       system,
-       models,
-       insilicos,
-       designs_r1,
-       expr=1,                      # Experiment ID
-       swps=designs_r1['swps']       # Switching times from design
-   )
-
-   # This generates synthetic data saved as Excel file
-   # In practice, you would conduct real experiments with these controls
-
-**Step 5: Parameter Estimation**
-
-.. code-block:: python
-
-   from middoe.iden_parmest import parmest
-
-   # Estimate parameters from data
-   pe_results_r1 = parmest(
-       system,
-       models,
-       iden_opt,
-       case='round_1'
-   )
-
-   # Output: estimated parameters, objective values, convergence info
-
-**Step 6: Uncertainty Quantification**
-
-.. code-block:: python
-
-   from middoe.iden_uncert import uncert
-
-   # Quantify parameter uncertainty
-   unc_results_r1 = uncert(
-       pe_results_r1,
-       system,
-       models,
-       iden_opt
-   )
-
-   results_dict_r1 = unc_results_r1['results']
-   obs_r1 = unc_results_r1['obs']
-
-   # Output includes:
-   # - Confidence intervals (CI) for each parameter
-   # - t-values (precision metric: higher is better, should exceed t_ref ≈ 2.0)
-   # - Correlation matrix (high correlations indicate identifiability issues)
-
-**Step 7: Estimability Analysis**
-
-.. code-block:: python
-
-   from middoe.sc_estima import estima
-
-   # Rank parameters by estimability
-   ranking, k_optimal, rCC_values, J_k_values, best_result = estima(
-       results_dict_r1,
-       system,
-       models,
-       iden_opt,
-       round=1
-   )
-
-   # Output interpretation:
-   # ranking = parameter indices sorted by estimability (best to worst)
-   # k_optimal = recommended number of parameters to estimate
-   # rCC = corrected critical ratio (lower is better)
-
-   print(f"Parameter ranking by estimability: {ranking}")
-   print(f"Recommend estimating top {k_optimal} parameters")
-
-**Step 8: Save Round Results**
-
-.. code-block:: python
-
-   from middoe.log_utils import save_rounds
-
-   round_data = {}
-   save_rounds(
-       round=1,
-       results=results_dict_r1,
-       case='preliminary',
-       round_data=round_data,
-       models=models,
-       iden_opt=iden_opt,
-       obs=obs_r1,
-       system=system,
-       ranking=ranking,
-       k_optimal_value=k_optimal,
-       rCC_values=rCC_values,
-       J_k_values=J_k_values,
-       best_uncert_result=best_result
-   )
-
-**Step 9: Sequential MBDoE Rounds (Repeat Steps 3–8)**
-
-.. code-block:: python
-
-   # Typically, run 3–4 iterative rounds
-   for round_num in range(2, 5):
-       print(f"\n========== ROUND {round_num} ==========")
-
-       # Update mutation mask based on previous estimability
-       # Fix parameters outside top-k from previous round
-       models['mutation']['M'] = [i < k_optimal for i in range(len(theta_n))]
-
-       # Design new experiment
-       design = mbdoe_pp(des_opt, system, models, round_num, num_parallel_runs=16)
-
-       # Generate data
-       expera(system, models, insilicos, design, expr=round_num, swps=design['swps'])
-
-       # Estimate, quantify, analyse
-       pe_res = parmest(system, models, iden_opt, case=f'round_{round_num}')
-       unc_res = uncert(pe_res, system, models, iden_opt)
-
-       # Estimability
-       rank, k_opt, rCC, J_k, best = estima(unc_res['results'], system, models, iden_opt, round_num)
-
-       # Save
-       save_rounds(
-           round_num, unc_res['results'], f'round_{round_num}', round_data,
-           models, iden_opt, unc_res['obs'], system,
-           ranking=rank, k_optimal_value=k_opt, rCC_values=rCC,
-           J_k_values=J_k, best_uncert_result=best
-       )
-
-**Step 10: Cross-Validation**
-
-.. code-block:: python
-
-   from middoe.iden_valida import validation
-
-   # Leave-one-out cross-validation
-   validres = validation(system, models, iden_opt, round_data)
-
-   # Output: R² for calibration and validation (should be similar)
-
-**Step 11: Save and Post-Process**
-
-.. code-block:: python
-
-   from middoe.log_utils import save_to_jac, load_from_jac
-   from middoe.iden_utils import run_postprocessing
-
-   # Save all round data
-   save_to_jac(round_data, purpose="iden")
-
-   # Load and post-process
-   results = load_from_jac()
-   iden = results['iden']
-
-   # Generate comprehensive reports
-   run_postprocessing(
-       round_data=iden,
-       solvers=['M'],
-       selected_rounds=[1, 2, 3, 4],
-       plot_global_p_and_t=True,           # Parameter evolution
-       plot_confidence_spaces=True,        # Confidence ellipsoids
-       plot_p_and_t_tests=True,            # t-value plots
-       export_excel_reports=True,          # Excel summaries
-       plot_estimability=True              # Estimability improvement
-   )
-
-Configuration Reference Tables
-==============================
-
-.. _table_param_est_methods:
-
-Parameter Estimation Methods and Cost Functions
------------------------------------------------
-
-.. list-table::
-   :widths: 15 25 25 35
-   :header-rows: 1
-
-   * - **Method**
-     - **Optimiser**
-     - **Type**
-     - **When to use**
-   * - LBFGSB
-     - Limited-memory BFGS
-     - Local, gradient-based
-     - Fast, smooth problems; default choice
-   * - SLSQP
-     - Sequential Least Squares
-     - Local, gradient-based, constrained
-     - Constrained optimisation
-   * - DE
-     - Differential Evolution
-     - Global, population-based
-     - Non-convex, multi-modal; slower but robust
-   * - NMS
-     - Nelder–Mead Simplex
-     - Local, derivative-free
-     - No gradients available; robust to noise
-   * - BFGS
-     - Broyden–Fletcher–Goldfarb–Shanno
-     - Local, gradient-based
-     - Similar to LBFGSB but requires more memory
-   * - TC
-     - Trust-region Constrained
-     - Local, gradient-based, constrained
-     - Highly constrained; superior to SLSQP for tight bounds
-
-.. list-table::
-   :widths: 15 25 40
-   :header-rows: 1
-
-   * - **Cost Function**
-     - **Formulation**
-     - **When to use**
-   * - LS (Least Squares)
-     - :math:`\min \sum_t (y_r(t) - \hat{y}_r(t))^2`
-     - No noise information available
-   * - WLS (Weighted LS)
-     - :math:`\min \sum_t \frac{(y_r(t) - \hat{y}_r(t))^2}{\sigma_r^2}`
-     - Known, constant measurement uncertainty
-   * - MLE (Max Likelihood)
-     - :math:`\min -\ln L(\theta \mid \text{data})`
-     - Heteroscedastic noise (varying uncertainty)
-   * - CS (Chi-Square)
-     - :math:`\min \sum_t \frac{(y_r(t) - \hat{y}_r(t))^2 - 2\sigma_r^2}{2\sigma_r^2}`
-     - Assumes normal error distribution
-
-.. _table_mbdoe_pp_criteria:
-
-MBDoE-PP Optimality Criteria (Alphabetical)
---------------------------------------------
-
-.. list-table::
-   :widths: 20 30 30 20
-   :header-rows: 1
-
-   * - **Criterion**
-     - **Mathematical Form**
-     - **Interpretation**
-     - **Advantage / Drawback**
-   * - **D-optimality**
-     - :math:`\min \det(\mathbf{V}(\boldsymbol{\theta}))`
-     - Shrink confidence ellipsoid volume
-     - ✓ Scale-invariant; ✗ uneven precision
-   * - **A-optimality**
-     - :math:`\min \text{tr}(\mathbf{V}(\boldsymbol{\theta}))`
-     - Minimise average variance
-     - ✓ Balanced precision; ✗ ignores correlations
-   * - **E-optimality**
-     - :math:`\min \lambda_{\max}(\mathbf{V}(\boldsymbol{\theta}))`
-     - Minimise largest eigenvalue (worst-case)
-     - ✓ Targets uncertain parameters; ✗ sensitive to ill-conditioning
-   * - **ME-optimality**
-     - :math:`\min \kappa(\mathbf{V}(\boldsymbol{\theta}))`
-     - Minimise condition number
-     - ✓ Uniform precision, robust; ✗ limited to small models
-
-.. _table_mdoe_md_criteria:
-
-MBDoE-MD Optimality Criteria (T-optimal)
-----------------------------------------
-
-.. list-table::
-   :widths: 20 40 40
-   :header-rows: 1
-
-   * - **Criterion**
-     - **Focus**
-     - **Best for**
-   * - **Hunter–Reiner (HR)**
-     - Maximise divergence :math:`\max \sum_t (\hat{y}_{l}(t) - \hat{y}_{l'}(t))^T F_{l,l',t} (\hat{y}_{l}(t) - \hat{y}_{l'}(t))`
-     - Large prediction differences; late-time discrimination
-   * - **Buzzi–Ferraris–Forzatti (BFF)**
-     - Weight divergence by error :math:`F_{l,l',t} = \Sigma_y^{-1} + W_{l,t} V_l W_l^T + W_{l',t} V_{l'} W_{l'}^T`
-     - Uncertainty-weighted discrimination; early-time focus
-
-Troubleshooting and Guidelines
-==============================
-
-Time Resolution and Mesh Independence
---------------------------------------
-
-**Problem:** My results change when I adjust ``t_r``.
-
-**Solution:** Perform a mesh-independency test:
-
-.. code-block:: python
-
-   import numpy as np
-
-   t_r_values = [0.1, 0.05, 0.02, 0.01]
-   results = []
-
-   for t_r in t_r_values:
-       system['t_r'] = t_r
-       # Run MBDoE or parameter estimation
-       design = mbdoe_pp(des_opt, system, models, round=1, num_parallel_runs=8)
-       results.append(design)  # Store objective values
-       print(f"t_r = {t_r}: obj = {design['obj_value']}")
-
-   # If objective values stabilise → mesh-independent
-   # If they still change → reduce t_r further
-
-**Guideline:** Use :math:`\Delta t \leq \frac{\tau_{\text{fastest}}}{20}` where :math:`\tau_{\text{fastest}}` is the fastest process time constant (e.g., reaction half-life).
-
-Finite Difference Perturbation
--------------------------------
-
-**Problem:** "FDM sensitivities are noisy" or "convergence is poor".
-
-**Solution:** Use adaptive perturbation with mesh-independency test:
-
-.. code-block:: python
-
-   iden_opt['eps'] = None  # Auto mesh-independency test
-   iden_opt['sens_m'] = 'central'  # Use central differences (more accurate)
-
-**Typical range:** :math:`10^{-5} \leq \varepsilon \leq 10^{-3}` in normalised parameter space.
-
-Parameter Correlations and Identifiability
--------------------------------------------
-
-**Problem:** "Parameter estimates have high uncertainty, wide CI, low t-values".
-
-**Solution:** Use Estimability Analysis to identify which parameters are actually estimable:
-
-.. code-block:: python
-
-   from middoe.sc_estima import estima
-
-   ranking, k_opt, rCC, J_k, best = estima(results_dict, system, models, iden_opt, round=1)
-
-   # Fix parameters outside top-k
-   for i in range(len(theta_n)):
-       models['mutation']['M'][ranking[i]] = i < k_opt
-
-   print(f"Fix parameters: {[ranking[i] for i in range(k_opt, len(ranking))]}")
-   print(f"Estimate parameters: {[ranking[i] for i in range(k_opt)]}")
-
-Then re-estimate with reduced parameter subset.
-
-Optimisation Not Converging
-----------------------------
-
-**Problem:** "Parameter estimation or MBDoE design doesn't converge".
-
-**Solution:** Try in sequence:
-
-1. **Increase iterations:**
-
-   .. code-block:: python
-
-      iden_opt['maxit'] = 1000  # Double or more
-      des_opt['itr']['maxpp'] = 200
-
-2. **Enable multi-start:**
-
-   .. code-block:: python
-
-      iden_opt['ms'] = True  # Try multiple random starts
-
-3. **Switch optimiser:**
-
-   .. code-block:: python
-
-      iden_opt['meth'] = 'DE'  # Global search (slower but robust)
-      # or
-      des_opt['meth'] = 'DEPS'  # Hybrid: DE + local refine
-
-4. **Relax bounds:**
-
-   .. code-block:: python
-
-      # If bounds are very tight, loosen them slightly
-      models['t_l']['M'] = [x * 0.5 for x in theta_mins]
-      models['t_u']['M'] = [x * 2.0 for x in theta_maxs]
-
-Exporting and Sharing Results
-==============================
-
-All outputs are saved automatically:
-
-- **Internal format (.jac):** Preserves all metadata, use for reloading
-- **Excel (.xlsx):** Human-readable summaries, plots, and reports
-- **Plots:** PNG files in ``results/`` folder
-
-Access saved data:
-
-.. code-block:: python
-
-   from middoe.log_utils import load_from_jac
-
-   results = load_from_jac()
-   iden = results['iden']
-   sensa = results['sensa']
-
-   # Access parameter estimates for round 1
-   params_r1 = iden['round_1']['estimated_parameters']
-   confidence_intervals = iden['round_1']['confidence_intervals']
-
 Citation
 --------
 
 If you use MIDDoE in your research, please cite:
 
-   Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
-   MIDDoE: An MBDoE Python package for model identification, discrimination,
-   and calibration.
-   *Digital Chemical Engineering*, 17, 100276.
-   https://doi.org/10.1016/j.dche.2025.100276
+[1]. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+     MIDDoE: An MBDoE Python package for model identification, discrimination,
+     and calibration.
+     *Digital Chemical Engineering*, 17, 100276.
+     https://doi.org/10.1016/j.dche.2025.100276
+
+[2]. Tabrizi, S.Z.B., Barbera, E., Da Silva, W.R.L, & Bezzo, F. (2025).
+     A Python/Numpy-based package to support model discrimination and identification.
+     J.F.M. Van Impe, G. Léonard, S.S. Bhonsale, M.E. Polańska, F. Logist (Eds.).
+     *Systems and Control Transactions*, 4 , 1282-1287.
+     https://doi.org/10.69997/sct.192104
+
+Applied to
+----------
+
+MIDDoE has been applied in various EU reports, research works and projects, e.g. :
+
+[1]. Tabrizi, Z., Rodriguez, C., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+     Wet Carbonation of Industrial Recycled Concrete Fines: Experimental Study and Reaction Kinetic Modeling.
+     *Ind Eng Chem Res*, 64, 45, 21412–21425.
+     https://doi.org/10.1021/acs.iecr.5c02835
 
 Documentation Contents
 ----------------------
