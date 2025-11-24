@@ -22,7 +22,7 @@ MIDDoE is an open-source Python package for systematic model identification work
 
 MIDDoE unifies the complete identification pipeline from pre-experimental diagnostics through post-analysis reporting—suitable for experimentalists and engineers with limited programming expertise.
 
-Installation
+1. Installation
 ============
 
 Install via pip:
@@ -33,7 +33,7 @@ Install via pip:
 
 MIDDoE requires Python ≥ 3.9 and automatically installs dependencies: NumPy, SciPy, Pandas, Matplotlib, and Pymoo.
 
-Mathematical Framework
+2. Mathematical Framework
 ======================
 
 MIDDoE operates on lumped dynamic systems governed by differential-algebraic equations:
@@ -56,12 +56,12 @@ MIDDoE operates on lumped dynamic systems governed by differential-algebraic equ
 - :math:`\mathbf{y}(t) \in \mathbb{R}^{N_r}`: measured outputs
 - :math:`\boldsymbol{\varepsilon}(t)`: measurement error (noise)
 
-Workflow Steps
+3. Workflow Steps
 ==============
 
 A complete MIDDoE identification workflow for Basic user follows this sequence:
 
-1. System and model establishment
+I. System and model establishment
 ------------------------------
 
 1. **System structure**
@@ -73,7 +73,7 @@ A complete MIDDoE identification workflow for Basic user follows this sequence:
 3. **Global Sensitivity Analysis**
    Configure the ``gsa`` dictionary and call ``sensa()`` from ``middoe.sc_sensa`` to analyse the influence of parameters and/or controls on the outputs, providing a ranking that guides model reduction and design choices.
 
-2. Data creation
+II. Data creation
 -------------
 
 4. **Preliminary data**
@@ -88,7 +88,7 @@ A complete MIDDoE identification workflow for Basic user follows this sequence:
 7. **Append data**
    After executing the designed experiments (in the lab or in-silico via ``expera()``), update ``data.xlsx`` or your in-memory data structure so that all newly collected experiments are available for calibration.
 
-3. Model identification
+III. Model identification
 --------------------
 
 8. **Parameter estimation**
@@ -106,8 +106,8 @@ A complete MIDDoE identification workflow for Basic user follows this sequence:
 12. **Sequential rounds**
     Repeat steps 4–11, updating experimental designs, data, and parameter masks round by round until the desired discrimination and calibration performance indicators (e.g. model selection metrics, confidence intervals, t-tests) are achieved.
 
-4. Post analysis
-=============
+IV. Post analysis
+----------------
 
 13. **Model validation**
     Perform cross-validation over the full dataset by calling ``validation()`` from ``middoe.iden_valida``, obtaining calibration/validation statistics (e.g. per-response and global \(R^2\), residual analysis) for the final selected model(s).
@@ -122,7 +122,7 @@ A complete MIDDoE identification workflow for Basic user follows this sequence:
     Generate global reports and visualisations by calling ``run_postprocessing()`` from ``middoe.iden_utils`` on the stored ``round_data``, producing plots (parameter trajectories, confidence ellipsoids, p/t-tests, estimability evolution) and Excel summaries for documentation and decision-making.
 
 
-Project structure
+4. Project structure
 =================
 
 Organise your project as follows:
@@ -138,13 +138,10 @@ Organise your project as follows:
    │
    └── workflow.py/                        # analysis and dentification workflow
 
-Data structure
+5. Data structure
 ==============
 
 MIDDoE reads data from a data.xlsx file in the project repository, Each sheet in ``data.xlsx`` represents one batch/experiment and contains measured outputs (MES), time-invariant controls :math:`\mathbf{w}`, and time-variant controls :math:`\mathbf{u}(t)` in a single table.
-
-data.xlsx structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :widths: 10 15 15 10 15 15 10 10 15
@@ -205,8 +202,8 @@ data.xlsx structure
 - **``u1``, ``u2``, … :**
   Time-variant control profiles :math:`u_i(t_{\mathrm{all}})`; column names must match ``system['tvi']`` keys so that MIDDoE can reconstruct the control trajectories from ``X:all`` and ``u_i``.
 
-model.py structure
-~~~~~~~~~~~~~~~~~~
+6. model.py structure
+==============
 
 MIDDoE can unboard and tag models in several ways:
 
@@ -298,8 +295,8 @@ In general it treats models as a black box and requires a standard model interfa
            'y2': solution[:, 1].tolist()
        }
 
-Configuration Dictionaries
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+7. Configuration Dictionaries
+==============
 
 
 **system Dictionary Definition**
@@ -581,8 +578,8 @@ The **iden_opt** dictionary is a settings dictionary to conduct parameter estima
        'log': False        # Verbose logging?
    }
 
-Citation
---------
+8. Citation
+==============
 
 If you use MIDDoE in your research, please cite:
 
@@ -598,8 +595,8 @@ If you use MIDDoE in your research, please cite:
      *Systems and Control Transactions*, 4 , 1282-1287.
      https://doi.org/10.69997/sct.192104
 
-Applied to
-----------
+9. Applied to
+==============
 
 MIDDoE has been applied in various EU reports, research works and projects, e.g. :
 
@@ -608,16 +605,16 @@ MIDDoE has been applied in various EU reports, research works and projects, e.g.
      *Ind Eng Chem Res*, 64, 45, 21412–21425.
      https://doi.org/10.1021/acs.iecr.5c02835
 
-Documentation Contents
-----------------------
+10. Documentation Contents
+==============
 
 .. toctree::
    :maxdepth: 2
 
    api
 
-Resources
----------
+11. Resources
+==============
 
 - **GitHub:** https://github.com/zuhairblr/middoe
 - **PyPI:** https://pypi.org/project/middoe/
@@ -625,8 +622,8 @@ Resources
 - **Issues & Support:** https://github.com/zuhairblr/middoe/issues
 - **Case Studies:** https://github.com/zuhairblr/middoe/tree/main/tests/paper
 
-Indices and Tables
-------------------
+12. Indices and Tables
+==============
 
 * :ref:`genindex`
 * :ref:`modindex`
