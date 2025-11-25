@@ -56,6 +56,8 @@ MIDDoE operates on lumped dynamic systems governed by differential-algebraic equ
 - :math:`\mathbf{y}(t) \in \mathbb{R}^{N_r}`: measured outputs
 - :math:`\boldsymbol{\varepsilon}(t)`: measurement error (noise)
 
+
+
 3. Workflow Steps
 ==============
 
