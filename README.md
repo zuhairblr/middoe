@@ -272,15 +272,57 @@ By contributing to MIDDoE, you agree to the following terms:
 MIDDoE is licensed under the **MIT License**. See the `LICENSE` file for more details.
 
 ---
+## 📖 Citation
+
+If you use MIDDoE in your research, please cite:
+
+1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).  
+   MIDDoE: An MBDoE Python package for model identification, discrimination, and calibration.  
+   *Digital Chemical Engineering*, 17, 100276.  
+   [https://doi.org/10.1016/j.dche.2025.100276](https://doi.org/10.1016/j.dche.2025.100276)
+
+2. Tabrizi, S.Z.B., Barbera, E., Da Silva, W.R.L., & Bezzo, F. (2025).  
+   A Python/Numpy-based package to support model discrimination and identification.  
+   In J.F.M. Van Impe et al. (Eds.), *Systems and Control Transactions*, 4, 1282-1287.  
+   [https://doi.org/10.69997/sct.192104](https://doi.org/10.69997/sct.192104)
+
+---
+
+## 🧪 Applied To
+
+MIDDoE has been applied in various EU reports, research works, and projects, e.g.:
+
+1. Tabrizi, Z., Rodriguez, C., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).  
+   Wet Carbonation of Industrial Recycled Concrete Fines: Experimental Study and Reaction Kinetic Modeling.  
+   *Ind Eng Chem Res*, 64(45), 21412–21425.  
+   [https://doi.org/10.1021/acs.iecr.5c02835](https://doi.org/10.1021/acs.iecr.5c02835)
+
+---
+
 
 ## 🙏 Acknowledgements
+
 This work is part of the **CO2Valorize** project, funded by the European Union’s Horizon Europe research and innovation programme under the **Marie Skłodowska-Curie Grant Agreement No. 101073547**.
 
 **MIDDoE** is a collaborative effort between:  
-- 🏫 The **[Computer-Aided Process Engineering (CAPE)](https://research.dii.unipd.it/capelab/)** lab at the University of Padova, Italy  
+- 🏫 The **[Computer-Aided Process Engineering (CAPE) Laboratory](https://research.dii.unipd.it/capelab/)** at the University of Padova, Italy  
 - 🏢 The **[Green Innovation team at FLSmidth Cement](https://www.flsmidth-cement.com/events/green-cement-and-concrete-innovation)**, Denmark  
 
-Special thanks to the research community for their valuable contributions and feedback.
+Additionally, MIDDoE has been extended to integrate with gPROMS, a commercial process and model simulator developed by **[Siemens Industry Software Limited](https://www.siemens.com/global/en/products/automation/industry-software/gproms-digital-process-design-and-operations.html)**, UK.
+
+We warmly thank the research community for their valuable feedback and ongoing contributions that have helped shape and improve this project.
+
+---
+
+## 🔗 Resources
+
+- GitHub Repository: [https://github.com/zuhairblr/middoe](https://github.com/zuhairblr/middoe)  
+- PyPI Package: [https://pypi.org/project/middoe/](https://pypi.org/project/middoe/)  
+- Documentation: [https://middoe.readthedocs.io/en/latest/](https://middoe.readthedocs.io/en/latest/)  
+- Published Paper: [https://doi.org/10.1016/j.dche.2025.100276](https://doi.org/10.1016/j.dche.2025.100276)  
+- Issues & Support: [https://github.com/zuhairblr/middoe/issues](https://github.com/zuhairblr/middoe/issues)  
+- Case Studies and Examples: [https://github.com/zuhairblr/middoe/tree/main/tests/paper](https://github.com/zuhairblr/middoe/tree/main/tests/paper)
+
 
 ---
 
