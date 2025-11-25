@@ -800,6 +800,7 @@ Identify influential parameters before designing experiments:
    expera(system, models, insilicos, designs, expr=1, swps=designs['swps'])
 
    # For real experiments: manually add data to data.xlsx following the design
+If you don't add the swps from MBDoE designs, based on the expr number, it executes the insilicos['prels'][expr] iso-value insilico experiments.
 
 **Result:** New sheet in ``data.xlsx`` containing measurements for experiment 1.
 
