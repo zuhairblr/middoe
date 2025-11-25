@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 13" />
+    <list default="true" id="d211a384-3894-4904-8416-d00508effc3a" name="Changes" comment="paper version 14">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/index.rst" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -333,15 +336,7 @@
       <workItem from="1763299825113" duration="62744000" />
       <workItem from="1763456940156" duration="40698000" />
       <workItem from="1763910044521" duration="1007000" />
-      <workItem from="1763911099853" duration="47576000" />
-    </task>
-    <task id="LOCAL-00011" summary="final polishing 7">
-      <option name="closed" value="true" />
-      <created>1747330023295</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1747330023296</updated>
+      <workItem from="1763911099853" duration="49153000" />
     </task>
     <task id="LOCAL-00012" summary="final polishing 8">
       <option name="closed" value="true" />
@@ -727,7 +722,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764028881821</updated>
     </task>
-    <option name="localTasksCounter" value="60" />
+    <task id="LOCAL-00060" summary="paper version 14">
+      <option name="closed" value="true" />
+      <created>1764029102682</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1764029102683</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -745,7 +748,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="final polishing 20" />
     <MESSAGE value="final polishing 21" />
     <MESSAGE value="final polishing 22" />
     <MESSAGE value="final polishing 23" />
@@ -770,7 +772,8 @@
     <MESSAGE value="paper version 11" />
     <MESSAGE value="paper version 12" />
     <MESSAGE value="paper version 13" />
-    <option name="LAST_COMMIT_MESSAGE" value="paper version 13" />
+    <MESSAGE value="paper version 14" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper version 14" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -217,7 +217,7 @@ After calibration of the candidate models, P-test quantifies the relative likeli
 where :math:`\chi_i^2` values are obtained after parameter estimation for each model. Models with lower :math:`\chi^2` values are considered better descriptors of the system. A higher :math:`P_i` indicates stronger evidence in favour of model :math:`i`.
 
 
-3. Workflow Steps
+3. Workflow Conceptual Steps
 ==============
 
 A complete MIDDoE identification workflow for Basic user follows this sequence:
@@ -739,7 +739,403 @@ The **iden_opt** dictionary is a settings dictionary to conduct parameter estima
        'log': False        # Verbose logging?
    }
 
-8. Citation
+8. Practical Workflow
+=====================
+
+This section demonstrates the execution sequence for a complete MIDDoE insilico identification workflow. All configuration dictionaries (``system``, ``models``, ``gsa``, ``insilicos``, ``des_opt``, ``iden_opt``) are assumed to be defined as shown in Section 7.
+
+8.1 Import Required Modules
+----------------------------
+
+.. code-block:: python
+
+   from middoe.sc_sensa import sensa
+   from middoe.des_pp import mbdoe_pp
+   from middoe.des_md import mbdoe_md
+   from middoe.krnl_expera import expera
+   from middoe.iden_parmest import parmest
+   from middoe.iden_uncert import uncert
+   from middoe.sc_estima import estima
+   from middoe.iden_valida import validation
+   from middoe.log_utils import save_rounds, save_to_jac, load_from_jac, save_to_xlsx
+   from middoe.iden_utils import run_postprocessing
+
+8.2 Global Sensitivity Analysis (Optional)
+-------------------------------------------
+
+Identify influential parameters before designing experiments:
+
+.. code-block:: python
+
+   # Run Sobol sensitivity analysis
+   sobol_results = sensa(gsa, models, system)
+
+   # Save results
+   save_to_jac(sobol_results, purpose="sensa")
+
+   # Export to Excel
+   results = load_from_jac()
+   sensa_data = results['sensa']
+   save_to_xlsx(sensa_data)
+
+**Output:** First-order and total-order Sobol indices for each parameter, plus plots if ``gsa['plt'] = True``.
+
+8.3 Round 1: Initial Design and Estimation
+-------------------------------------------
+
+**Step 1: Design the first experiment**
+
+.. code-block:: python
+
+   round = 1
+   designs = mbdoe_pp(des_opt, system, models, round=1, num_parallel_runs=16)
+
+**Returns:** Optimal control profiles (``u(t)``), time-invariant inputs (``w``), and sampling times that minimize parameter uncertainty according to the selected criterion (``des_opt['pp_ob']``).
+
+**Step 2: Generate data**
+
+.. code-block:: python
+
+   # For insilico studies:
+   expera(system, models, insilicos, designs, expr=1, swps=designs['swps'])
+
+   # For real experiments: manually add data to data.xlsx following the design
+
+**Result:** New sheet in ``data.xlsx`` containing measurements for experiment 1.
+
+**Step 3: Estimate parameters**
+
+.. code-block:: python
+
+   resultpr = parmest(system, models, iden_opt, case='strov')
+
+- ``None`` (default): Standard estimation, uses ``models['theta']`` as starting values and fixed parameter fallback.
+- ``'freeze'``: Keep existing mutation masks unchanged for sequential estimation (preserves which parameters are active/frozen between rounds).
+- ``'strov'``: **ST**art from **R**eference **O**ptimal **V**alues. Uses ``models['thetastart']`` as starting values instead of ``models['theta']``. Useful when continuing from a previous calibration round with improved initial guesses.
+
+
+**Returns:** Estimated parameters :math:`\hat{\boldsymbol{\theta}}`, objective function value, convergence status, and computational time for each model in ``models['can_m']``.
+
+**Step 4: Quantify uncertainty**
+
+.. code-block:: python
+
+   uncert_results = uncert(resultpr, system, models, iden_opt)
+   resultun = uncert_results['results']
+   obs = uncert_results['obs']
+
+**Returns:** Variance-covariance matrix :math:`\mathbf{V}`, confidence intervals :math:`CI_i`, t-values :math:`t_i`, correlation matrix, and bootstrap statistics.
+
+**Step 5: Evaluate estimability**
+
+.. code-block:: python
+
+   ranking, k_optimal_value, rCC_values, J_k_values, best_uncert_result = \
+       estima(resultun, system, models, iden_opt, round)
+
+**Returns:** Parameter ranking by estimability, optimal number of estimable parameters :math:`k^*`, and corrected critical ratio curve :math:`r_{CC,k}`.
+
+**Step 6: Save round results**
+
+.. code-block:: python
+
+   round_data = {}
+   save_rounds(round, resultun, 'preliminary', round_data, models, iden_opt, obs, system,
+               ranking=ranking, k_optimal_value=k_optimal_value, rCC_values=rCC_values,
+               J_k_values=J_k_values, best_uncert_result=best_uncert_result)
+
+**Result:** Round 1 data stored in ``round_data`` dictionary for later analysis.
+
+8.4 Sequential Rounds (2, 3, ..., N)
+-------------------------------------
+
+Repeat the workflow to progressively reduce parameter uncertainty:
+
+.. code-block:: python
+
+   for round in range(2, 5):  # Example: rounds 2-4
+       # Design next experiment
+       designs = mbdoe_pp(des_opt, system, models, round=round, num_parallel_runs=16)
+
+       # Collect data
+       expera(system, models, insilicos, designs, expr=round, swps=designs['swps'])
+
+       # Estimate with cumulative dataset
+       resultpr = parmest(system, models, iden_opt, case='strov')
+
+       # Quantify uncertainty
+       uncert_results = uncert(resultpr, system, models, iden_opt)
+       resultun = uncert_results['results']
+       obs = uncert_results['obs']
+
+       # Check estimability
+       ranking, k_optimal_value, rCC_values, J_k_values, best_uncert_result = \
+           estima(resultun, system, models, iden_opt, round)
+
+       # Save round
+       save_rounds(round, resultun, 'sequential', round_data, models, iden_opt, obs, system,
+                   ranking=ranking, k_optimal_value=k_optimal_value, rCC_values=rCC_values,
+                   J_k_values=J_k_values, best_uncert_result=best_uncert_result)
+
+**Optional:** Update ``models['mutation']`` between rounds to manually fix poorly estimable parameters instead of using ``estima()``.
+
+**Stopping criteria:**
+
+- All t-values exceed threshold: :math:`t_i > t_{\text{ref}}`
+
+8.5 Model Discrimination (Multi-Model Case)
+--------------------------------------------
+
+If multiple candidate models compete, design discriminating experiments:
+
+.. code-block:: python
+
+   # Configure for discrimination
+   des_opt['md_ob'] = 'BFF'  # or 'HR'
+
+   # Design experiment maximizing model separation
+   md_designs = mbdoe_md(des_opt, system, models, round=round)
+
+   # Execute and analyze
+   expera(system, models, insilicos, md_designs, expr=round, swps=md_designs['swps'])
+   resultpr = parmest(system, models, iden_opt, case='discrimination')
+
+**Model selection:** Compare :math:`\chi^2` values and P-test probabilities (Section 2.8) to identify the best model.
+
+8.6 Cross-Validation
+--------------------
+
+Validate the calibrated model across all experiments:
+
+.. code-block:: python
+
+   validres = validation(system, models, iden_opt, round_data)
+
+**Returns:** Calibration vs. validation metrics (:math:`R^2_{\text{cal}}`, :math:`R^2_{\text{val}}`, :math:`\text{RMSE}_{\text{cal}}`, :math:`\text{RMSE}_{\text{val}}`), residual plots, and leave-one-out statistics.
+
+8.7 Save Final Results
+-----------------------
+
+Persist all workflow data:
+
+.. code-block:: python
+
+   # Save identification results
+   save_to_jac(round_data, purpose="iden")
+
+**Result:** Binary file ``results/iden_YYYYMMDD_HHMMSS.jac`` containing all rounds.
+
+8.8 Load and Post-Process
+--------------------------
+
+Reload saved data and generate reports:
+
+.. code-block:: python
+
+   # Load results
+   results = load_from_jac()
+   iden = results['iden']
+
+   # Generate comprehensive reports
+   run_postprocessing(
+       round_data=iden,
+       solvers=['M'],                    # Model identifiers
+       selected_rounds=[1, 2, 3, 4],     # Rounds to analyze
+       plot_global_p_and_t=True,         # Parameter evolution + t-tests
+       plot_confidence_spaces=True,      # 2D confidence ellipses
+       plot_p_and_t_tests=True,          # t-value bar charts
+       export_excel_reports=True,        # Summary tables
+       plot_estimability=True            # Estimability ranking evolution
+   )
+
+**Outputs:**
+
+- ``results/figures/``: Parameter trajectories, confidence regions, t-test evolution, fitting plots
+- ``results/reports/``: Excel files with parameter estimates, uncertainties, correlations, and validation metrics
+
+8.9 Complete Example: Discrimination to Calibration
+----------------------------------------------------
+
+A realistic workflow integrating model discrimination, candidate elimination, and sequential precision refinement:
+
+.. code-block:: python
+
+   from middoe.des_md import mbdoe_md
+   from middoe.des_pp import mbdoe_pp
+   from middoe.krnl_expera import expera
+   from middoe.iden_parmest import parmest
+   from middoe.iden_uncert import uncert
+   from middoe.sc_estima import estima
+   from middoe.iden_valida import validation
+   from middoe.log_utils import save_rounds, save_to_jac, load_from_jac
+   from middoe.iden_utils import run_postprocessing
+
+   # Assume system, models, insilicos, iden_opt, des_opt defined (Section 7)
+   # models['can_m'] = ['M1', 'M2', 'M3']  # Multiple competing models
+
+   round_data = {}
+   round = 1
+
+   # ========== PHASE 1: MODEL DISCRIMINATION ==========
+   while len(models['can_m']) > 1:
+       # Design discriminating experiment
+       des_opt['md_ob'] = 'BFF'  # Buzzi-Ferraris-Forzatti criterion
+       md_designs = mbdoe_md(des_opt, system, models, round=round)
+
+       # Execute experiment
+       expera(system, models, insilicos, md_designs, expr=round, swps=md_designs['swps'])
+
+       # Estimate parameters for all candidate models
+       resultpr = parmest(system, models, iden_opt, case=None)
+
+       # Uncertainty quantification
+       uncert_results = uncert(resultpr, system, models, iden_opt)
+       resultun = uncert_results['results']
+       obs = uncert_results['obs']
+
+       # Estimability analysis
+       ranking, k_opt, rCC, J_k, best_res = estima(resultun, system, models, iden_opt, round)
+
+       # Save discrimination round
+       save_rounds(round, resultun, 'discrimination', round_data, models, iden_opt, obs, system,
+                   ranking=ranking, k_optimal_value=k_opt, rCC_values=rCC,
+                   J_k_values=J_k, best_uncert_result=best_res)
+
+       # Compute P-test values for model selection
+       import numpy as np
+       chi2_values = {solver: resultun[solver]['chi2'] for solver in models['can_m']}
+       P_values = {}
+       denom = sum(np.exp(-chi2/2) for chi2 in chi2_values.values())
+       for solver, chi2 in chi2_values.items():
+           P_values[solver] = (1 - np.exp(-chi2/2) / denom) * 100
+
+       print(f"\nRound {round} - P-test results:")
+       for solver in models['can_m']:
+           print(f"  {solver}: P = {P_values[solver]:.2f}%, χ² = {chi2_values[solver]:.4f}")
+
+       # Remove models with low discrimination probability (P < 20%)
+       threshold = 20.0
+       models_to_remove = [s for s in models['can_m'] if P_values[s] < threshold]
+
+       if models_to_remove:
+           print(f"Removing models {models_to_remove} (P < {threshold}%)")
+           for solver in models_to_remove:
+               models['can_m'].remove(solver)
+
+       # Exit discrimination if only one model remains or max rounds reached
+       if len(models['can_m']) == 1 or round >= 5:
+           print(f"\nDiscrimination complete. Selected model: {models['can_m'][0]}")
+           break
+
+       round += 1
+
+   # ========== PHASE 2: PARAMETER PRECISION REFINEMENT ==========
+   # Switch to parameter precision optimization
+   des_opt['pp_ob'] = 'D'  # D-optimal design for final calibration
+   selected_model = models['can_m'][0]  # Best model from discrimination
+
+   # Single precision round (or continue for multiple rounds if needed)
+   round += 1
+   designs = mbdoe_pp(des_opt, system, models, round=round, num_parallel_runs=16)
+   expera(system, models, insilicos, designs, expr=round, swps=designs['swps'])
+
+   # Re-estimate with discriminated model using previous optimal as starting point
+   models['thetastart'] = {selected_model: resultun[selected_model]['theta']}
+   resultpr = parmest(system, models, iden_opt, case='strov')
+
+   # Final uncertainty analysis
+   uncert_results = uncert(resultpr, system, models, iden_opt)
+   resultun = uncert_results['results']
+   obs = uncert_results['obs']
+
+   # Estimability check
+   ranking, k_opt, rCC, J_k, best_res = estima(resultun, system, models, iden_opt, round)
+
+   # Save precision round
+   save_rounds(round, resultun, 'precision', round_data, models, iden_opt, obs, system,
+               ranking=ranking, k_optimal_value=k_opt, rCC_values=rCC,
+               J_k_values=J_k, best_uncert_result=best_res)
+
+   # Check stopping criteria
+   t_values = resultun[selected_model]['t_values']
+   t_ref = resultun[selected_model]['t_ref']
+   CI_relative = resultun[selected_model]['CI'] / np.abs(resultun[selected_model]['theta'])
+
+   print(f"\nRound {round} - Convergence check:")
+   print(f"  All t-values > t_ref: {np.all(t_values > t_ref)}")
+   print(f"  Max relative CI: {np.max(CI_relative):.3f} (target < 0.1)")
+
+   # Continue precision rounds if needed
+   max_rounds = 8
+   while round < max_rounds:
+       if np.all(t_values > t_ref) and np.max(CI_relative) < 0.1:
+           print("Convergence criteria met. Stopping.")
+           break
+
+       round += 1
+       designs = mbdoe_pp(des_opt, system, models, round=round, num_parallel_runs=16)
+       expera(system, models, insilicos, designs, expr=round, swps=designs['swps'])
+
+       resultpr = parmest(system, models, iden_opt, case='strov')
+       uncert_results = uncert(resultpr, system, models, iden_opt)
+       resultun, obs = uncert_results['results'], uncert_results['obs']
+       ranking, k_opt, rCC, J_k, best_res = estima(resultun, system, models, iden_opt, round)
+
+       save_rounds(round, resultun, 'sequential', round_data, models, iden_opt, obs, system,
+                   ranking=ranking, k_optimal_value=k_opt, rCC_values=rCC,
+                   J_k_values=J_k, best_uncert_result=best_res)
+
+       # Update convergence metrics
+       t_values = resultun[selected_model]['t_values']
+       CI_relative = resultun[selected_model]['CI'] / np.abs(resultun[selected_model]['theta'])
+       print(f"Round {round}: max CI_rel = {np.max(CI_relative):.3f}")
+
+   # ========== PHASE 3: VALIDATION AND REPORTING ==========
+   # Cross-validation
+   validres = validation(system, models, iden_opt, round_data)
+   print(f"\nValidation R²: {validres[selected_model]['R2_val']:.4f}")
+
+   # Save all results
+   save_to_jac(round_data, purpose="iden")
+
+   # Generate comprehensive reports
+   results = load_from_jac()
+   run_postprocessing(
+       round_data=results['iden'],
+       solvers=[selected_model],
+       selected_rounds=list(range(1, round + 1)),
+       plot_global_p_and_t=True,
+       plot_confidence_spaces=True,
+       plot_p_and_t_tests=True,
+       export_excel_reports=True,
+       plot_estimability=True
+   )
+
+   print(f"\n{'='*60}")
+   print(f"Workflow complete: {round} rounds executed")
+   print(f"Selected model: {selected_model}")
+   print(f"Final parameters: {resultun[selected_model]['theta']}")
+   print(f"{'='*60}")
+
+**Workflow summary:**
+
+1. **Discrimination phase** (rounds 1–N): MBDoE-MD designs maximize model separation. After each round, P-test identifies and removes poorly performing models (P < 20%).
+
+2. **Precision phase** (rounds N+1–M): Once a single model remains, MBDoE-PP designs minimize parameter uncertainty using D-optimal criterion.
+
+3. **Validation**: Cross-validation assesses generalization performance across all experiments.
+
+4. **Reporting**: Automated generation of parameter trajectories, confidence regions, and Excel summaries.
+
+**Key decision points:**
+
+- **P-value threshold**: Adjust ``threshold`` based on confidence level (typical: 15–25%).
+- **Stopping criteria**: Customize based on application requirements (t-values, relative CI, condition number).
+- **Max rounds**: Prevents infinite loops; adjust based on computational budget.
+
+
+
+9. Citation
 ==============
 
 If you use MIDDoE in your research, please cite:
@@ -756,7 +1152,7 @@ If you use MIDDoE in your research, please cite:
      *Systems and Control Transactions*, 4 , 1282-1287.
      https://doi.org/10.69997/sct.192104
 
-9. Applied to
+10. Applied to
 ==============
 
 MIDDoE has been applied in various EU reports, research works and projects, e.g. :
@@ -766,7 +1162,7 @@ MIDDoE has been applied in various EU reports, research works and projects, e.g.
      *Ind Eng Chem Res*, 64, 45, 21412–21425.
      https://doi.org/10.1021/acs.iecr.5c02835
 
-10. Documentation Contents
+11. Documentation Contents
 ==============
 
 .. toctree::
@@ -774,7 +1170,7 @@ MIDDoE has been applied in various EU reports, research works and projects, e.g.
 
    api
 
-11. Resources
+12. Resources
 ==============
 
 - **GitHub:** https://github.com/zuhairblr/middoe
@@ -783,7 +1179,7 @@ MIDDoE has been applied in various EU reports, research works and projects, e.g.
 - **Issues & Support:** https://github.com/zuhairblr/middoe/issues
 - **Case Studies:** https://github.com/zuhairblr/middoe/tree/main/tests/paper
 
-12. Indices and Tables
+13. Indices and Tables
 ==============
 
 * :ref:`genindex`
