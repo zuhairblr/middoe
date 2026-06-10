@@ -1178,7 +1178,7 @@ def parmest(system, models, iden_opt, case=None):
     """
 
     data = read_excel()
-    if case != 'freeze' and 'mutation' in models:
+    if case != 'freeze' and 'mutation' not in models:
         for solver in models['mutation']:
             models['mutation'][solver] = [True] * len(models['mutation'][solver])
     _initialize_dictionaries(models, iden_opt)

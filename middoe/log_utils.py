@@ -594,7 +594,8 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     ...     print(f"  θ{i+1}: t={t_val:.2f} {significant}")
     """
     data = read_excel()
-    if best_uncert_result:
+    model_update = iden_opt.get('model_update', True)
+    if best_uncert_result and model_update:
         result = best_uncert_result['results']
 
     round_key = f'Round {round}'

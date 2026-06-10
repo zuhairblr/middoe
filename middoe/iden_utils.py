@@ -1748,6 +1748,8 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+# import matplotlib
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.patches import Ellipse, Patch
@@ -2004,7 +2006,7 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
     plt.close()
 
 
-class Plotting_Results:
+class Plotting_Results1:
     r"""
     A class to handle plotting of results while analysis.
 
@@ -2056,6 +2058,10 @@ class Plotting_Results:
 
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 12))
             fig.suptitle(f'Experiment = {sheet_name}', fontsize=12)
+            # ADD THESE LINES:
+            fig.patch.set_facecolor('white')
+            ax1.set_facecolor('white')
+            ax2.set_facecolor('white')
 
             ax_list_1 = [ax1]  # List to handle multiple y-axes in the first subplot
 
@@ -2176,7 +2182,7 @@ class Plotting_Results:
             plt.tight_layout()
 
             # Save the figure to the constructed filename
-            plt.savefig(filename, dpi=300)
+            plt.savefig(filename, dpi=300, facecolor='white')
             if self.pltshowing == True:
                 plt.show()
 
@@ -2263,7 +2269,266 @@ class Plotting_Results:
             plt.close()
 
 
-class Plotting_FinalResults:
+class Plotting_Results:
+    r"""
+    A class to handle plotting of results while analysis.
+
+    Attributes:
+    path (str): Base path for saving plots.
+    case (str): Case identifier for the experiment.
+    mutation_settings (dict): Settings related to mutation in the modelling process.
+    modelling_folder (str): Folder name for storing modelling results.
+    """
+
+    def __init__(self, models, pltshow, round=None):
+        """
+        Initialize the Plotting_Results class with modelling settings.
+
+        Parameters:
+        models (dict): Settings related to the modelling process.
+        round (int, optional): Round number, if you want to tag subfolders.
+        """
+        self.base_path = Path.cwd()
+        self.round = str(round)
+        self.mutation_settings = models['mutation']
+        self.modelling_folder = self.base_path / 'modelling'
+        self.confidence_folder = self.base_path / 'confidence'
+        self.modelling_folder.mkdir(parents=True, exist_ok=True)
+        self.confidence_folder.mkdir(parents=True, exist_ok=True)
+        self.pltshowing = pltshow
+
+        # Set matplotlib defaults - but these will be overridden by explicit settings where needed
+        import matplotlib.pyplot as plt
+        plt.rcParams['axes.facecolor'] = 'white'
+        plt.rcParams['figure.facecolor'] = 'white'
+        plt.rcParams['savefig.facecolor'] = 'white'
+        plt.rcParams['text.color'] = 'black'
+        plt.rcParams['axes.edgecolor'] = 'black'
+
+    def fit_plot(self, data, result, system):
+        """
+        Generate and save the model fitting to experimental data plot for the given data and results.
+
+        Parameters:
+        data (dict): Experimental data.
+        result (dict): Modelling results.
+        round (int): The round number.
+        case (str): The case type (e.g., 'doe' or 'classic').
+        """
+        color_map = ['k', 'b', 'r', 'c', 'm', 'y', 'g']
+        line_styles = ['-', '--', '-.', ':', (0, (1, 1)), (0, (5, 10)), (0, (3, 5, 1, 5)), (0, (3, 1, 1, 1)),
+                       (0, (5, 1)), (0, (5, 5)), (0, (1, 10))]
+        symbols = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'd', '|', '_', '+', 'x', 'X', 'P', '8']
+
+        solver_colors = {}
+        variable_styles = {}
+        filtered_data = {}
+
+        for sheet_index, (sheet_name, sheet_data) in enumerate(data.items()):
+            filtered_data[sheet_name] = {}
+
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 12))
+            fig.patch.set_facecolor('white')
+            fig.suptitle(f'Experiment = {sheet_name}', fontsize=12, color='black')
+
+            ax1.set_facecolor('white')
+            ax2.set_facecolor('white')
+
+            # Set x-axis colors to black for main axes
+            ax1.tick_params(axis='x', colors='black', labelcolor='black')
+            ax2.tick_params(axis='x', colors='black', labelcolor='black')
+            ax1.xaxis.label.set_color('black')
+            ax2.xaxis.label.set_color('black')
+
+            ax_list_1 = [ax1]
+
+            # First subplot: Only time-variant output variables
+            for var_index, var_name in enumerate(result[next(iter(result))]['tv_output_m'][sheet_name].keys()):
+                if f'MES_Y:{var_name}' in sheet_data and f'MES_X:{var_name}' in sheet_data:
+                    y_exp = np.array(
+                        [float(val) if val != 'none' else np.nan for val in sheet_data[f'MES_Y:{var_name}']],
+                        dtype=float)
+                    t_exp = np.array(
+                        [float(val) if val != 'none' else np.nan for val in sheet_data[f'MES_X:{var_name}']],
+                        dtype=float)
+                    valid_indices = ~np.isnan(y_exp)
+
+                    filtered_data[sheet_name][var_name] = {'time': t_exp[valid_indices], 'values': y_exp[valid_indices]}
+
+                    if var_index > 0:
+                        ax_new = ax_list_1[0].twinx()
+                        ax_new.spines['right'].set_position(('outward', 60 * (var_index - 1)))
+                        ax_new.set_facecolor('white')
+                        ax_list_1.append(ax_new)
+                    else:
+                        ax_new = ax_list_1[0]
+
+                    ax_new.scatter(filtered_data[sheet_name][var_name]['time'],
+                                   filtered_data[sheet_name][var_name]['values'],
+                                   color=color_map[var_index % len(color_map)],
+                                   marker=symbols[var_index % len(symbols)],
+                                   label=f'Experiment {var_name}', alpha=0.6)
+
+                    # Set the y-axis label and tick colors (keep custom colors)
+                    ax_new.set_ylabel(f'{var_name} (output)', color=color_map[var_index % len(color_map)])
+                    ax_new.tick_params(axis='y', labelcolor=color_map[var_index % len(color_map)])
+
+            # Plot model data for different solvers and variables
+            for solver_index, solver_name in enumerate(result.keys()):
+                if solver_name not in variable_styles:
+                    variable_styles[solver_name] = line_styles[solver_index % len(line_styles)]
+
+                t_model = np.array(result[solver_name]['t_m'][sheet_name], dtype=float)
+
+                for var_index, var_name in enumerate(result[solver_name]['tv_output_m'][sheet_name].keys()):
+                    model_output = np.array(result[solver_name]['tv_output_m'][sheet_name][var_name], dtype=float)
+                    ax_new = ax_list_1[var_index] if var_index < len(ax_list_1) else ax_list_1[0]
+                    ax_new.plot(t_model, model_output, color=color_map[var_index % len(color_map)],
+                                linestyle=variable_styles[solver_name], label=f'{solver_name} {var_name}', alpha=0.8)
+
+            # Add legend for the first subplot with black text
+            handles_1, labels_1 = ax1.get_legend_handles_labels()
+            if handles_1:
+                legend1 = ax1.legend(ncol=2, facecolor='white', edgecolor='black', framealpha=1)
+                plt.setp(legend1.get_texts(), color='black')
+
+            ax1.set_xlabel('Time (t)', color='black')
+
+            # Second subplot: Handle DOE or Classic case
+            ax_list_2 = [ax2]
+            single_solver = next(iter(result.keys()))
+
+            doe_vars = {key: np.array(sheet_data[key], dtype=float)
+                        for key in sheet_data.keys() if key in system['tvi']}
+            doe_t = np.array(sheet_data['X:all'], dtype=float)
+
+            for var_index, (var_name, doe_values) in enumerate(doe_vars.items()):
+                if var_name not in variable_styles:
+                    variable_styles[var_name] = line_styles[var_index % len(line_styles)]
+
+                if var_index > 0:
+                    ax_new = ax_list_2[0].twinx()
+                    ax_new.spines['right'].set_position(('outward', 60 * (var_index - 1)))
+                    ax_new.set_facecolor('white')
+                    ax_list_2.append(ax_new)
+                else:
+                    ax_new = ax_list_2[0]
+
+                ax_new.plot(doe_t, doe_values, color='black',
+                            linestyle=variable_styles[var_name],
+                            label=f'{var_name} (input)', alpha=0.8)
+
+                y_min, y_max = ax_new.get_ylim()
+                ax_new.set_ylim([y_min - 0.05 * y_max, y_max + 0.05 * y_max])
+
+                ax_new.set_ylabel(f'{var_name} (Input)', color='black')
+                ax_new.tick_params(axis='y', labelcolor='black')
+
+            # Add legend for the second subplot with black text
+            handles_2, labels_2 = ax2.get_legend_handles_labels()
+            for extra_ax in ax_list_2[1:]:
+                extra_handles, extra_labels = extra_ax.get_legend_handles_labels()
+                handles_2 += extra_handles
+                labels_2 += extra_labels
+
+            if handles_2:
+                legend2 = ax2.legend(handles_2, labels_2, ncol=2, facecolor='white', edgecolor='black', framealpha=1)
+                plt.setp(legend2.get_texts(), color='black')
+
+            ax2.set_xlabel('Time (t)', color='black')
+
+            filename = self.modelling_folder / f"{self.round}_round_{sheet_name}.png"
+            plt.tight_layout()
+            plt.savefig(filename, dpi=300, facecolor='white')
+
+            if self.pltshowing == True:
+                plt.show()
+
+            plt.close()
+
+    def conf_plot(self, parameters, cov_matrices, confidence_intervals):
+        """
+        Generate and save a confidence ellipsoid plot for estimated parameters, across different rounds of identification for different models.
+
+        Parameters:
+        parameters (dict): Model parameters.
+        cov_matrices (dict): Covariance matrices for the estimated parameters
+        confidence_intervals (dict): Confidence intervals for the parameters.
+        round (int): The round number.
+        """
+        for solver, theta in parameters.items():
+            cov_matrix = cov_matrices[solver]
+            param_indices = np.where(self.mutation_settings[solver])[0]
+            m = len(param_indices)
+            fig, axs = plt.subplots(m, m, figsize=(12, 12))
+            fig.patch.set_facecolor('white')
+            fig.suptitle(f'Confidence for {solver} in round {self.round}', fontsize=16, color='black')
+
+            for i in range(m):
+                for j in range(m):
+                    axs[i, j].set_facecolor('white')
+                    axs[i, j].grid(True)
+
+                    # Set tick colors to black
+                    axs[i, j].tick_params(axis='both', colors='black', labelcolor='black')
+
+                    if i == j:
+                        idx = param_indices[i]
+                        std_dev = np.sqrt(cov_matrix[idx, idx])
+                        ci_low = theta[idx] - confidence_intervals[solver][i]
+                        ci_high = theta[idx] + confidence_intervals[solver][i]
+                        x = np.linspace(theta[idx] - 3 * std_dev, theta[idx] + 3 * std_dev, 100)
+                        y = norm.pdf(x, loc=theta[idx], scale=std_dev)
+
+                        axs[i, j].plot(x, y, 'b-', label=f'PDF of $\\theta_{idx + 1}$')
+                        axs[i, j].axvline(ci_low, color='red', linestyle='--', label='95% CI')
+                        axs[i, j].axvline(ci_high, color='red', linestyle='--')
+                        axs[i, j].set_xlim(x[0], x[-1])
+                        axs[i, j].set_xlabel(f'$\\theta_{idx + 1}$', color='black')
+                        axs[i, j].set_ylabel('Density', color='black')
+
+                        legend = axs[i, j].legend(facecolor='white', edgecolor='black', framealpha=1)
+                        plt.setp(legend.get_texts(), color='black')
+
+                    elif i < j:
+                        idx_i = param_indices[i]
+                        idx_j = param_indices[j]
+                        mean = [theta[idx_i], theta[idx_j]]
+                        cov = [[cov_matrix[idx_i, idx_i], cov_matrix[idx_i, idx_j]],
+                               [cov_matrix[idx_j, idx_j], cov_matrix[idx_j, idx_j]]]
+
+                        vals, vecs = np.linalg.eigh(cov)
+                        order = vals.argsort()[::-1]
+                        vals, vecs = vals[order], vecs[:, order]
+                        theta_ = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
+                        width, height = 2 * np.sqrt(vals)
+                        ellipse = Ellipse(xy=mean, width=width, height=height, angle=theta_, edgecolor='red',
+                                          fc='None', lw=2)
+
+                        axs[i, j].add_patch(ellipse)
+                        max_radius = max(width, height) / 2
+                        axs[i, j].set_xlim(mean[0] - max_radius, mean[0] + max_radius)
+                        axs[i, j].set_ylim(mean[1] - max_radius, mean[1] + max_radius)
+                        axs[i, j].scatter(*mean, color='red')
+                        axs[i, j].set_xlabel(f'$\\theta_{idx_i + 1}$', color='black')
+                        axs[i, j].set_ylabel(f'$\\theta_{idx_j + 1}$', color='black')
+                        axs[i, j].set_title(f'Ellipse between $\\theta_{idx_i + 1}$ and $\\theta_{idx_j + 1}$',
+                                            color='black')
+
+                    else:
+                        axs[i, j].axis('off')
+
+            plt.tight_layout()
+            filename = self.confidence_folder / f"{self.round}_th_round_{solver}.png"
+            plt.savefig(filename, dpi=300, facecolor='white')
+
+            if self.pltshowing == True:
+                plt.show()
+
+            plt.close()
+
+
+class Plotting_FinalResults1:
     r"""
     A class to handle final plotting and reporting of results, post-identification.
 
@@ -3194,6 +3459,992 @@ class Plotting_FinalResults:
             # Save the plot with the round number in the filename
             save_file_path = os.path.join(save_path, f't_values_{round_label.replace(" ", "_").lower()}.png')
             plt.savefig(save_file_path)
+            plt.show()
+
+            logger.info(f"T values plot for {round_label} saved to {save_file_path}.")
+
+
+class Plotting_FinalResults:
+    r"""
+    A class to handle final plotting and reporting of results, post-identification.
+
+    Attributes
+    ----------
+    round_data : dict
+        Data related to each round of identification (e.g. 'Round 1', 'Round 2', ...).
+    winner_solver : str
+        The name of the winning model/model (most probable).
+    selected_rounds : list of int
+        Round numbers the user wants to include. If empty, all rounds are used.
+    """
+
+    def __init__(self, round_data, winner_solver, selected_rounds):
+        """
+        Initialize Plotting_FinalResults with round data, winner model, and selected rounds.
+
+        Parameters
+        ----------
+        round_data : dict
+            Data keyed by 'Round X' strings.
+        winner_solver : str
+            The name of the winning model/model.
+        selected_rounds : list of int
+            The rounds to include. If empty, all rounds are considered.
+        """
+        self.round_data = round_data
+        self.winner_solver = winner_solver
+        self.selected_rounds = selected_rounds  # if empty => all rounds
+
+        # Set matplotlib defaults for white backgrounds and black text
+        import matplotlib.pyplot as plt
+        plt.rcParams['axes.facecolor'] = 'white'
+        plt.rcParams['figure.facecolor'] = 'white'
+        plt.rcParams['savefig.facecolor'] = 'white'
+        plt.rcParams['text.color'] = 'black'
+        plt.rcParams['axes.edgecolor'] = 'black'
+
+    # ---------------------------------------------------------------------
+    #                           UTILITY METHODS
+    # ---------------------------------------------------------------------
+    def _get_round_labels(self):
+        """
+        Return a sorted list of all round labels that exist in self.round_data.
+
+        Returns
+        -------
+        list of str
+            Labels like ['Round 1', 'Round 2', ...], sorted numerically.
+        """
+        round_labels = [lbl for lbl in self.round_data if lbl.startswith('Round ')]
+        round_labels.sort(key=lambda x: int(x.replace('Round ', '')))
+        return round_labels
+
+    def _get_round_number(self, round_label):
+        """
+        Given a label like 'Round 3', return the integer 3.
+
+        Parameters
+        ----------
+        round_label : str
+            A label such as 'Round 3'.
+
+        Returns
+        -------
+        int
+            The numeric portion of the round label.
+        """
+        return int(round_label.split(' ')[-1])
+
+    def _rounds_to_process(self, exclude_broad_cov=False):
+        """
+        Determine which rounds to process based on self.selected_rounds
+        and optionally skip rounds whose covariance matrix is not positive definite.
+
+        Parameters
+        ----------
+        exclude_broad_cov : bool, optional
+            If True, skip any round where the model's covariance matrix is not positive-definite.
+
+        Returns
+        -------
+        list of (int, str)
+            A sorted list of tuples (round_number, round_label) for the rounds to process.
+        """
+        all_round_labels = self._get_round_labels()
+        rounds_out = []
+
+        for lbl in all_round_labels:
+            rnd_num = self._get_round_number(lbl)
+
+            # If user provided a list of rounds, skip if not in it
+            if self.selected_rounds and (rnd_num not in self.selected_rounds):
+                continue
+
+            # If we must exclude broad covariances, check positive-definiteness
+            if exclude_broad_cov and (self.winner_solver in self.round_data[lbl]['result']):
+                solver_data = self.round_data[lbl]['result'][self.winner_solver]
+                if 'V_matrix' in solver_data:
+                    cov_mat = solver_data['V_matrix']
+                    if not np.all(np.linalg.eigvals(cov_mat) > 0):
+                        continue  # skip non-positive-def
+
+            rounds_out.append((rnd_num, lbl))
+
+        return sorted(rounds_out, key=lambda x: x[0])
+
+    # ---------------------------------------------------------------------
+    #                             MAIN METHODS
+    # ---------------------------------------------------------------------
+    def conf_plot(self, filename,
+                  ellipsoid_volume_filename='ellipsoid_volume_across_rounds.png',
+                  std_devs_filename='parameter_std_devs_across_rounds.png',
+                  parameter_estimates_filename='parameter_estimates_across_rounds.png'):
+        """
+        Plot parameter PDFs (on the diagonal) and confidence ellipses (off-diagonal) for
+        the winning model across selected rounds. Then call `conf_plot_metrics` and `accvsprec_plot`.
+
+        Parameters
+        ----------
+        filename : str
+            Filename for the main confidence plot figure.
+        ellipsoid_volume_filename : str, optional
+            Filename for the ellipsoid volume plot.
+        std_devs_filename : str, optional
+            Filename for the standard deviations plot.
+        parameter_estimates_filename : str, optional
+            Filename for the parameter estimates plot.
+        """
+        # Determine which rounds to plot
+        all_round_labels = self._get_round_labels()
+        if self.selected_rounds:
+            round_labels_to_plot = [f"Round {r}" for r in self.selected_rounds
+                                    if f"Round {r}" in all_round_labels]
+            # Warn if any user-selected rounds don't exist
+            missing = [f"Round {r}" for r in self.selected_rounds
+                       if f"Round {r}" not in all_round_labels]
+            for m in missing:
+                logger.warning(f"Selected round {m} is missing from round_data.")
+        else:
+            round_labels_to_plot = all_round_labels
+
+        if not round_labels_to_plot:
+            logger.warning("No valid rounds to plot. Aborting conf_plot.")
+            return
+
+        # Identify parameter dimension from the earliest possible round
+        dimension_round_label = "Round 1" if "Round 1" in round_labels_to_plot else round_labels_to_plot[0]
+        if (dimension_round_label not in self.round_data or
+                self.winner_solver not in self.round_data[dimension_round_label]['result']):
+            # Fallback to the very first in the list if needed
+            dimension_round_label = round_labels_to_plot[0]
+
+        if (dimension_round_label not in self.round_data or
+                self.winner_solver not in self.round_data[dimension_round_label]['result']):
+            logger.error("Cannot determine parameter dimension; no model data found.")
+            logger.warning("Aborting conf_plot.")
+            return
+
+        solver_data_dim = self.round_data[dimension_round_label]['result'][self.winner_solver]
+        if 'optimization_result' not in solver_data_dim:
+            logger.error(f"No 'optimization_result' in {dimension_round_label} for model {self.winner_solver}.")
+            return
+
+        # Extract dimension and parameter names
+        theta_dim = solver_data_dim['optimization_result'].x
+        max_n = len(theta_dim)
+        parameter_names = [f'θ_{i + 1}' for i in range(max_n)]
+
+        # Prepare figure
+        num_rounds = len(round_labels_to_plot)
+        colors = cm.get_cmap('Dark2', num_rounds)
+        line_styles = ['-', '--', '-.', ':']
+
+        fig, axs = plt.subplots(nrows=max_n, ncols=max_n,
+                                figsize=(max(5, max_n * 3), max(5, max_n * 3)), dpi=300)
+        fig.patch.set_facecolor('white')
+        fig.suptitle('Comparison of Confidence Spaces Across Rounds', color='black')
+
+        if max_n == 1:
+            axs = np.array([[axs]])
+
+        handles, labels = [], []
+        plots_count = 0
+
+        def get_active_data(round_label):
+            """
+            Retrieve data needed for plotting:
+            (active_indices, active_theta, covariance_matrix, confidence_intervals).
+            Returns None if any data is missing or inconsistent.
+            """
+            rd = self.round_data.get(round_label, {})
+            solver_result = rd.get('result', {}).get(self.winner_solver, {})
+
+            for req_key in ['optimization_result', 'V_matrix', 'CI']:
+                if req_key not in solver_result:
+                    logger.info(f"Skipping {round_label}: missing key '{req_key}' in solver_data.")
+                    return None
+
+            theta_vals = solver_result['estimations']
+            cov_matrix = solver_result['V_matrix']
+            ci_vals = solver_result['CI']
+
+            # Retrieve 'mutation' from round-level data
+            mutation_dict = rd.get('mutation', {})
+            if self.winner_solver not in mutation_dict:
+                logger.info(f"Skipping {round_label}: no mutation info for model {self.winner_solver}.")
+                return None
+
+            mut_settings = mutation_dict[self.winner_solver]
+            if len(mut_settings) != len(theta_vals):
+                logger.warning(f"Skipping {round_label}: mismatch in 'mutation' length vs. parameters.")
+                return None
+
+            active_indices = [i for i, active in enumerate(mut_settings) if active]
+            if not active_indices:
+                logger.info(f"Skipping {round_label}: no active parameters in mutation.")
+                return None
+
+            active_theta = theta_vals[active_indices]
+            return active_indices, active_theta, cov_matrix, ci_vals
+
+        # Plot each round
+        for i_r, round_label in enumerate(round_labels_to_plot):
+            active_data = get_active_data(round_label)
+            if not active_data:
+                continue
+
+            active_indices, active_theta, active_cov, active_ci = active_data
+            color = colors(i_r)
+            style = line_styles[i_r % len(line_styles)]
+
+            # If original positions exist, use them; otherwise default to range(max_n)
+            round_info = self.round_data[round_label]
+            orig_pos = round_info.get('original_positions', {}).get(self.winner_solver, [])
+            if not orig_pos:
+                orig_pos = range(max_n)
+
+            # Diagonal => PDF plots, Off-diagonal => ellipse
+            for i_row in orig_pos:
+                for j_col in orig_pos:
+                    ax_ij = axs[i_row, j_col]
+                    ax_ij.set_facecolor('white')
+                    ax_ij.tick_params(axis='both', colors='black', labelcolor='black')
+
+                    if i_row == j_col and i_row in active_indices:
+                        # Single-parameter PDF
+                        param_name = parameter_names[i_row]
+                        local_i = active_indices.index(i_row)
+                        try:
+                            std_dev = np.sqrt(active_cov[local_i, local_i])
+                            ci_low = active_theta[local_i] - active_ci[local_i]
+                            ci_high = active_theta[local_i] + active_ci[local_i]
+
+                            xvals = np.linspace(active_theta[local_i] - 3 * std_dev,
+                                                active_theta[local_i] + 3 * std_dev, 100)
+                            pdf_vals = norm.pdf(xvals, loc=active_theta[local_i], scale=std_dev)
+
+                            ax_ij.plot(xvals, pdf_vals, color=color, linestyle=style,
+                                       label=f'{round_label} PDF')
+                            ax_ij.plot([ci_low, ci_low],
+                                       [0, norm.pdf(ci_low, active_theta[local_i], std_dev)],
+                                       marker='*', color=color)
+                            ax_ij.plot([ci_high, ci_high],
+                                       [0, norm.pdf(ci_high, active_theta[local_i], std_dev)],
+                                       marker='*', color=color)
+                            ax_ij.set_title(f'PDF of {param_name}', color='black')
+                            ax_ij.set_xlabel(param_name, color='black')
+                            ax_ij.set_ylabel('Density', color='black')
+                            plots_count += 1
+
+                            # Manage legend handles
+                            if round_label not in labels:
+                                handles.append(ax_ij.lines[-1])
+                                labels.append(round_label)
+
+                        except Exception as e:
+                            logger.warning(f"Error plotting PDF for {round_label}, param {param_name}: {e}")
+                            ax_ij.axis('off')
+
+                    elif i_row < j_col and i_row in active_indices and j_col in active_indices:
+                        # Two-parameter confidence ellipse
+                        param_i = parameter_names[i_row]
+                        param_j = parameter_names[j_col]
+                        li = active_indices.index(i_row)
+                        lj = active_indices.index(j_col)
+                        try:
+                            mean_ij = [active_theta[li], active_theta[lj]]
+                            cov_ij = [
+                                [active_cov[li, li], active_cov[li, lj]],
+                                [active_cov[lj, li], active_cov[lj, lj]]
+                            ]
+                            vals, vecs = np.linalg.eigh(cov_ij)
+                            order = vals.argsort()[::-1]
+                            vals, vecs = vals[order], vecs[:, order]
+                            angle_deg = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
+                            w, h = 2 * np.sqrt(vals)
+
+                            ellipse = Ellipse(xy=mean_ij, width=w, height=h,
+                                              angle=angle_deg, edgecolor=color,
+                                              fc='None', lw=2, linestyle=style)
+                            ax_ij.add_patch(ellipse)
+                            ax_ij.scatter(*mean_ij, color=color)
+                            ax_ij.set_title(f'{param_i} vs {param_j}', color='black')
+                            ax_ij.set_xlabel(param_i, color='black')
+                            ax_ij.set_ylabel(param_j, color='black')
+                            plots_count += 1
+
+                            if round_label not in labels:
+                                handles.append(ellipse)
+                                labels.append(round_label)
+
+                        except Exception as e:
+                            logger.warning(f"Error plotting ellipse for {round_label}, "
+                                           f"{param_i} vs {param_j}: {e}")
+                            ax_ij.axis('off')
+
+        # Hide empty subplots
+        for i_row in range(max_n):
+            for j_col in range(max_n):
+                ax_ij = axs[i_row, j_col]
+                if not (ax_ij.has_data() or ax_ij.patches):
+                    ax_ij.axis('off')
+
+        if plots_count == 0:
+            logger.warning("No data was plotted. Possibly no active parameters or missing keys.")
+            return
+
+        # Create a single legend on the top-left subplot
+        if handles and labels:
+            if len(labels) > 1:
+                legend = axs[0, 0].legend(handles, labels, loc='upper right', facecolor='white', edgecolor='black',
+                                          framealpha=1)
+            else:
+                legend = axs[0, 0].legend(handles, labels, facecolor='white', edgecolor='black', framealpha=1)
+            plt.setp(legend.get_texts(), color='black')
+
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.show()
+
+        # Generate auxiliary plots
+        self.conf_plot_metrics(ellipsoid_volume_filename, std_devs_filename)
+        self.accvsprec_plot(parameter_estimates_filename)
+
+    def conf_plot_metrics(self, ellipsoid_volume_filename, std_devs_filename):
+        """
+        Compute and plot:
+          1) The volume of the 95% confidence ellipsoid.
+          2) The parameter standard deviations across selected rounds,
+        excluding rounds whose covariance matrix is broad/non-positive-definite.
+
+        Parameters
+        ----------
+        ellipsoid_volume_filename : str
+            Filename to save the confidence ellipsoid volume plot.
+        std_devs_filename : str
+            Filename to save the standard deviations plot.
+        """
+        round_list = self._rounds_to_process(exclude_broad_cov=True)
+        if not round_list:
+            logger.info("No valid rounds for conf_plot_metrics (possibly all broad).")
+            return
+
+        ref_label = round_list[0][1]
+        solver_data = self.round_data[ref_label]['result'].get(self.winner_solver, {})
+        if 'optimization_result' not in solver_data:
+            logger.warning(f"Missing model optimization_result in {ref_label}. Cannot plot metrics.")
+            return
+
+        theta_ref = solver_data['optimization_result'].x
+        max_n = len(theta_ref)
+
+        rounds = []
+        volumes = []
+        param_stds = {i: [] for i in range(max_n)}
+
+        # Collect volumes and std devs
+        for (rnd_num, lbl) in round_list:
+            sol_data = self.round_data[lbl]['result'].get(self.winner_solver, {})
+            if 'V_matrix' not in sol_data:
+                continue
+            cov_mat = sol_data['V_matrix']
+
+            # Must be positive-definite
+            if not np.all(np.linalg.eigvals(cov_mat) > 0):
+                continue
+
+            n_params = cov_mat.shape[0]
+            chi2_val = chi2.ppf(0.95, n_params)
+            det_cov = np.linalg.det(cov_mat)
+            vol = ((np.pi ** (n_params / 2)) / gamma(n_params / 2 + 1)) \
+                  * (chi2_val ** (n_params / 2)) * np.sqrt(det_cov)
+
+            volumes.append(vol)
+            rounds.append(rnd_num)
+
+            stds = np.sqrt(np.diag(cov_mat))
+            for i in range(n_params):
+                param_stds[i].append(stds[i])
+
+        if not rounds:
+            logger.info("No positive-definite covariance among chosen rounds.")
+            return
+
+        # Sort data by round
+        rounds = np.array(rounds)
+        sort_idx = np.argsort(rounds)
+        volumes = np.array(volumes)[sort_idx]
+        rounds = rounds[sort_idx]
+        for i in param_stds:
+            param_stds[i] = np.array(param_stds[i])[sort_idx]
+
+        # Plot volume
+        fig1 = plt.figure(figsize=(10, 6))
+        fig1.patch.set_facecolor('white')
+        ax1 = plt.gca()
+        ax1.set_facecolor('white')
+        ax1.plot(rounds, volumes, marker='o', color='black')
+        ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax1.set_title('Volume of 95% Confidence Ellipsoid', color='black')
+        ax1.set_xlabel('Round', color='black')
+        ax1.set_ylabel('Ellipsoid Volume', color='black')
+        ax1.set_yscale('log')
+        ax1.grid(True, which="both", ls="--")
+        ax1.tick_params(axis='both', colors='black', labelcolor='black')
+        plt.savefig(ellipsoid_volume_filename, dpi=300, facecolor='white')
+        plt.show()
+
+        # Plot standard deviations
+        fig2 = plt.figure(figsize=(10, 6))
+        fig2.patch.set_facecolor('white')
+        ax2 = plt.gca()
+        ax2.set_facecolor('white')
+        for i in range(max_n):
+            ax2.plot(rounds, param_stds[i], marker='o', label=f'θ_{i + 1} std')
+        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax2.set_title('Parameter Standard Deviations vs. Round', color='black')
+        ax2.set_xlabel('Round', color='black')
+        ax2.set_ylabel('Std Dev', color='black')
+        ax2.set_yscale('log')
+        ax2.grid(True, which="both", ls="--")
+        ax2.tick_params(axis='both', colors='black', labelcolor='black')
+        legend = ax2.legend(facecolor='white', edgecolor='black', framealpha=1)
+        plt.setp(legend.get_texts(), color='black')
+        plt.savefig(std_devs_filename, dpi=300, facecolor='white')
+        plt.show()
+
+    def accvsprec_plot(self, filename):
+        """
+        Plot parameter estimates and confidence intervals for the selected rounds,
+        skipping any with broad covariance.
+
+        Parameters
+        ----------
+        filename : str
+            Filename to save the accuracy vs. precision plot.
+        """
+        round_list = self._rounds_to_process(exclude_broad_cov=True)
+        if not round_list:
+            logger.info("No valid rounds for accvsprec_plot (all broad or none selected).")
+            return
+
+        ref_label = round_list[0][1]
+        solver_data_ref = self.round_data[ref_label]['result'].get(self.winner_solver, {})
+        if 'optimization_result' not in solver_data_ref or 'CI' not in solver_data_ref:
+            logger.warning(f"Missing optimization_result or CI in {ref_label}. Cannot plot acc vs. prec.")
+            return
+
+        theta_ref = solver_data_ref['optimization_result'].x
+        ci_ref = solver_data_ref['CI']
+        max_n = len(theta_ref)
+        param_names = [f'θ_{i + 1}' for i in range(max_n)]
+
+        # Gather data
+        rounds = []
+        param_est = {i: [] for i in range(max_n)}
+        param_ci = {i: [] for i in range(max_n)}
+
+        for (rnd_num, lbl) in round_list:
+            sol_data = self.round_data[lbl]['result'].get(self.winner_solver, {})
+            if 'optimization_result' not in sol_data or 'CI' not in sol_data:
+                continue
+
+            theta_vals = sol_data['optimization_result'].x
+            ci_vals = sol_data['CI']
+            cov_mat = sol_data.get('V_matrix', None)
+            if cov_mat is None or not np.all(np.linalg.eigvals(cov_mat) > 0):
+                continue
+
+            rounds.append(rnd_num)
+            for i in range(max_n):
+                param_est[i].append(theta_vals[i])
+                val_ci = ci_vals[i]
+                if np.isnan(val_ci):
+                    val_ci = np.inf
+                param_ci[i].append(val_ci)
+
+        if not rounds:
+            logger.info("All chosen rounds had broad covariance or missing data.")
+            return
+
+        # Sort by round
+        rounds = np.array(rounds)
+        sidx = np.argsort(rounds)
+        rounds = rounds[sidx]
+        for i in range(max_n):
+            param_est[i] = np.array(param_est[i])[sidx]
+            param_ci[i] = np.array(param_ci[i])[sidx]
+
+        # Plot
+        fig, axs = plt.subplots(nrows=max_n, ncols=1, figsize=(10, 4 * max_n), sharex=True)
+        fig.patch.set_facecolor('white')
+        if max_n == 1:
+            axs = [axs]
+
+        for i in range(max_n):
+            est_arr = param_est[i]
+            ci_arr = param_ci[i]
+            lb = est_arr - ci_arr
+            ub = est_arr + ci_arr
+
+            # Replace infinite CI bounds
+            finite_lb = lb[np.isfinite(lb)]
+            finite_ub = ub[np.isfinite(ub)]
+            if len(finite_lb) == 0 or len(finite_ub) == 0:
+                ymin, ymax = 0.1, 10
+            else:
+                ymin, ymax = finite_lb.min(), finite_ub.max()
+            lb[np.isinf(lb)] = ymin
+            ub[np.isinf(ub)] = ymax
+
+            ax = axs[i]
+            ax.set_facecolor('white')
+            ax.plot(rounds, est_arr, marker='o', color='blue', label=param_names[i])
+            ax.fill_between(rounds, lb, ub, color='blue', alpha=0.3, label='95% CI')
+            ax.axhline(y=1, color='red', linestyle='--', label='True Param=1')
+            ax.set_ylabel('Estimate', color='black')
+            ax.set_title(f'{param_names[i]} over Rounds', color='black')
+            ax.grid(True)
+            ax.tick_params(axis='both', colors='black', labelcolor='black')
+            legend = ax.legend(loc='best', facecolor='white', edgecolor='black', framealpha=1)
+            plt.setp(legend.get_texts(), color='black')
+            ax.set_yscale('log')
+
+        axs[-1].set_xlabel('Round', color='black')
+        plt.tight_layout()
+        plt.savefig(filename, dpi=300, facecolor='white')
+        plt.show()
+
+    def pt_plot(self, filename, roundc):
+        """
+        Plot changes in P values, t values, and TRV across selected rounds,
+        skipping any with broad covariance.
+
+        Parameters
+        ----------
+        filename : str
+            Filename to save the P/t plot.
+        roundc : dict
+            Additional design info for each round (key='Round X'), e.g.
+            {'Round 2': {'design_type': 'classic design'}, ...}.
+        """
+        round_list = self._rounds_to_process(exclude_broad_cov=True)
+        if not round_list:
+            logger.info("No valid rounds for pt_plot (all broad or none selected).")
+            return
+
+        P_vals = []
+        t_vals_all = []
+        trv_vals_all = []
+        used_rounds = []
+
+        for (rnd_num, lbl) in round_list:
+            solver_data = self.round_data[lbl]['result'].get(self.winner_solver, {})
+            if 'P' not in solver_data or 't_values' not in solver_data:
+                continue
+
+            P_vals.append(solver_data['P'])
+            t_vals_all.append(solver_data['t_values'])
+
+            trv_data = self.round_data[lbl].get('trv', {})
+            if self.winner_solver in trv_data:
+                val = trv_data[self.winner_solver]
+                if isinstance(val, float):
+                    trv_vals_all.append([val])
+                else:
+                    trv_vals_all.append(val)
+            else:
+                trv_vals_all.append([np.nan])
+
+            used_rounds.append(rnd_num)
+
+        if not used_rounds:
+            logger.info("No data with P or t_values for the chosen rounds.")
+            return
+
+        # Sort everything by round number
+        used_rounds = np.array(used_rounds)
+        sidx = np.argsort(used_rounds)
+        used_rounds = used_rounds[sidx]
+        P_vals = np.array(P_vals)[sidx]
+        t_vals_all = [t_vals_all[i] for i in sidx]
+        trv_vals_all = [trv_vals_all[i] for i in sidx]
+
+        fig = plt.figure(figsize=(16, 8))
+        fig.patch.set_facecolor('white')
+
+        # Subplot 1: P values
+        ax1 = plt.subplot(1, 2, 1)
+        ax1.set_facecolor('white')
+        ax1.plot(used_rounds, P_vals, marker='o', color='black')
+        ax1.set_title(f'P-Test {self.winner_solver}', color='black')
+        ax1.set_xlabel('Round', color='black')
+        ax1.set_ylabel('P Value', color='black')
+        ax1.set_xticks(used_rounds)
+        ax1.tick_params(axis='both', colors='black', labelcolor='black')
+
+        # Highlight design types
+        for i, round_num in enumerate(used_rounds):
+            label_ = f'Round {round_num}'
+            if label_ in roundc:
+                d_type = roundc[label_].get('design_type', '')
+                if d_type == 'preliminary':
+                    ax1.axvspan(round_num - 0.5, round_num + 0.5, color='green', alpha=0.3)
+                elif d_type == 'MBDOE_MD':
+                    ax1.axvspan(round_num - 0.5, round_num + 0.5, color='red', alpha=0.3)
+                elif d_type == 'MBDOE_PP':
+                    ax1.axvspan(round_num - 0.5, round_num + 0.5, color='blue', alpha=0.3)
+
+        # Legend patches
+        classic_patch = Patch(color='green', alpha=0.3, label='preliminary')
+        md_patch = Patch(color='red', alpha=0.3, label='MBDOE_MD')
+        pp_patch = Patch(color='blue', alpha=0.3, label='MBDOE_PP')
+        legend1 = ax1.legend(handles=[classic_patch, md_patch, pp_patch], loc='best', facecolor='white',
+                             edgecolor='black', framealpha=1)
+        plt.setp(legend1.get_texts(), color='black')
+
+        # Subplot 2: T values vs. TRV
+        ax2 = plt.subplot(1, 2, 2)
+        ax2.set_facecolor('white')
+        ax2.set_yscale('log')
+
+        # Plot TRV
+        trv_main = [vals[0] if len(vals) else np.nan for vals in trv_vals_all]
+        ax2.plot(used_rounds, trv_main, 'k--', label='TRV reference')
+
+        max_len_t = max(len(tv) for tv in t_vals_all)
+        for i_col in range(max_len_t):
+            param_tvals = [
+                t_vals_all[i][i_col] if i_col < len(t_vals_all[i]) else np.nan
+                for i in range(len(t_vals_all))
+            ]
+            ax2.plot(used_rounds, param_tvals, marker='o', label=f'T param {i_col + 1}')
+            # Mark intersections
+            for k, (tt, trv_0) in enumerate(zip(param_tvals, trv_main)):
+                if np.isclose(tt, trv_0, atol=1e-2):
+                    ax2.plot(used_rounds[k], tt, 'ro')
+
+        ax2.set_title(f't-Test {self.winner_solver}', color='black')
+        ax2.set_xlabel('Round', color='black')
+        ax2.set_ylabel('t value', color='black')
+        ax2.set_xticks(used_rounds)
+        ax2.tick_params(axis='both', colors='black', labelcolor='black')
+        legend2 = ax2.legend(loc='best', facecolor='white', edgecolor='black', framealpha=1)
+        plt.setp(legend2.get_texts(), color='black')
+
+        # Again, highlight design types
+        for round_num in used_rounds:
+            label_ = f'Round {round_num}'
+            if label_ in roundc:
+                d_type = roundc[label_].get('design_type', '')
+                if d_type == 'classic design':
+                    ax2.axvspan(round_num - 0.5, round_num + 0.5, color='green', alpha=0.3)
+                elif d_type == 'MBDOE_MD design':
+                    ax2.axvspan(round_num - 0.5, round_num + 0.5, color='red', alpha=0.3)
+                elif d_type == 'MBDOE_PP design':
+                    ax2.axvspan(round_num - 0.5, round_num + 0.5, color='blue', alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(filename, dpi=300, facecolor='white')
+        plt.show()
+
+    def reporter(self, filename):
+        """
+        Write an Excel file for each round and a summary text file for the last round.
+        Excel files contain experimental data, model simulations, and input data.
+        The text file contains scaled parameters, t-values, and R² metrics for the last round.
+
+        Parameters
+        ----------
+        filename : str
+            Base filename. Round numbers are appended to Excel files (e.g., "my_file_2.xlsx").
+            The text summary is written to a file with "_summary.txt" appended.
+        """
+        if not self.round_data:
+            logger.warning("No round data found. Aborting reporter.")
+            return
+
+        # Decide which rounds to use
+        if not self.selected_rounds:
+            all_lbls = self._get_round_labels()
+            used_nums = [self._get_round_number(lbl) for lbl in all_lbls]
+        else:
+            used_nums = self.selected_rounds
+
+        used_nums.sort()
+        last_round_label = f"Round {used_nums[-1]}"
+        summary_filename = f"{filename}_summary.txt"
+
+        for rnd_num in used_nums:
+            round_label = f"Round {rnd_num}"
+            if round_label not in self.round_data:
+                logger.info(f"Skipping {round_label}: not found in round_data.")
+                continue
+
+            solvers_data = self.round_data[round_label].get('result', {})
+            if self.winner_solver not in solvers_data:
+                logger.info(f"Skipping {round_label}: model {self.winner_solver} not found.")
+                continue
+
+            solver_info = solvers_data[self.winner_solver]
+            if 'data' not in solver_info:
+                logger.info(f"Skipping {round_label}: no 'data' key in model info.")
+                continue
+
+            exp_data_dict = solver_info['data']
+            excel_filename = f"{filename}_{rnd_num}.xlsx"
+            combined_dataframes = {}
+
+            # Check if 'tv_output_m' is available
+            if 'tv_output_m' not in solver_info:
+                logger.info(f"Skipping {round_label}: no 'tv_output_m' found in model info.")
+                continue
+
+            # Build data for each experiment
+            for exp_name, sheet_data in exp_data_dict.items():
+                # Check if we have time-variable outputs for this experiment
+                if exp_name not in solver_info['tv_output_m']:
+                    logger.info(f"No 'tv_output_m' entry for {exp_name} in {round_label}. Skipping experiment.")
+                    continue
+
+                variables = list(solver_info['tv_output_m'][exp_name].keys())
+
+                # 1) Experimental
+                df_exp = pd.DataFrame()
+                for var_name in variables:
+                    mx_col = f"MES_X:{var_name}"
+                    my_col = f"MES_Y:{var_name}"
+                    if mx_col in sheet_data and my_col in sheet_data:
+                        t_arr = np.array(sheet_data[mx_col], dtype=float)
+                        y_arr = np.array(sheet_data[my_col], dtype=float)
+                        df_exp[mx_col] = t_arr
+                        df_exp[my_col] = y_arr
+
+                # 2) Model
+                df_model = pd.DataFrame()
+                if 't_m' in solver_info and exp_name in solver_info['t_m']:
+                    t_model = np.array(solver_info['t_m'][exp_name], dtype=float)
+                    df_model["SIM_t_model"] = t_model
+                    for var_name in variables:
+                        vals = solver_info['tv_output_m'][exp_name].get(var_name, [])
+                        df_model[f"SIM_{var_name}"] = np.array(vals, dtype=float)
+
+                # 3) Input
+                df_input = pd.DataFrame()
+                if exp_name in solver_info.get('tv_input_m', {}):
+                    input_vars = solver_info['tv_input_m'][exp_name]
+                    # If we have model time, align inputs with model time
+                    if not df_model.empty and 'SIM_t_model' in df_model.columns:
+                        t_mod = df_model['SIM_t_model'].values
+                        df_input['INP_t_model'] = t_mod
+                        for iname, ivals in input_vars.items():
+                            if 't_input' in sheet_data:
+                                t_in = np.array(sheet_data['t_input'], dtype=float)
+                            else:
+                                t_in = np.linspace(t_mod[0], t_mod[-1], len(ivals))
+                            ivals_arr = np.array(ivals, dtype=float)
+                            f_int = interp1d(t_in, ivals_arr, kind='linear',
+                                             bounds_error=False, fill_value='extrapolate')
+                            df_input[f"INP_{iname}"] = f_int(t_mod)
+                    else:
+                        # Just store them raw if there's no model time
+                        for iname, ivals in input_vars.items():
+                            df_input[f"INP_{iname}"] = ivals
+
+                # Concatenate all data horizontally
+                df_combined = pd.concat([df_exp, df_model, df_input], axis=1)
+                combined_dataframes[exp_name] = df_combined
+
+            # Write each experiment's DataFrame to a separate sheet
+            with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
+                for exp_name, cdf in combined_dataframes.items():
+                    cdf.to_excel(writer, sheet_name=exp_name, index=False)
+
+            logger.info(f"Reporter wrote data for {round_label} to '{excel_filename}'.")
+
+        # Write summary for the last round
+        if last_round_label in self.round_data:
+            last_round_data = self.round_data[last_round_label]
+            with open(summary_filename, "w") as summary_file:
+                for model_name, model_data in last_round_data.get('scaled_params', {}).items():
+                    summary_file.write(f"Model: {model_name}\n")
+                    summary_file.write(f"Scaled Parameters: {model_data}\n")
+
+                    t_values = last_round_data['result'].get(model_name, {}).get('t_values', [])
+                    summary_file.write(f"T-Values: {t_values}\n")
+
+                    CI95 = last_round_data['result'].get(model_name, {}).get('CI', [])
+                    summary_file.write(f"CI 95% confidence: {CI95}\n")
+
+                    R2_overall = last_round_data['result'].get(model_name, {}).get('LS', "N/A")
+                    summary_file.write(f"Overall R²: {R2_overall}\n")
+
+                    Chi_overall = last_round_data['result'].get(model_name, {}).get('Chi', "N/A")
+                    summary_file.write(f"Overall Chi-square: {Chi_overall}\n")
+
+                    R2_responses = last_round_data['result'].get(model_name, {}).get('R2_responses_summary', {})
+                    summary_file.write("R² by Response:\n")
+                    for response, r2_value in R2_responses.items():
+                        summary_file.write(f"  {response}: {r2_value}\n")
+
+                    # Include ranking for each model
+                    ranking = (last_round_data.get('ranking') or {}).get(model_name, {})
+                    if isinstance(ranking, dict):  # Handle dictionary case
+                        summary_file.write("Parameter Ranking:\n")
+                        for param, rank in ranking.items():
+                            summary_file.write(f"  {param}: {rank}\n")
+                    elif isinstance(ranking, list):  # Handle list case
+                        summary_file.write("Parameter Ranking (list):\n")
+                        for idx, rank in enumerate(ranking):
+                            summary_file.write(f"  Parameter {idx + 1}: {rank}\n")
+                    else:  # Handle case where ranking is not available or unexpected type
+                        summary_file.write("Parameter Ranking: N/A\n")
+
+            logger.info(f"Summary written to '{summary_filename}'.")
+
+    def pcomp_plot(self, save_path):
+        """
+        Plot P values for each selected round and save each plot with the round number in the filename.
+
+        Parameters
+        ----------
+        save_path : str
+            Path where the plots will be saved.
+
+        Returns
+        -------
+        None
+        """
+        logger.info("Starting pcomp_plot.")
+        rounds_to_plot = self._rounds_to_process()
+        if not rounds_to_plot:
+            logger.warning("No rounds selected for P value plotting.")
+            return
+
+        for round_number, round_label in rounds_to_plot:
+            if round_label not in self.round_data:
+                logger.warning(f"{round_label} does not exist in round data. Skipping.")
+                continue
+
+            model_names = []
+            P_values = []
+
+            # Collect P values for the round
+            round_data = self.round_data[round_label]['result']
+            for model_name, model_data in round_data.items():
+                P_value = model_data.get('P', None)
+                if P_value is not None:
+                    model_names.append(model_name)
+                    P_values.append(P_value)
+
+            if not P_values:
+                logger.warning(f"No P values found for {round_label}. Skipping plot.")
+                continue
+
+            # Plot P values for the current round
+            fig = plt.figure(figsize=(5, 5))
+            fig.patch.set_facecolor('white')
+            ax = plt.gca()
+            ax.set_facecolor('white')
+            ax.bar(model_names, P_values, color='black')
+            ax.set_xlabel('Model', color='black')
+            ax.set_ylabel('P Value', color='black')
+            ax.set_title(f'P Values for {round_label}', color='black')
+            ax.tick_params(axis='both', colors='black', labelcolor='black')
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+
+            # Save the plot with the round number in the filename
+            save_file_path = os.path.join(save_path, f'p_values_{round_label.replace(" ", "_").lower()}.png')
+            plt.savefig(save_file_path, facecolor='white')
+            plt.show()
+
+            logger.info(f"P values plot for {round_label} saved to {save_file_path}.")
+
+    def tcomp_plot(self, save_path):
+        """
+        Plot t values for each selected round and save each plot with the round number in the filename.
+
+        Parameters
+        ----------
+        save_path : str
+            Path where the plots will be saved.
+
+        Returns
+        -------
+        None
+        """
+        logger.info("Starting tcomp_plot.")
+        rounds_to_plot = self._rounds_to_process()
+        if not rounds_to_plot:
+            logger.warning("No rounds selected for t value plotting.")
+            return
+
+        for round_number, round_label in rounds_to_plot:
+            if round_label not in self.round_data:
+                logger.warning(f"{round_label} does not exist in round data. Skipping.")
+                continue
+
+            round_data = self.round_data[round_label]['result']
+            trv_data = self.round_data[round_label].get('trv', {})
+            t_reference_value = next(iter(trv_data.values()), None)
+
+            model_names = set()
+            theta_names_per_model = {}
+            t_values_per_model = {}
+
+            for model_name, model_data in round_data.items():
+                t_value_list = model_data.get('t_values', [])
+                if len(t_value_list) > 0:
+                    model_names.add(model_name)
+                    theta_names_per_model[model_name] = [f'theta {i}' for i in range(len(t_value_list))]
+                    t_values_per_model[model_name] = t_value_list
+
+            if not t_values_per_model:
+                logger.warning(f"No t values found for {round_label}. Skipping plot.")
+                continue
+
+            # Plot t values for the current round
+            fig = plt.figure(figsize=(5, 5))
+            fig.patch.set_facecolor('white')
+            ax = plt.gca()
+            ax.set_facecolor('white')
+
+            bar_width = 0.5
+            gap_between_models = 1
+            bar_position = 0
+            model_mid_positions = []
+
+            for model_name in sorted(model_names):
+                t_values = t_values_per_model.get(model_name, [])
+                num_thetas = len(t_values)
+
+                indices = np.arange(bar_position, bar_position + num_thetas)
+                ax.bar(indices, t_values, bar_width, label=model_name)
+
+                mid_position = bar_position + (num_thetas - 1) / 2
+                model_mid_positions.append(mid_position)
+
+                bar_position += num_thetas + gap_between_models
+
+            if t_reference_value is not None:
+                ax.axhline(y=t_reference_value, color='red', linestyle='--',
+                           label=f'Reference t (TRV = {t_reference_value:.2f})')
+
+            ax.set_xlabel('Model - Theta', color='black')
+            ax.set_ylabel('t Value', color='black')
+            ax.set_title(f't Values for {round_label}', color='black')
+            ax.set_xticks(model_mid_positions)
+            ax.set_xticklabels(sorted(model_names), rotation=45, ha='right')
+            ax.tick_params(axis='both', colors='black', labelcolor='black')
+            legend = ax.legend(title='Models', facecolor='white', edgecolor='black', framealpha=1)
+            plt.setp(legend.get_texts(), color='black')
+            plt.setp(legend.get_title(), color='black')
+            plt.tight_layout()
+
+            # Save the plot with the round number in the filename
+            save_file_path = os.path.join(save_path, f't_values_{round_label.replace(" ", "_").lower()}.png')
+            plt.savefig(save_file_path, facecolor='white')
             plt.show()
 
             logger.info(f"T values plot for {round_label} saved to {save_file_path}.")

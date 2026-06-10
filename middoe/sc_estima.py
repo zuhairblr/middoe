@@ -476,11 +476,12 @@ def estima(result, system, models, iden_opt, round):
         k_optimal_values[solver] = k_optimal
         rCC_values[solver] = rCC
         J_k_values[solver] = J_k
-
-        # Update model with optimal subset
-        models['mutation'][solver] = best_uncert_result['results'][solver]['optimization_result']['activeparams']
-        models['theta'][solver] = best_uncert_result['results'][solver]['optimization_result']['scpr']
-        models['V_matrix'][solver] = best_uncert_result['results'][solver]['V_matrix']
+        model_update = iden_opt.get('model_update', True)
+        if model_update:
+            # Update model with optimal subset
+            models['mutation'][solver] = best_uncert_result['results'][solver]['optimization_result']['activeparams']
+            models['theta'][solver] = best_uncert_result['results'][solver]['optimization_result']['scpr']
+            models['V_matrix'][solver] = best_uncert_result['results'][solver]['V_matrix']
 
     # Restore original settings
     iden_opt['log'] = True

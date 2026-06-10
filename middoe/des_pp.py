@@ -1,751 +1,27 @@
-# from middoe.des_utils import _slicer, _reporter, configure_logger
-# from middoe.krnl_simula import simula
-# from collections import defaultdict
-# from functools import partial
-# import numpy as np
-# from pymoo.algorithms.soo.nonconvex.de import DE
-# from pymoo.operators.sampling.lhs import LHS
-# from pymoo.core.problem import ElementwiseProblem
-# from pymoo.optimize import minimize as pymoo_minimize
-# from multiprocessing import Pool
-# import traceback
-# from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
-# from typing import Dict, Any, Union
-# from middoe.sc_estima import parameter_ranking
-# import logging
-# import scipy.linalg
-# import pandas as pd
-# from pathlib import Path
-#
-# logger = logging.getLogger(__name__)
-#
-#
-# def mbdoe_pp(
-#     des_opt: Dict[str, Any],
-#     system: Dict[str, Any],
-#     models: Dict[str, Any],
-#     round: int,
-#     num_parallel_runs: int = 1
-# ) -> Dict[str, Union[Dict[str, Any], float]]:
-#     """
-#     Perform Model-Based Design of Experiments for Parameter Precision (MBDoE-PP).
-#
-#     This function searches for the most informative experimental design to
-#     improve parameter estimation accuracy by maximising a precision criterion
-#     based on the Fisher Information Matrix (FIM). Optimisation can be run
-#     in single-core or parallel mode, and the best valid design is returned.
-#
-#     Parameters
-#     ----------
-#     des_opt : dict
-#         Optimisation settings, including:
-#             - 'criteria' : dict[str, str]
-#                 Precision criterion (e.g., {'MBDOE_PP_criterion': 'D'}).
-#             - 'iteration_settings' : dict
-#                 Iteration controls:
-#                     * 'maxpp': int — maximum iterations
-#                     * 'tolpp': float — convergence tolerance
-#             - 'eps' : float
-#                 Perturbation step size for numerical derivatives.
-#
-#     system : dict
-#         System model and constraints:
-#             - 'tf', 'ti' : float
-#                 Final and initial times for simulation.
-#             - 'tv_iphi', 'ti_iphi' : dict
-#                 Time-variant and time-invariant input definitions.
-#             - 'tv_ophi', 'ti_ophi' : dict
-#                 Output definitions (time-variant/invariant).
-#             - 'tv_iphi_seg' : dict[str, int]
-#                 Control variable segmentation (CVP).
-#             - 'tv_iphi_offsett', 'tv_iphi_offsetl' : dict
-#                 Time/level offsets for switching logic.
-#             - 'tv_ophi_matching' : dict[str, bool]
-#                 Synchronised sampling across outputs.
-#             - 'sampling_constraints' : dict
-#                 Sampling restrictions:
-#                     * 'min_interval': float — minimum time between samples
-#                     * 'max_samples_per_response': int
-#                     * 'total_samples': int
-#                     * 'forbidden_times': dict[str, list[float]]
-#                     * 'forced_times': dict[str, list[float]]
-#                     * 'sync_sampling': bool
-#
-#     models : dict
-#         Model definitions and settings:
-#             - 'active_models' : list[str]
-#                 Models to evaluate.
-#             - 'theta_parameters' : dict[str, list[float]]
-#                 Nominal parameter values.
-#             - 'mutation' : dict[str, list[bool]]
-#                 Parameter masks for optimisation.
-#             - 'V_matrix' : dict[str, ndarray]
-#                 Prior covariance matrices.
-#             - 'ext_models' : dict[str, Callable]
-#                 Mapping of model names to simulator functions.
-#
-#     round : int
-#         Current experimental design round (used for logging/conditional logic).
-#
-#     num_parallel_runs : int, optional
-#         Number of optimisation runs in parallel (default: 1, single-core mode).
-#
-#     Returns
-#     -------
-#     results : dict
-#         Best design found:
-#             - 'x' : dict[str, Any]
-#                 Optimal design variables (e.g., sampling times, control profiles).
-#             - 'fun' : float
-#                 Objective value (e.g., log det(FIM)).
-#             - 'swps' : dict[str, list[float]]
-#                 Switching times for time-variant controls.
-#
-#     Raises
-#     ------
-#     RuntimeError
-#         If all parallel runs fail or if the single-core run encounters an exception.
-#
-#     Notes
-#     -----
-#     MBDoE-PP designs experiments that maximise information for parameter estimation,
-#     using precision-based criteria such as:
-#         - D-optimality (maximise log det(FIM))
-#         - A-optimality (minimise trace(FIM⁻¹))
-#         - E-optimality (maximise smallest eigenvalue of FIM)
-#
-#     Supported constraints include:
-#         - Control level bounds and switching rules
-#         - Minimum sampling intervals
-#         - Total/maximum samples per output
-#         - Forced or forbidden sampling times
-#         - Synchronised sampling across outputs
-#
-#     References
-#     ----------
-#     Franceschini, G., & Macchietto, S. (2008).
-#     Model-based design of experiments for parameter precision: State of the art.
-#     Chemical Engineering Science, 63(19), 4846–4872.
-#     https://doi.org/10.1016/j.ces.2008.07.006
-#
-#     See Also
-#     --------
-#     _safe_run : Parallel optimisation wrapper.
-#     _run_single_pp : Single-core optimisation routine.
-#
-#     Examples
-#     --------
-#     >>> result = mbdoe_pp(des_opt, system, models, round=1, num_parallel_runs=4)
-#     >>> print("Best objective value:", result['fun'])
-#     >>> print("Optimal design:", result['x'])
-#     """
-#     # Assuming active solvers and mutation info available
-#     active_solvers = models['can_m']
-#     solver_name = active_solvers[0] if active_solvers else None
-#
-#     if solver_name and 'LSA' in models and solver_name in models['LSA']:
-#         Z_init = models['LSA'][solver_name]
-#         initial_ranking = parameter_ranking(Z_init)
-#         logger.debug(f"Initial parameter ranking (most to least estimable) for solver '{solver_name}': {initial_ranking}")
-#         des_opt['initial_ranking'] = initial_ranking
-#     else:
-#         logger.debug(f"No initial LSA matrix found for solver '{solver_name}' to compute initial ranking.")
-#     if num_parallel_runs > 1:
-#         with Pool(num_parallel_runs) as pool:
-#             results_list = pool.map(
-#                 _safe_run,
-#                 [(des_opt, system, models, core_number, round) for core_number in range(num_parallel_runs)]
-#             )
-#
-#         successful = [res for res in results_list if res is not None]
-#         if not successful:
-#             raise RuntimeError(
-#                 "All MBDOE-PP optimisation runs failed. "
-#                 "Try increasing 'maxpp', adjusting bounds, or relaxing constraints."
-#             )
-#
-#         best_design_decisions, best_pp_obj, best_swps = max(successful, key=lambda x: x[1])
-#
-#     else:
-#         try:
-#             best_design_decisions, best_pp_obj, best_swps = _run_single_pp(
-#                 des_opt, system, models, core_number=0, round=round
-#             )
-#         except Exception as e:
-#             raise RuntimeError(f"Single-core optimisation failed: {e}")
-#         print("Design your experiment based on:")
-#         print("  tii   :", best_design_decisions['tii'])
-#         print("  tvi   :", best_design_decisions['tvi'])
-#         print("  swps  :", best_design_decisions['swps'])
-#         print("  St    :", best_design_decisions['St'])
-#         print("  pp_obj:", best_design_decisions['pp_obj'])
-#     return best_design_decisions
-#
-#
-#
-# def _safe_run(args):
-#     des_opt, system, models, core_num, round = args
-#     configure_logger()
-#     try:
-#         return _run_single_pp(des_opt, system, models, core_num, round)
-#     except Exception as e:
-#         print(f"[Core {core_num}] FAILED: {e}")
-#         traceback.print_exc()
-#         return None
-#
-#
-# def _run_single_pp(des_opt, system, models, core_number=0, round=round):
-#     # --------------------------- EXTRACT DATA --------------------------- #
-#     tf = system['t_s'][1]
-#     ti = system['t_d']
-#
-#     # Time-variant inputs
-#     tv_iphi_vars = list(system['tvi'].keys())
-#     tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
-#     tv_iphi_min = [system['tvi'][var]['min'] for var in tv_iphi_vars]
-#     tv_iphi_seg = [system['tvi'][var]['stps']+1 for var in tv_iphi_vars]
-#     tv_iphi_const = [system['tvi'][var]['const'] for var in tv_iphi_vars]
-#     tv_iphi_offsett = [system['tvi'][var]['offt'] / tf for var in tv_iphi_vars]
-#     tv_iphi_offsetl = [
-#         system['tvi'][var]['offl'] / system['tvi'][var]['max']
-#         for var in tv_iphi_vars
-#     ]
-#     tv_iphi_cvp = {var: system['tvi'][var]['cvp'] for var in tv_iphi_vars}
-#
-#     # Time-invariant inputs
-#     ti_iphi_vars = list(system['tii'].keys())
-#     ti_iphi_max = [system['tii'][var]['max'] for var in ti_iphi_vars]
-#     ti_iphi_min = [system['tii'][var]['min'] for var in ti_iphi_vars]
-#
-#     # Time-variant outputs
-#     tv_ophi_vars = [
-#         var for var in system['tvo'].keys()
-#         if system['tvo'][var].get('meas', True)
-#     ]
-#     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
-#     tv_ophi_offsett_ophi = [system['tvo'][var]['offt'] / tf for var in tv_ophi_vars]
-#     tv_ophi_sampling = {var: system['tvo'][var]['samp_s'] for var in tv_ophi_vars}
-#     tv_ophi_forcedsamples = {var: [v / tf for v in system['tvo'][var]['samp_f']] for var in tv_ophi_vars}
-#
-#     # Time-invariant outputs
-#     ti_ophi_vars = [
-#         var for var in system['tio'].keys()
-#         if system['tio'][var].get('meas', True)
-#     ]
-#
-#     # Solver and optimization settings
-#     active_solvers = models['can_m']
-#
-#     theta_parameters = models['theta']
-#     # Criterion, iteration, and penalty settings
-#     design_criteria = des_opt['pp_ob']
-#     maxpp = des_opt['itr']['maxpp']
-#     tolpp = des_opt['itr']['tolpp']
-#     population_size = des_opt['itr']['pps']
-#     eps = des_opt['eps']
-#     # Ensure V_matrix is a dict of solver -> NumPy array (for indexing safety)
-#     if 'V_matrix' in models:
-#         V_matrix = {
-#             solver: np.array(models['V_matrix'][solver])
-#             for solver in models['can_m']
-#         }
-#     else:
-#         V_matrix = {
-#             solver: np.array([
-#                 [1e5 if i == j else 0 for j in range(len(models['theta'][solver]))]
-#                 for i in range(len(models['theta'][solver]))
-#             ])
-#             for solver in models['can_m']
-#         }
-#
-#     # Ensure mutation is a dict of solver -> list[bool]
-#     if 'mutation' in models:
-#         mutation = models['mutation']
-#     else:
-#         mutation = {
-#             solver: [True] * len(models['theta'][solver])
-#             for solver in models['can_m']
-#         }
-#     pltshow= des_opt['plt']
-#     optmethod = des_opt.get('meth', 'L')
-#
-#     # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
-#
-#     result, index_dict = _optimiser(
-#         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#         tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#         ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#         tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
-#         ti_ophi_vars,
-#         tf, ti,
-#         active_solvers, theta_parameters,
-#         eps, maxpp, tolpp,population_size,
-#         mutation, V_matrix, design_criteria,
-#         system, models, optmethod
-#     )
-#
-#     x_final = getattr(result, 'X', getattr(result, 'x', None))
-#     if x_final is None:
-#         raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
-#     # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
-#     try:
-#         phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _pp_runner(
-#             x_final,
-#             tv_iphi_vars, tv_iphi_max,
-#             ti_iphi_vars, ti_iphi_max,
-#             tv_ophi_vars, ti_ophi_vars,
-#             active_solvers, theta_parameters,
-#             tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
-#             tf, eps, mutation, V_matrix, design_criteria,
-#             index_dict,
-#             system,
-#             models
-#         )
-#     except ValueError as e:
-#         if "MBDoE optimiser kernel was unsuccessful" in str(e):
-#             print(f"[INFO] Kernel infeasibility in core {core_number}, round {round}. Skipping.")
-#             return None
-#         else:
-#             raise  # propagate other ValueErrors if unrelated
-#
-#     # --------------------------- REPORT & SAVE --------------------------- #
-#
-#     # You may have a specialized reporter or reuse the same `_reporter`
-#     phi, phit, swps, St = _reporter(
-#         phi, phit, swps, St,
-#         pp_obj,                  # pass the objective for logging
-#         t_values,
-#         tv_ophi_dict, ti_ophi_dict,
-#         tv_iphi_vars, tv_iphi_max,
-#         ti_iphi_vars, ti_iphi_max,
-#         tf,
-#         design_criteria,
-#         round, pltshow,
-#         core_number
-#     )
-#
-#     # ------------------------- RETURN FINAL DATA ------------------------- #
-#     design_decisions = {
-#         'tii': phi,
-#         'tvi': phit,
-#         'swps': swps,
-#         'St': St,
-#         'pp_obj': pp_obj,
-#         't_values': t_values
-#     }
-#
-#     return design_decisions, pp_obj, swps
-#
-#
-# def _optimiser(
-#     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
-#     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
-#     ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-#     tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
-#     ti_ophi_vars,
-#     tf, ti,
-#     active_models, theta_parameters,
-#     eps, maxpp, tolpp,population_size,
-#     mutation, V_matrix, design_criteria,
-#     system, models, optmethod
-# ):
-#
-#     bounds = []
-#     x0 = []
-#     index_dict = {
-#         'ti': {},
-#         'swps': {},
-#         'st': {}
-#     }
-#
-#     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
-#         lo, hi = mn / mx, 1.0
-#         bounds.append((lo, hi))
-#         x0.append((lo + hi) / 2)
-#         index_dict['ti'][name] = [i]
-#
-#     start = len(x0)
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         mn, mx = tv_iphi_min[i], tv_iphi_max[i]
-#         lo = mn / mx
-#         level_idxs = list(range(start, start + seg - 1))
-#         index_dict['swps'][name + 'l'] = level_idxs
-#         for _ in range(seg - 1):
-#             bounds.append((lo, 1.0))
-#             x0.append((lo + 1.0) / 2)
-#         start += seg - 1
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         seg = tv_iphi_seg[i]
-#         lo, hi = ti / tf, 1 - ti / tf
-#         time_idxs = list(range(start, start + seg - 2))
-#         index_dict['swps'][name + 't'] = time_idxs
-#         for _ in range(seg - 2):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += seg - 2
-#
-#     sampling_groups = defaultdict(list)
-#     for var in tv_ophi_vars:
-#         group_id = tv_ophi_sampling[var]
-#         sampling_groups[group_id].append(var)
-#
-#     for group_id, group_vars in sampling_groups.items():
-#         var = group_vars[0]
-#         i = tv_ophi_vars.index(var)
-#         seg = tv_ophi_seg[i]
-#         num_forced = len(tv_ophi_forcedsamples[var])
-#         num_free = seg - num_forced
-#         lo, hi = ti / tf, 1 - ti / tf
-#
-#         idxs = list(range(start, start + num_free))
-#         for var_in_group in group_vars:
-#             index_dict['st'][var_in_group] = idxs
-#
-#         for _ in range(num_free):
-#             bounds.append((lo, hi))
-#             x0.append((lo + hi) / 2)
-#         start += num_free
-#
-#     lower = np.array([b[0] for b in bounds])
-#     upper = np.array([b[1] for b in bounds])
-#     x0 = np.array(x0)
-#
-#     constraint_index_list = []
-#     for i, name in enumerate(tv_iphi_vars):
-#         const = tv_iphi_const[i]
-#         if const != 'rel':
-#             idxs = index_dict['swps'][name + 'l']
-#             for j in range(len(idxs) - 1):
-#                 constraint_index_list.append(('lvl', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_iphi_vars):
-#         idxs = index_dict['swps'][name + 't']
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
-#
-#     for i, name in enumerate(tv_ophi_vars):
-#         idxs = index_dict['st'][name]
-#         for j in range(len(idxs) - 1):
-#             constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
-#
-#     total_constraints = len(constraint_index_list)
-#
-#     local_obj = partial(
-#         _pp_of,
-#         tv_iphi_vars=tv_iphi_vars, tv_iphi_max=tv_iphi_max,
-#         ti_iphi_vars=ti_iphi_vars, ti_iphi_max=ti_iphi_max,
-#         tv_ophi_vars=tv_ophi_vars, ti_ophi_vars=ti_ophi_vars,
-#         tv_iphi_cvp=tv_iphi_cvp, tv_ophi_forcedsamples=tv_ophi_forcedsamples,
-#         tv_ophi_sampling=tv_ophi_sampling,
-#         active_solvers=active_models, theta_parameters=theta_parameters,
-#         tf=tf, eps=eps, mutation=mutation,
-#         V_matrix=V_matrix, design_criteria=design_criteria,
-#         index_dict=index_dict, system=system, models=models
-#     )
-#     from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation
-#     class DEProblem(ElementwiseProblem):
-#         def __init__(self):
-#             super().__init__(
-#                 n_var=len(bounds),
-#                 n_obj=1,
-#                 n_constr=total_constraints,
-#                 xl=lower,
-#                 xu=upper
-#             )
-#
-#         def _evaluate(self, x, out, *args, **kwargs):
-#             f_val = local_obj(x)
-#             g = []
-#             for kind, i, i1, i2 in constraint_index_list:
-#                 if kind == 'lvl':
-#                     offs = tv_iphi_offsetl[i]
-#                     const = tv_iphi_const[i]
-#                     diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
-#                     g.append(offs - diff)
-#                 elif kind == 't':
-#                     offs = tv_iphi_offsett[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#                 elif kind == 'st':
-#                     offs = tv_ophi_offsett_ophi[i]
-#                     g.append(offs - (x[i2] - x[i1]))
-#             out['F'] = f_val
-#             out['G'] = np.array(g, dtype=np.float64)
-#
-#     problem = DEProblem()
-#
-#     if optmethod == 'PS':
-#         algorithm = PatternSearch()
-#         res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), seed=None, verbose=True)
-#
-#     elif optmethod == 'DE':
-#         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
-#         res_refine = pymoo_minimize(
-#             problem,
-#             algorithm,
-#             termination=('n_gen', maxpp),
-#             seed=None,
-#             verbose=True,
-#             constraint_tolerance=tolpp,
-#             save_history=True
-#         )
-#
-#     elif optmethod == 'DEPS':
-#         algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
-#         res_de = pymoo_minimize(
-#             problem,
-#             algorithm_de,
-#             termination=('n_gen', maxpp/2),
-#             seed=None,
-#             verbose=True,
-#             constraint_tolerance=tolpp,
-#             save_history=True
-#         )
-#         algorithm_refine = PatternSearch()
-#         res_refine = pymoo_minimize(
-#             problem,
-#             algorithm_refine,
-#             termination=('n_gen', int(maxpp)),
-#             seed=None,
-#             verbose=True,
-#             constraint_tolerance=tolpp,
-#             x0=res_de.X
-#         )
-#
-#     else:
-#         raise ValueError("optmethod must be 'L', 'G', or 'GL'")
-#
-#     return res_refine, index_dict
-#
-#
-# def _pp_of(
-#     x,
-#     tv_iphi_vars, tv_iphi_max,
-#     ti_iphi_vars, ti_iphi_max,
-#     tv_ophi_vars, ti_ophi_vars,
-#     active_solvers, theta_parameters,
-#     tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
-#     tf, eps, mutation, V_matrix, design_criteria,
-#     index_dict,
-#     system,
-#     models
-# ):
-#
-#     """
-#     Objective function wrapper for MBDOE-PP.
-#     """
-#     try:
-#         _, _, _, pp_obj, _, _, _, _ = _pp_runner(
-#             x,
-#             tv_iphi_vars, tv_iphi_max,
-#             ti_iphi_vars, ti_iphi_max,
-#             tv_ophi_vars, ti_ophi_vars,
-#             active_solvers, theta_parameters,
-#             tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
-#             tf, eps, mutation, V_matrix, design_criteria,
-#             index_dict,
-#             system,
-#             models
-#         )
-#         if np.isnan(pp_obj):
-#             return 1e6
-#         return -pp_obj  # negative => maximize pp_obj
-#     except Exception as e:
-#         print(f"\n{'=' * 60}")
-#         print(f"Exception in pp_objective_function: {e}")
-#         print(f"Full traceback:")
-#         traceback.print_exc()  # ← THIS PRINTS THE FULL STACK TRACE
-#         print(f"{'=' * 60}\n")
-#         return 1e6
-#
-#
-#
-# def _pp_runner(
-#         x,
-#         tv_iphi_vars,
-#         tv_iphi_max,
-#         ti_iphi_vars,
-#         ti_iphi_max,
-#         tv_ophi_vars,
-#         ti_ophi_vars,
-#         active_solvers,
-#         theta_parameters,
-#         tv_iphi_cvp,
-#         tv_ophi_forcedsamples,
-#         tv_ophi_sampling,
-#         tf,
-#         eps,
-#         mutation,
-#         V_matrix,
-#         MBDOE_PP_criterion,
-#         index_dict,
-#         system,
-#         models
-# ):
-#     """
-#     Simulate models and evaluate the PP objective.
-#     Returns the sliced inputs, objective value, time vector, and outputs.
-#     """
-#     if x is None:
-#         raise ValueError("MBDoE optimiser kernel was unsuccessful, increase iteration to avoid constraint violations.")
-#     x = x.tolist() if not isinstance(x, list) else x
-#
-#     dt_real = system['t_r']
-#     nodes = int(round(tf / dt_real)) + 1
-#     tlin = np.linspace(0, 1, nodes)
-#     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
-#     St = {var: np.array(sorted(St[var])) for var in St}
-#     t_values_flat = [tp for times in St.values() for tp in times]
-#     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
-#
-#     LSA = defaultdict(lambda: defaultdict(dict))
-#     J_dot_matrix = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-#                                                  len(theta_parameters[active_solvers[0]]))))
-#     indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars if var in St}
-#     M0 = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-#                                        len(theta_parameters[active_solvers[0]]))))
-#     M = {}
-#     tv_ophi, ti_ophi, phit_interp = {}, {}, {}
-#
-#     for solver_name in active_solvers:
-#         thetac = theta_parameters[solver_name]
-#         theta = np.array([1.0] * len(thetac))
-#         ti_iphi_data = ti
-#         swps_data = swps
-#         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
-#         phitsc = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
-#         tsc = tf
-#
-#         tv_out, ti_out, interp_data = simula(t_values, swps_data, ti_iphi_data,
-#                                              phisc, phitsc, tsc,
-#                                              theta, thetac,
-#                                              tv_iphi_cvp, {}, solver_name,
-#                                              system, models)
-#         tv_ophi[solver_name] = tv_out
-#         ti_ophi[solver_name] = ti_out
-#         phit_interp = interp_data
-#
-#         y_values_dict = {var: np.array(tv_out[var]) for var in tv_ophi_vars}
-#         y_values_dict.update({var: np.array([ti_out[var]]) for var in ti_ophi_vars})
-#         y_combined = dict(y_values_dict)
-#
-#         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
-#
-#         y_i_values_dict = {}
-#
-#         for para_idx in free_params_indices:
-#             modified_theta = theta.copy()
-#             modified_theta[para_idx] += eps
-#
-#             tv_out_mod, ti_out_mod, _ = simula(t_values, swps_data, ti_iphi_data,
-#                                                phisc, phitsc, tsc,
-#                                                modified_theta, thetac,
-#                                                tv_iphi_cvp, {}, solver_name,
-#                                                system, models)
-#
-#             y_i_values_dict = {var: np.array(tv_out_mod[var]) for var in tv_ophi_vars}
-#             y_i_values_dict.update({var: np.array([ti_out_mod[var]]) for var in ti_ophi_vars})
-#             y_modified_combined = dict(y_i_values_dict)
-#
-#             for var in indices:
-#                 LSA[var][solver_name][para_idx] = (
-#                                                           y_modified_combined[var] - y_combined[var]
-#                                                   ) / eps
-#
-#         solver_LSA_list = []
-#         for var in indices:
-#             row = [LSA[var][solver_name][i].mean() for i in free_params_indices]
-#             solver_LSA_list.append(np.array(row))
-#         solver_LSA = np.array(solver_LSA_list)
-#
-#         # Build variance-covariance matrix Sigma_y
-#         std_dev = {}
-#         for grp, keys in [('tvo', tv_ophi_vars), ('tio', ti_ophi_vars)]:
-#             for var in keys:
-#                 unc = system.get(grp, {}).get(var, {}).get('unc', 1.0)
-#                 if unc is None or np.isnan(unc):
-#                     unc = 1.0
-#                 std_dev[var] = unc
-#
-#         vars_order = list(indices.keys())
-#         N_r = len(vars_order)
-#         Sigma_y = np.zeros((N_r, N_r))
-#         for i, var in enumerate(vars_order):
-#             Sigma_y[i, i] = std_dev.get(var, 1.0) ** 2
-#         Sigma_y_inv = np.linalg.inv(Sigma_y)
-#
-#         # Fisher Information Matrix
-#         J = solver_LSA
-#         M_fisher = J.T @ Sigma_y_inv @ J
-#
-#         if J_dot_matrix[solver_name].shape != M_fisher.shape:
-#             J_dot_matrix[solver_name] = np.zeros_like(M_fisher)
-#         J_dot_matrix[solver_name] += M_fisher
-#         M0[solver_name] = J_dot_matrix[solver_name]
-#
-#         # Check if V_matrix is already reduced or full
-#         if V_matrix[solver_name].shape[0] == len(free_params_indices):
-#             reduced_V_matrix = V_matrix[solver_name]
-#         elif V_matrix[solver_name].shape[0] == len(theta_parameters[solver_name]):
-#             reduced_V_matrix = V_matrix[solver_name][np.ix_(free_params_indices, free_params_indices)]
-#         else:
-#             raise ValueError(
-#                 f"V_matrix shape {V_matrix[solver_name].shape} doesn't match either "
-#                 f"free params ({len(free_params_indices)}) or total params ({len(theta_parameters[solver_name])})"
-#             )
-#
-#         # Mp = np.linalg.pinv(reduced_V_matrix)
-#         # M[solver_name] = M0[solver_name] + Mp
-#
-#         # Regularise prior covariance before inverting
-#         alpha = 1e-8
-#         V_reg = reduced_V_matrix + alpha * np.eye(reduced_V_matrix.shape[0])
-#         Mp = np.linalg.inv(V_reg)
-#         M[solver_name] = M0[solver_name] + Mp
-#
-#     # ================================================================
-#     # EVALUATE CRITERION
-#     # ================================================================
-#     solver_name = active_solvers[0]
-#
-#     if MBDOE_PP_criterion == 'D':
-#         pp_obj = np.linalg.det(M[solver_name])
-#
-#     elif MBDOE_PP_criterion == 'A':
-#         pp_obj = np.trace(M[solver_name])
-#
-#     elif MBDOE_PP_criterion == 'E':
-#         pp_obj = np.min(np.linalg.eigvalsh(M[solver_name]))
-#
-#     elif MBDOE_PP_criterion == 'ME':
-#         pp_obj = -np.linalg.cond(M[solver_name])
-#     else:
-#         pp_obj = None
-#
-#     return ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp
-#
-
-
-
-from middoe.des_utils import _slicer, _reporter, configure_logger
+# des_pp.py
+import scipy.linalg
+from middoe.des_utils import _slicer, _reporter, configure_logger, _write_final_results_txt
 from middoe.krnl_simula import simula
-from collections import defaultdict
-from functools import partial
-import numpy as np
-from pymoo.algorithms.soo.nonconvex.de import DE
-from pymoo.operators.sampling.lhs import LHS
-from pymoo.core.problem import ElementwiseProblem
-from pymoo.optimize import minimize as pymoo_minimize
 from multiprocessing import Pool
 import traceback
-from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
 from typing import Dict, Any, Union
 from middoe.sc_estima import parameter_ranking
 import logging
 import scipy.linalg
 import pandas as pd
 from pathlib import Path
+import datetime
+from pymoo.core.callback import Callback
+from threading import Lock
+import scipy.linalg
+import numpy as np
+from collections import defaultdict
+from functools import partial
+from pymoo.core.problem import ElementwiseProblem
+from pymoo.optimize import minimize as pymoo_minimize
+from pymoo.algorithms.soo.nonconvex.de import DE
+from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
+from pymoo.operators.sampling.lhs import LHS
 
 logger = logging.getLogger(__name__)
 
@@ -754,7 +30,8 @@ def mbdoe_pp(
     des_opt: Dict[str, Any],
     system: Dict[str, Any],
     models: Dict[str, Any],
-    round: int,
+    insilicos: Dict[str, Any] = None,
+    round: int = 0,
     num_parallel_runs: int = 1
 ) -> Dict[str, Union[Dict[str, Any], float]]:
     r"""
@@ -771,7 +48,7 @@ def mbdoe_pp(
         Optimisation settings, including:
 
         - 'ppob' : str
-            Precision criterion ('D', 'A', 'E', 'ME'):
+            Precision criterion ('D', 'A', 'E', 'ME', 'ORB', 'SEM'):
 
             * 'D': D-optimality - Scale-invariant criterion that minimises the volume of the confidence ellipsoid by maximising det(FIM). Advantages: Strong overall precision. Disadvantages: May excessively prioritise sensitive parameters.
 
@@ -780,6 +57,10 @@ def mbdoe_pp(
             * 'E': E-optimality - Maximises the minimum eigenvalue of FIM (minimises worst-case parameter variance). Advantages: Targets most uncertain parameter. Disadvantages: May be overly conservative, sensitive to ill-conditioning.
 
             * 'ME': ME-optimality (Modified E-optimality) - Reduces the disparity between the most and least identifiable directions in parameter space. Promotes uniform precision distribution and avoids elongated confidence ellipsoids. Advantages: Enhanced robustness, uniform precision across parameters. Disadvantages: Sensitive to ill-conditioning for poorly observable parameters.
+
+            * 'ORB': Orthogonal Residual Balancing - Focuses on increasing the infromation content on poor directions in a harmonic way. Advantages: Directly targets parameter estimability. Disadvantages: May neglect overall precision, can be computationally demanding due to non-convexity.
+
+            * 'SEM': Spectral Entropy Maximization - Uses a Shannon Entropy-inspired approach to maximise the entropy of the normalised FIM, promoting a uniform distribution of information across parameters. Advantages: Encourages balanced parameter precision, robust to scaling issues. Disadvantages: Computationally intensive for each iteration.
 
         - 'itr' : dict
             Iteration controls with keys 'maxpp' (int, maximum iterations), 'toldpp' (float, convergence tolerance), 'pps' (int, population size).
@@ -837,6 +118,11 @@ def mbdoe_pp(
 
         - 'LSA' : dict[str, np.ndarray], optional
             Pre-computed local sensitivity analysis matrices for initial ranking.
+
+    insilicos : dict, optional
+        In-silico experiment settings. When ``insilicos['theta']`` is supplied,
+        it is used as the true/reference parameter vector for FIM eigen-direction
+        alignment reporting only.
 
     round : int
         Current experimental design round (used for logging/reporting).
@@ -937,6 +223,17 @@ def mbdoe_pp(
     >>> print(f"D-optimality value: {design['pp_obj']:.4e}")
     """
 
+    # Preserve older positional calls: mbdoe_pp(des_opt, system, models, round).
+    if isinstance(insilicos, (int, np.integer)) and round == 0:
+        round = int(insilicos)
+        insilicos = None
+
+    # Set default values for new options if not provided
+    if 'conv_rep' not in des_opt:
+        des_opt['conv_rep'] = True  # Default: report convergence metrics
+    if 'priors' not in des_opt:
+        des_opt['priors'] = True  # Default: include priors (Mp) in FIM
+
     # Assuming active solvers and mutation info available
     active_solvers = models['can_m']
     solver_name = active_solvers[0] if active_solvers else None
@@ -952,7 +249,8 @@ def mbdoe_pp(
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
                 _safe_run,
-                [(des_opt, system, models, core_number, round) for core_number in range(num_parallel_runs)]
+                [(des_opt, system, models, insilicos, core_number, round)
+                 for core_number in range(num_parallel_runs)]
             )
 
         successful = [res for res in results_list if res is not None]
@@ -962,21 +260,36 @@ def mbdoe_pp(
                 "Try increasing 'maxpp', adjusting bounds, or relaxing constraints."
             )
 
-        best_design_decisions, best_pp_obj, best_swps = max(successful, key=lambda x: x[1])
+        # each res is now: (design_decisions, pp_obj, swps, core_number)
+        best_design_decisions, best_pp_obj, best_swps, best_core = max(
+            successful, key=lambda x: x[1]
+        )
 
     else:
         try:
+            # _run_single_pp returns (design_decisions, pp_obj, swps)
             best_design_decisions, best_pp_obj, best_swps = _run_single_pp(
-                des_opt, system, models, core_number=0, round=round
+                des_opt, system, models, insilicos=insilicos, core_number=0, round=round
             )
+            best_core = 0
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
+
         print("Design your experiment based on:")
         print("  tii   :", best_design_decisions['tii'])
         print("  tvi   :", best_design_decisions['tvi'])
         print("  swps  :", best_design_decisions['swps'])
         print("  St    :", best_design_decisions['St'])
         print("  pp_obj:", best_design_decisions['pp_obj'])
+
+    # Write final short TXT summary in design folder
+    _write_final_results_txt(
+        round_num=round,
+        core_number=best_core,
+        design_decisions=best_design_decisions,
+        pp_obj=best_pp_obj,
+    )
+
     return best_design_decisions
 
 
@@ -998,6 +311,8 @@ def _safe_run(args):
                 System configuration.
             - models : dict
                 Model definitions.
+            - insilicos : dict, optional
+                In-silico true/reference parameter settings for reporting.
             - core_num : int
                 Core/process identifier for logging.
             - round : int
@@ -1019,75 +334,29 @@ def _safe_run(args):
     _run_single_pp : Core single-run optimisation logic.
     mbdoe_pp : Main entry point that manages parallel execution.
     """
-    des_opt, system, models, core_num, round = args
+    if len(args) == 5:
+        des_opt, system, models, core_num, round = args
+        insilicos = None
+    else:
+        des_opt, system, models, insilicos, core_num, round = args
+
     configure_logger()
     try:
-        return _run_single_pp(des_opt, system, models, core_num, round)
+        # _run_single_pp returns: (design_decisions, pp_obj, swps)
+        design_decisions, pp_obj, swps = _run_single_pp(
+            des_opt, system, models, insilicos=insilicos, core_number=core_num, round=round
+        )
+        # Attach the core number so we know which worker won
+        return design_decisions, pp_obj, swps, core_num
     except Exception as e:
-        print(f"[Core {core_num}] FAILED: {e}")
+        print(f"Core {core_num} FAILED: {e}")
         traceback.print_exc()
         return None
 
 
-def _run_single_pp(des_opt, system, models, core_number=0, round=round):
-    r"""
-    Execute a single MBDoE-PP optimisation run on one core.
+def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round=0):
+    import numpy as np
 
-    This function unpacks system and model configurations, constructs the
-    optimisation problem for parameter precision, invokes the solver, and
-    evaluates the final design.
-
-    Parameters
-    ----------
-    des_opt : dict
-        Design optimisation settings (see mbdoe_pp documentation).
-    system : dict
-        System configuration including inputs, outputs, and constraints.
-    models : dict
-        Model definitions including parameters, mutations, and prior covariances.
-    core_number : int, optional
-        Identifier for the current core/process (default: 0).
-    round : int
-        Current experimental design round.
-
-    Returns
-    -------
-    design_decisions : dict
-        Optimal design variables and objective value.
-    pp_obj : float
-        Parameter precision objective value (to be maximised).
-    swps : dict
-        Switching times for time-variant control variables.
-
-    Raises
-    ------
-    ValueError
-        If optimisation result lacks required attributes ('X' or 'x').
-        If kernel simulation is infeasible for the final design.
-
-    Notes
-    -----
-    This function performs the following steps:
-        1. Extract and normalise system bounds and constraints.
-        2. Build index mapping for decision variables.
-        3. Construct default V_matrix (prior covariance) if not provided.
-        4. Construct default mutation masks if not provided.
-        5. Invoke _optimiser to solve the optimisation problem.
-        6. Evaluate the final design using _pp_runner.
-        7. Report results via _reporter.
-
-    **Default Prior Covariance**: If V_matrix is not provided, a diagonal matrix
-    with large variances (1e5) is constructed, representing uninformative priors.
-
-    **Default Mutation Masks**: If not provided, all parameters are assumed free.
-
-    See Also
-    --------
-    _optimiser : Optimisation problem construction and solver.
-    _pp_runner : Simulation kernel for design evaluation.
-    _reporter : Result formatting and visualisation.
-    """
-    # --------------------------- EXTRACT DATA --------------------------- #
     tf = system['t_s'][1]
     ti = system['t_d']
 
@@ -1095,13 +364,10 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     tv_iphi_vars = list(system['tvi'].keys())
     tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
     tv_iphi_min = [system['tvi'][var]['min'] for var in tv_iphi_vars]
-    tv_iphi_seg = [system['tvi'][var]['stps']+1 for var in tv_iphi_vars]
+    tv_iphi_seg = [system['tvi'][var]['stps'] + 1 for var in tv_iphi_vars]
     tv_iphi_const = [system['tvi'][var]['const'] for var in tv_iphi_vars]
     tv_iphi_offsett = [system['tvi'][var]['offt'] / tf for var in tv_iphi_vars]
-    tv_iphi_offsetl = [
-        system['tvi'][var]['offl'] / system['tvi'][var]['max']
-        for var in tv_iphi_vars
-    ]
+    tv_iphi_offsetl = [system['tvi'][var]['offl'] / system['tvi'][var]['max'] for var in tv_iphi_vars]
     tv_iphi_cvp = {var: system['tvi'][var]['cvp'] for var in tv_iphi_vars}
 
     # Time-invariant inputs
@@ -1110,76 +376,59 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     ti_iphi_min = [system['tii'][var]['min'] for var in ti_iphi_vars]
 
     # Time-variant outputs
-    tv_ophi_vars = [
-        var for var in system['tvo'].keys()
-        if system['tvo'][var].get('meas', True)
-    ]
+    tv_ophi_vars = [var for var in system['tvo'].keys() if system['tvo'][var].get('meas', True)]
     tv_ophi_seg = [system['tvo'][var]['sp'] for var in tv_ophi_vars]
-    tv_ophi_offsett_ophi = [system['tvo'][var]['offt'] / tf for var in tv_ophi_vars]
+    tv_ophi_offsett = [system['tvo'][var]['offt'] / tf for var in tv_ophi_vars]
     tv_ophi_sampling = {var: system['tvo'][var]['samp_s'] for var in tv_ophi_vars}
     tv_ophi_forcedsamples = {var: [v / tf for v in system['tvo'][var]['samp_f']] for var in tv_ophi_vars}
 
     # Time-invariant outputs
-    ti_ophi_vars = [
-        var for var in system['tio'].keys()
-        if system['tio'][var].get('meas', True)
-    ]
+    ti_ophi_vars = [var for var in system['tio'].keys() if system['tio'][var].get('meas', True)]
 
-    # Solver and optimization settings
     active_solvers = models['can_m']
-
     theta_parameters = models['theta']
-    # Criterion, iteration, and penalty settings
+
     design_criteria = des_opt['pp_ob']
     maxpp = des_opt['itr']['maxpp']
     tolpp = des_opt['itr']['tolpp']
     population_size = des_opt['itr']['pps']
     eps = des_opt['eps']
-    # Ensure V_matrix is a dict of solver -> NumPy array (for indexing safety)
-    if 'V_matrix' in models:
-        V_matrix = {
-            solver: np.array(models['V_matrix'][solver])
-            for solver in models['can_m']
-        }
-    else:
-        V_matrix = {
-            solver: np.array([
-                [1e5 if i == j else 0 for j in range(len(models['theta'][solver]))]
-                for i in range(len(models['theta'][solver]))
-            ])
-            for solver in models['can_m']
-        }
 
-    # Ensure mutation is a dict of solver -> list[bool]
+    if 'V_matrix' in models:
+        V_matrix = {solver: np.array(models['V_matrix'][solver]) for solver in models['can_m']}
+    else:
+        V_matrix = {solver: np.array([[1e5 if i == j else 0 for j in range(len(models['theta'][solver]))] for i in range(len(models['theta'][solver]))]) for solver in models['can_m']}
+
     if 'mutation' in models:
         mutation = models['mutation']
     else:
-        mutation = {
-            solver: [True] * len(models['theta'][solver])
-            for solver in models['can_m']
-        }
-    pltshow= des_opt['plt']
+        mutation = {solver: [True] * len(models['theta'][solver]) for solver in models['can_m']}
+
+    pltshow = des_opt['plt']
     optmethod = des_opt.get('meth', 'L')
 
-    # ------------------------ CHOOSE METHOD (Local vs Global) ------------------------ #
-
-    result, index_dict = _optimiser(
+    # Call optimizer and get metrics history
+    result, index_dict, metrics_history = _optimiser(
         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
         tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
         ti_iphi_vars, ti_iphi_max, ti_iphi_min,
-        tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett_ophi, tv_ophi_sampling, tv_ophi_forcedsamples,
+        tv_ophi_vars, tv_ophi_seg, tv_ophi_offsett, tv_ophi_sampling, tv_ophi_forcedsamples,
         ti_ophi_vars,
         tf, ti,
         active_solvers, theta_parameters,
-        eps, maxpp, tolpp,population_size,
+        eps, maxpp, tolpp, population_size,
         mutation, V_matrix, design_criteria,
-        system, models, optmethod
+        system, models, optmethod,
+        des_opt,
+        insilicos=insilicos,
+        core_number=core_number,
+        round_num=round
     )
 
     x_final = getattr(result, 'X', getattr(result, 'x', None))
     if x_final is None:
         raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
-    # ------------------- USE FINAL SOLUTION IN _runnerpp ---------------- #
+
     try:
         phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _pp_runner(
             x_final,
@@ -1191,32 +440,37 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
             tf, eps, mutation, V_matrix, design_criteria,
             index_dict,
             system,
-            models
+            models,
+            des_opt,
+            insilicos=insilicos,
+            metrics_history=None,
         )
     except ValueError as e:
         if "MBDoE optimiser kernel was unsuccessful" in str(e):
             print(f"[INFO] Kernel infeasibility in core {core_number}, round {round}. Skipping.")
             return None
         else:
-            raise  # propagate other ValueErrors if unrelated
+            raise
 
-    # --------------------------- REPORT & SAVE --------------------------- #
+    # Only export convergence metrics if conv_rep is True
+    if des_opt.get('conv_rep', True):
+        _export_metrics_to_excel(
+            metrics_history,
+            design_criteria,
+            core_number,
+            pp_obj,
+            round_num=round
+        )
 
-    # You may have a specialized reporter or reuse the same `_reporter`
     phi, phit, swps, St = _reporter(
-        phi, phit, swps, St,
-        pp_obj,                  # pass the objective for logging
+        phi, phit, swps, St, pp_obj,
         t_values,
         tv_ophi_dict, ti_ophi_dict,
         tv_iphi_vars, tv_iphi_max,
         ti_iphi_vars, ti_iphi_max,
-        tf,
-        design_criteria,
-        round, pltshow,
-        core_number
+        tf, design_criteria, round, pltshow, core_number
     )
 
-    # ------------------------- RETURN FINAL DATA ------------------------- #
     design_decisions = {
         'tii': phi,
         'tvi': phit,
@@ -1229,6 +483,710 @@ def _run_single_pp(des_opt, system, models, core_number=0, round=round):
     return design_decisions, pp_obj, swps
 
 
+# Global lock for thread-safe Excel writing across parallel workers
+excel_write_lock = Lock()
+
+class MetricsCallback(Callback):
+    def __init__(self, metrics_history, criterion, worker_num, core_number, round_num,
+                 evaluation_func=None):
+        super().__init__()
+        self.metrics_history = metrics_history
+        self.criterion = criterion
+        self.evaluation_func = evaluation_func
+        self.generation = 0
+
+    def notify(self, algorithm):
+        self.generation += 1
+
+        if algorithm.pop is not None:
+            best_f = algorithm.pop.get("F")
+            best_x = algorithm.pop.get("X")
+
+            if best_f is not None:
+                x_curr = best_x[0] if len(best_x.shape) > 1 else best_x
+
+                # 1. Standard Metrics
+                record = {
+                    "generation": self.generation,
+                    "best_obj": float(best_f[0]),
+                    "criterion": self.criterion
+                }
+
+                # 2. Full FIM Analysis (SEM/ORB included)
+                if self.evaluation_func:
+                    try:
+                        fim_metrics = self.evaluation_func(x_curr)
+                        record.update(fim_metrics)
+                    except Exception as e:
+                        print(f"FIM Calc Error: {e}")
+
+                # 3. Non-Convexity Check (New Spectral Method)
+                try:
+                    # Define local objective wrapper for finite diff
+                    def local_obj_wrapper(x_vec):
+                        res = algorithm.problem.evaluate(x_vec.reshape(1, -1), return_values_of=["F"])
+                        return float(res[0, 0])
+
+                    curv_metrics = _estimate_hessian_spectral(
+                        local_obj_wrapper, x_curr, h=1e-2, n_directions=15
+                    )
+                    record.update(curv_metrics)
+                except Exception as e:
+                    print(f"Curvature Calc Error: {e}")
+
+                self.metrics_history.append(record)
+
+def _fim_spectral_metrics(M: np.ndarray, eps: float = None) -> dict:
+    """
+    Compute robust spectral metrics of a Fisher Information Matrix M.
+
+    Uses only strictly positive eigenvalues (> eps) for conditioning metrics.
+    If no positive eigenvalues exist, treats the FIM as effectively singular.
+    """
+    if eps is None:
+        # Slightly looser than machine epsilon to ignore numerical noise
+        eps = np.sqrt(np.finfo(float).eps)
+
+    # Full spectrum
+    eigvals_full = np.linalg.eigvalsh(M)
+    eig_pos = eigvals_full[eigvals_full > eps]
+    eff_rank = eig_pos.size
+
+    if eff_rank > 0:
+        min_pos = float(eig_pos.min())
+        max_pos = float(eig_pos.max())
+        mean_pos = float(eig_pos.mean())
+        cond = float(max_pos / min_pos)
+
+        # D-opt surrogate (log-det) and A-opt surrogate (trace of inverse)
+        log_det = float(np.sum(np.log(eig_pos)))
+        trace_inv = float(np.sum(1.0 / eig_pos))
+
+        total = float(eig_pos.sum())
+        eigvar = float(np.var(eig_pos))
+
+        # Gini-like coefficient of eigenvalue inequality
+        if eff_rank > 1 and total > 0.0:
+            sorted_pos = np.sort(eig_pos)
+            i = np.arange(1, eff_rank + 1)
+            gini = float(
+                (2.0 * np.sum(i * sorted_pos) / (eff_rank * total))
+                - (eff_rank + 1.0) / eff_rank
+            )
+        else:
+            gini = 0.0
+
+        # Information concentration in top directions
+        if total > 0.0:
+            sorted_desc = np.sort(eig_pos)[::-1]
+            frac_top1 = float(sorted_desc[0] / total)
+            k = min(3, eff_rank)
+            frac_top3 = float(np.sum(sorted_desc[:k]) / total)
+        else:
+            frac_top1 = frac_top3 = 0.0
+    else:
+        # Effectively singular FIM
+        min_pos = max_pos = mean_pos = 0.0
+        cond = float("inf")
+        log_det = float("-inf")
+        trace_inv = float("inf")
+        eigvar = 0.0
+        gini = 0.0
+        frac_top1 = frac_top3 = 0.0
+
+    # Determinant and trace on full spectrum (can be 0 / small)
+    det_fim = float(np.linalg.det(M))
+    trace_fim = float(np.trace(M))
+
+    metrics = {
+        # Classical conditioning / rank metrics
+        "condition_number": cond,
+        "effective_rank": int(eff_rank),
+        "num_positive_eigenvalues": int(eff_rank),
+        "min_eigenvalue": min_pos,
+        "max_eigenvalue": max_pos,
+        "mean_eigenvalue": mean_pos,
+
+        # Scalar strength / spread metrics
+        "det_fim": det_fim,
+        "trace_fim": trace_fim,
+        "log_det_fim": log_det,          # log(det) over positive spectrum
+        "trace_inv_fim": trace_inv,      # sum 1/λ_i (A-opt surrogate)
+        "eigval_variance": eigvar,
+        "eigval_gini": gini,
+
+        # Information concentration
+        "info_frac_top1": frac_top1,     # fraction of info in best direction
+        "info_frac_top3": frac_top3,     # fraction in best 3 directions
+    }
+
+    # Also keep the full spectrum for any downstream analysis if needed
+    metrics["_eigvals_full"] = eigvals_full
+    metrics["_eigvals_pos"] = eig_pos
+
+    return metrics
+
+
+def _get_solver_vector(container, key, solver_name):
+    if not isinstance(container, dict):
+        return None
+
+    value = container.get(key)
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value.get(solver_name)
+    return value
+
+
+def _get_true_theta_vector(des_opt, models, insilicos, solver_name):
+    theta_true = _get_solver_vector(insilicos, "theta", solver_name)
+    if theta_true is None and isinstance(insilicos, dict):
+        theta_true = _get_solver_vector(insilicos, "theta", insilicos.get("tr_m"))
+    if theta_true is None:
+        theta_true = _get_solver_vector(des_opt, "theta_true", solver_name)
+    if theta_true is None:
+        theta_true = _get_solver_vector(models, "theta_true", solver_name)
+    return theta_true
+
+
+def _fim_eigen_direction_rows(
+        M: np.ndarray,
+        parameter_indices=None,
+        solver_name=None,
+        true_parameter_values=None,
+        nominal_parameter_values=None,
+        parameter_normalization_values=None,
+):
+    """
+    Return FIM eigen directions as Excel-ready row dictionaries.
+
+    Directions are sorted from largest to smallest eigenvalue. The FIM is
+    symmetrized before decomposition to remove small numerical asymmetry.
+
+    The angle to the target direction is reported as an acute angle because
+    the sign of an eigenvector is arbitrary.
+
+    FIM eigenvectors here are expressed in the normalized parameter-multiplier
+    coordinates used by simula() (theta_physical = theta_norm * theta_c).
+    Alignment is meaningful only when both nominal and true/reference parameter
+    vectors are supplied. With normalization values, the reported target is the
+    scaled correction direction:
+
+        (theta_true - theta_nominal) / theta_normalization
+
+    If the true/reference vector is missing, eigenvalues and eigenvectors are
+    still reported, while alignment fields remain NaN and the target definition
+    is marked as not_available.
+    """
+    M = np.asarray(M, dtype=float)
+    if M.ndim != 2 or M.shape[0] != M.shape[1]:
+        return []
+
+    if parameter_indices is None:
+        parameter_indices = list(range(M.shape[0]))
+    else:
+        parameter_indices = list(parameter_indices)
+        if len(parameter_indices) != M.shape[0]:
+            parameter_indices = list(range(M.shape[0]))
+
+    M_sym = 0.5 * (M + M.T)
+    eigvals, eigvecs = np.linalg.eigh(M_sym)
+    order = np.argsort(eigvals)[::-1]
+
+    rows = []
+    parameter_indices_text = "[" + ", ".join(str(idx) for idx in parameter_indices) + "]"
+    target_direction = None
+    target_direction_text = None
+    target_direction_definition = "not_available"
+    true_parameter_values_text = None
+    nominal_parameter_values_text = None
+    normalization_values_text = None
+
+    def _select_parameter_values(values):
+        if values is None:
+            return None
+
+        selected = np.asarray(values, dtype=float).ravel()
+        if selected.size == M.shape[0]:
+            return selected
+        if parameter_indices and selected.size > max(parameter_indices):
+            return selected[parameter_indices]
+        return None
+
+    try:
+        true_values = _select_parameter_values(true_parameter_values)
+        nominal_values = _select_parameter_values(nominal_parameter_values)
+        normalization_values = _select_parameter_values(parameter_normalization_values)
+
+        if true_values is not None:
+            true_parameter_values_text = "[" + ", ".join(
+                f"{float(v):.12g}" for v in true_values
+            ) + "]"
+
+        if nominal_values is not None:
+            nominal_parameter_values_text = "[" + ", ".join(
+                f"{float(v):.12g}" for v in nominal_values
+            ) + "]"
+
+        if normalization_values is not None:
+            normalization_values_text = "[" + ", ".join(
+                f"{float(v):.12g}" for v in normalization_values
+            ) + "]"
+
+        if true_values is not None and nominal_values is not None:
+            correction = true_values - nominal_values
+            if normalization_values is not None:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    target_direction = np.divide(
+                        correction,
+                        normalization_values,
+                        out=np.full_like(correction, np.nan, dtype=float),
+                        where=np.abs(normalization_values) > np.finfo(float).eps,
+                    )
+                target_direction_definition = "(true - nominal) / normalization"
+                if not np.all(np.isfinite(target_direction)):
+                    target_direction = None
+                    target_direction_definition = "not_available"
+            else:
+                target_direction = correction
+                target_direction_definition = "true - nominal"
+
+        if target_direction is not None:
+            target_norm = float(np.linalg.norm(target_direction))
+            if target_norm > np.finfo(float).eps:
+                target_direction = target_direction / target_norm
+                target_direction_text = "[" + ", ".join(
+                    f"{float(v):.12g}" for v in target_direction
+                ) + "]"
+            else:
+                target_direction = None
+                target_direction_definition = "not_available"
+    except (TypeError, ValueError):
+        target_direction = None
+        target_direction_definition = "not_available"
+
+    for rank, eig_idx in enumerate(order, start=1):
+        vector = np.asarray(eigvecs[:, eig_idx], dtype=float)
+
+        if vector.size:
+            pivot = int(np.argmax(np.abs(vector)))
+            if vector[pivot] < 0:
+                vector = -vector
+
+        vector_norm = float(np.linalg.norm(vector))
+        angle_to_target = np.nan
+        alignment_to_target = np.nan
+        misalignment_to_target = np.nan
+        if target_direction is not None and vector_norm > np.finfo(float).eps:
+            cosine = float(np.dot(vector, target_direction) / vector_norm)
+            alignment_to_target = float(np.clip(abs(cosine), 0.0, 1.0))
+            angle_to_target = float(np.degrees(np.arccos(alignment_to_target)))
+            misalignment_to_target = 1.0 - alignment_to_target
+
+        row = {
+            "solver": solver_name,
+            "eigen_direction": f"direction_{rank}",
+            "eigen_rank": rank,
+            "eigenvalue": float(eigvals[eig_idx]),
+            "parameter_indices": parameter_indices_text,
+            "eigenvector": "[" + ", ".join(f"{float(v):.12g}" for v in vector) + "]",
+            "true_parameter_values": true_parameter_values_text,
+            "nominal_parameter_values": nominal_parameter_values_text,
+            "parameter_normalization_values": normalization_values_text,
+            "target_parameter_direction": target_direction_text,
+            "target_direction_definition": target_direction_definition,
+            "angle_to_target_direction_deg": angle_to_target,
+            "alignment_to_target_direction_abs_cosine": alignment_to_target,
+            "misalignment_to_target_direction": misalignment_to_target,
+        }
+
+        for component_idx, param_idx in enumerate(parameter_indices):
+            row[f"param_{param_idx}_component"] = float(vector[component_idx])
+
+        rows.append(row)
+
+    return rows
+
+
+def _compute_metrics_only(
+        x, tv_iphi_vars, tv_iphi_max, ti_iphi_vars, ti_iphi_max,
+        tv_ophi_vars, ti_ophi_vars, active_solvers, theta_parameters,
+        tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
+        tf, eps, mutation, V_matrix, design_criteria,
+        index_dict, system, models, des_opt, insilicos=None
+):
+    """
+    Compute FIM-based metrics for a given design vector x.
+    Includes corrected ORB (condition-adaptive threshold, full QR)
+    and SEM (using consistent FIM, proper entropy normalization).
+    """
+    try:
+        if x is None:
+            return {"error": "x is None"}
+
+        x = x.tolist() if not isinstance(x, list) else x
+        dt_real = system["t_r"]
+        nodes = int(round(tf / dt_real)) + 1
+        tlin = np.linspace(0, 1, nodes)
+
+        # Decode design
+        ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
+        St = {var: np.array(sorted(St[var])) for var in St}
+        tvalues_flat = [tp for times in St.values() for tp in times]
+        tvalues = np.unique(np.concatenate([tlin, tvalues_flat]).tolist())
+
+        # Setup Simulation
+        LSA = defaultdict(lambda: defaultdict(dict))
+        solver_name = active_solvers[0]
+        theta_c = theta_parameters[solver_name]
+        theta = np.ones(len(theta_c))
+
+        # Denormalize inputs
+        ti_iphi_data = ti
+        swps_data = swps
+        phis_c = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
+        phits_c = {var: tv_iphi_max[i] for i, var in enumerate(tv_iphi_vars)}
+        ts_c = tf
+
+        # 1. Nominal Simulation
+        tvout, tiout, _ = simula(
+            tvalues, swps_data, ti_iphi_data, phis_c, phits_c, ts_c,
+            theta, theta_c, tv_iphi_cvp, {}, solver_name, system, models
+        )
+        y_nom = {var: np.array(tvout[var]) for var in tv_ophi_vars}
+        y_nom.update({var: np.array(tiout[var]) for var in ti_ophi_vars})
+
+        # 2. Sensitivities (finite difference)
+        free_idx = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
+        for p in free_idx:
+            theta_mod = theta.copy()
+            theta_mod[p] += eps
+            tvout_m, tiout_m, _ = simula(
+                tvalues, swps_data, ti_iphi_data, phis_c, phits_c, ts_c,
+                theta_mod, theta_c, tv_iphi_cvp, {}, solver_name, system, models
+            )
+            y_mod = {var: np.array(tvout_m[var]) for var in tv_ophi_vars}
+            y_mod.update({var: np.array(tiout_m[var]) for var in ti_ophi_vars})
+            for var in y_nom:
+                LSA[var][solver_name][p] = (y_mod[var] - y_nom[var]) / eps
+
+        # 3. Build sensitivity matrix Q (n_obs x n_params)
+        indices = {var: np.isin(tvalues, St[var]) for var in tv_ophi_vars if var in St}
+        Q_rows = []
+        obs_vars_order = []
+        for var, mask in indices.items():
+            for k, is_sampled in enumerate(mask):
+                if is_sampled:
+                    row = [LSA[var][solver_name][p][k] for p in free_idx]
+                    Q_rows.append(row)
+                    obs_vars_order.append(var)
+        Q = np.array(Q_rows, dtype=float)
+
+        # 4. Measurement covariance Σ_y
+        n_obs = len(obs_vars_order)
+        Sigma_y = np.zeros((n_obs, n_obs))
+        for i, var in enumerate(obs_vars_order):
+            unc = system.get("tvo", {}).get(var, {}).get("unc", 1.0)
+            if unc is None or np.isnan(unc):
+                unc = 1.0
+            Sigma_y[i, i] = unc ** 2
+        Sigma_y_inv = np.linalg.inv(Sigma_y)
+
+        # 5. Parameter prior covariance (reduced to free parameters)
+        V_full = V_matrix[solver_name]
+        if V_full.shape[0] == len(theta_c):
+            V_red = V_full[np.ix_(free_idx, free_idx)]
+        else:
+            V_red = V_full
+
+        # 6. Fisher Information Matrix
+        M = Q.T @ Sigma_y_inv @ Q
+        if des_opt.get("priors", True):
+            M += np.linalg.inv(V_red)
+
+        # =====================================================================
+        # Generic FIM spectral metrics (shared across criteria)
+        # =====================================================================
+        base_metrics = _fim_spectral_metrics(M)
+        eigvals_full = base_metrics.pop("_eigvals_full")
+        eig_pos = base_metrics.pop("_eigvals_pos")
+
+        metrics = dict(base_metrics)
+        metrics["criterion"] = design_criteria.upper()
+        nominal_theta = np.asarray(theta_c, dtype=float)
+        theta_true = _get_true_theta_vector(des_opt, models, insilicos, solver_name)
+
+        metrics["_eigen_directions"] = _fim_eigen_direction_rows(
+            M,
+            parameter_indices=free_idx,
+            solver_name=solver_name,
+            true_parameter_values=theta_true,
+            nominal_parameter_values=nominal_theta,
+            parameter_normalization_values=nominal_theta,
+        )
+
+        # =====================================================================
+        # ORB-specific metrics (corrected estimability structure)
+        # =====================================================================
+        if design_criteria.upper() == "ORB":
+            m, n = Q.shape
+
+            if n > 0:
+                # ✅ Apply QR to full matrix Q (not pre-filtered)
+                _, R, P = scipy.linalg.qr(Q, pivoting=True, mode="economic")
+                diagR = np.abs(np.diag(R))
+                maxd = diagR.max() if diagR.size > 0 else 1.0
+                # estimability_scores = diagR / maxd if maxd > 0 else diagR
+                estimability_scores = diagR
+
+                # ✅ Use condition-adaptive threshold
+                tol = max(m, n) * np.finfo(float).eps
+                estimable_mask = estimability_scores > tol
+                n_informative = int(estimable_mask.sum())
+                estimable_values = estimability_scores[estimable_mask] if n_informative > 0 else np.array([])
+
+                metrics.update({
+                    "n_params": int(n),
+                    "n_informative": int(n_informative),
+                    "min_estimability": float(estimable_values.min()) if n_informative > 0 else 0.0,
+                    "max_estimability": float(estimable_values.max()) if n_informative > 0 else 0.0,
+                    "mean_estimability": float(estimable_values.mean()) if n_informative > 0 else 0.0,
+                    "orb_cond_scaled": float(estimable_values[0] / estimable_values[-1]) if n_informative > 1 else 1.0,
+                })
+
+                # ✅ Per-parameter estimability (correctly mapped)
+                if n_informative > 0:
+                    for rank_idx in range(n_informative):
+                        param_idx = P[rank_idx]
+                        metrics[f"param_{param_idx}_estimability"] = float(estimability_scores[rank_idx])
+                        metrics[f"param_{param_idx}_rank_estimability"] = rank_idx + 1
+            else:
+                metrics.update({
+                    "n_params": 0,
+                    "n_informative": 0,
+                    "min_estimability": 0.0,
+                    "max_estimability": 0.0,
+                    "mean_estimability": 0.0,
+                })
+
+        # =====================================================================
+        # SEM-specific metrics (corrected entropy / SEM-style)
+        # =====================================================================
+        # if design_criteria.upper() == "SEM":
+        #     # ✅ Use FIM M (not Gram matrix Z.T @ Z)
+        #     trace_M = np.trace(M)
+        #
+        #     if trace_M > np.finfo(float).eps:
+        #         rho = M / trace_M
+        #         eig_rho = np.linalg.eigvalsh(rho)
+        #         eig_rho = eig_rho[eig_rho > np.finfo(float).eps]
+        #
+        #         if eig_rho.size > 0:
+        #             vn_entropy = -np.sum(eig_rho * np.log(eig_rho + 1e-15))
+        #
+        #             # ✅ Fix entropy normalization: use number of positive eigenvalues
+        #             n_dim = eig_rho.size
+        #             max_entropy = np.log(n_dim) if n_dim > 1 else 0.0
+        #             entropy_norm = vn_entropy / max_entropy if max_entropy > 0 else 0.0
+        #
+        #             purity = float(np.sum(eig_rho ** 2))
+        #             participation = float(1.0 / purity) if purity > 0 else 0.0
+        #             quantum_capacity = float(eig_rho.max())
+        #
+        #             # Fidelity to uniform state
+        #             n = M.shape[0]
+        #             uniform_state = np.eye(n) / n
+        #             rho_sqrt = scipy.linalg.sqrtm(rho)
+        #             fidelity = float(np.trace(scipy.linalg.sqrtm(rho_sqrt @ uniform_state @ rho_sqrt)))
+        #             distinguishability = 0.5 * np.linalg.norm(rho - uniform_state, ord="nuc")
+        #
+        #             gradient_components = -(1.0 + np.log(eig_rho))
+        #             grad_norm = float(np.linalg.norm(gradient_components))
+        #         else:
+        #             vn_entropy = max_entropy = entropy_norm = 0.0
+        #             purity = participation = quantum_capacity = 0.0
+        #             fidelity = distinguishability = grad_norm = 0.0
+        #     else:
+        #         vn_entropy = max_entropy = entropy_norm = 0.0
+        #         purity = participation = quantum_capacity = 0.0
+        #         fidelity = distinguishability = grad_norm = 0.0
+        #
+        #     metrics.update({
+        #         "entropy": float(vn_entropy),
+        #         "entropy_normalized": float(entropy_norm),
+        #         "max_entropy": float(max_entropy),
+        #         "purity": float(purity),
+        #         "participation": float(participation),
+        #         "quantum_capacity": float(quantum_capacity),
+        #         "fidelity": float(fidelity),
+        #         "distinguishability": float(distinguishability),
+        #         "gradient_norm": float(grad_norm),
+        #     })
+
+        if design_criteria.upper() == "SEM":
+            # ✅ Use FIM M (not Gram matrix Z.T @ Z)
+            trace_M = np.trace(M)
+
+            if trace_M > np.finfo(float).eps:
+                # ✅ Step 2: Get eigenvalues of M directly (not normalized rho)
+                eig_M = np.linalg.eigvalsh(M)  # 🔄 CHANGED: M instead of rho
+                eig_pos = eig_M[eig_M > np.finfo(float).eps]
+
+                if eig_pos.size > 0:
+                    # ✅ Step 2: Form probability distribution by normalizing positive eigenvalues
+                    eig_rho = eig_pos / eig_pos.sum()  # 🔄 CHANGED: Manual normalization
+
+                    # ✅ Step 3: Shannon entropy (unchanged)
+                    vn_entropy = -np.sum(eig_rho * np.log(eig_rho + 1e-15))
+
+                    # ✅ Step 4: Normalized entropy (Option A)
+                    n_dim = eig_rho.size
+                    max_entropy = np.log(n_dim) if n_dim > 1 else 0.0
+                    entropy_norm = vn_entropy / max_entropy if max_entropy > 0 else 0.0
+
+                    purity = float(np.sum(eig_rho ** 2))
+                    participation = float(1.0 / purity) if purity > 0 else 0.0
+                    quantum_capacity = float(eig_rho.max())
+
+                    # Fidelity to uniform distribution (on the probability simplex)
+                    uniform_prob = np.ones(n_dim) / n_dim
+                    fidelity = float(np.sum(np.sqrt(eig_rho * uniform_prob)))  # 🔄 CHANGED: Bhattacharyya coefficient
+                    distinguishability = 0.5 * np.linalg.norm(eig_rho - uniform_prob, ord=1)  # 🔄 CHANGED: TV distance
+
+                    gradient_components = -(1.0 + np.log(eig_rho + 1e-15))
+                    grad_norm = float(np.linalg.norm(gradient_components))
+                else:
+                    vn_entropy = max_entropy = entropy_norm = 0.0
+                    purity = participation = quantum_capacity = 0.0
+                    fidelity = distinguishability = grad_norm = 0.0
+            else:
+                vn_entropy = max_entropy = entropy_norm = 0.0
+                purity = participation = quantum_capacity = 0.0
+                fidelity = distinguishability = grad_norm = 0.0
+
+            metrics.update({
+                "entropy": float(vn_entropy),
+                "entropy_normalized": float(entropy_norm),
+                "max_entropy": float(max_entropy),
+                "purity": float(purity),
+                "participation": float(participation),
+                "quantum_capacity": float(quantum_capacity),
+                "fidelity": float(fidelity),
+                "distinguishability": float(distinguishability),
+                "gradient_norm": float(grad_norm),
+            })
+
+        # Optional: per-parameter eigenvalues & percentages from full spectrum
+        if eigvals_full.size > 0:
+            total_full = float(eigvals_full.sum())
+            order = np.argsort(eigvals_full)[::-1]
+            for r, idx in enumerate(order):
+                val = float(eigvals_full[idx])
+                metrics[f"param_{idx}_eigenvalue"] = val
+                metrics[f"param_{idx}_percentage"] = 100.0 * val / total_full if total_full > 0 else 0.0
+                metrics[f"param_{idx}_rank"] = r + 1
+
+        return metrics
+
+    except Exception as e:
+        print(f"[ERROR] Metrics computation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+_excel_write_lock = Lock()
+
+
+def _excel_writer_engine():
+    for engine, module_name in (("openpyxl", "openpyxl"), ("xlsxwriter", "xlsxwriter")):
+        try:
+            __import__(module_name)
+            return engine
+        except ImportError:
+            continue
+
+    raise ImportError(
+        "Excel report generation requires openpyxl or XlsxWriter. "
+        "Install the reporting dependencies from requirements.txt."
+    )
+
+
+def _export_metrics_to_excel(metrics_history, criterion, worker_num, last_pp_obj, round_num=0, core_number=0):
+    with _excel_write_lock:
+        design_folder = Path.cwd() / 'design'
+        design_folder.mkdir(parents=True, exist_ok=True)
+        filename = f"round_{round_num:02d}_{criterion}_worker_{worker_num}.xlsx"
+        filepath = design_folder / filename
+
+        df = pd.DataFrame(metrics_history or [])
+        if "generation" not in df.columns and "iteration" in df.columns:
+            df = df.copy()
+            df["generation"] = df["iteration"]
+
+        summary_df = pd.DataFrame([{
+            "round": round_num,
+            "criterion": criterion,
+            "worker": worker_num,
+            "core_number": core_number,
+            "final_pp_obj": last_pp_obj,
+            "metric_records": len(metrics_history or []),
+            "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        }])
+
+        eigen_direction_rows = []
+        for record in metrics_history or []:
+            for eigen_row in record.get("_eigen_directions", []) or []:
+                row = {
+                    "generation": record.get("generation", record.get("iteration")),
+                    "criterion": record.get("criterion", criterion),
+                    "best_obj": record.get("best_obj", record.get("objective")),
+                }
+                row.update(eigen_row)
+                eigen_direction_rows.append(row)
+
+        # Separate columns by category – extended to include richer FIM metrics
+        conv_cols = [
+            c for c in df.columns
+            if not str(c).startswith("_")
+            if any(x in c for x in [
+                'generation', 'obj', 'eigen', 'cond', 'rank',
+                'det_fim', 'trace_fim', 'trace_inv_fim', 'log_det_fim',
+                'eigval_variance', 'eigval_gini', 'info_frac'
+            ])
+        ]
+        orb_sem_cols = [c for c in df.columns if any(x in c for x in ['orb_', 'sem_', 'entropy'])]
+        curv_cols = [c for c in df.columns if 'curv_' in c or 'non_convexity' in c]
+
+        with pd.ExcelWriter(filepath, engine=_excel_writer_engine()) as writer:
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+
+            if conv_cols:
+                df[conv_cols].to_excel(writer, sheet_name='Convergence', index=False)
+
+            if orb_sem_cols:
+                index_cols = ["generation"] if "generation" in df.columns else []
+                df[index_cols + orb_sem_cols].to_excel(
+                    writer, sheet_name='ORB_SEM_Metrics', index=False
+                )
+
+            if curv_cols:
+                index_cols = ["generation"] if "generation" in df.columns else []
+                df[index_cols + curv_cols].to_excel(
+                    writer, sheet_name='Non_Convexity', index=False
+                )
+
+            if eigen_direction_rows:
+                pd.DataFrame(eigen_direction_rows).to_excel(
+                    writer, sheet_name='FIM_Eigen_Directions', index=False
+                )
+
+        print(f"[INFO] Exported metrics to {filename}")
+        return filepath
+
+
+
 def _optimiser(
     tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
     tv_iphi_offsett, tv_iphi_offsetl, tv_iphi_cvp,
@@ -1239,116 +1197,12 @@ def _optimiser(
     active_models, theta_parameters,
     eps, maxpp, tolpp, population_size,
     mutation, V_matrix, design_criteria,
-    system, models, optmethod
+    system, models, optmethod,
+    des_opt,
+    insilicos=None,
+    core_number=0,
+    round_num=0
 ):
-    r"""
-    Construct and solve the MBDoE-PP optimisation problem.
-
-    This function builds the decision variable vector, bounds, constraints,
-    and index mapping, then invokes a pymoo-based optimiser to maximise
-    the parameter precision objective.
-
-    Parameters
-    ----------
-    tv_iphi_vars : list[str]
-        Names of time-variant input variables.
-    tv_iphi_seg : list[int]
-        Number of segments (switching points + 1) for each time-variant input.
-    tv_iphi_max : list[float]
-        Upper bounds for time-variant inputs.
-    tv_iphi_min : list[float]
-        Lower bounds for time-variant inputs.
-    tv_iphi_const : list[str]
-        Constraint types: 'inc' (increasing), 'dec' (decreasing), 'rel' (relaxed).
-    tv_iphi_offsett : list[float]
-        Normalised minimum time offset between switches (relative to tf).
-    tv_iphi_offsetl : list[float]
-        Normalised minimum level offset between switches (relative to max).
-    tv_iphi_cvp : dict[str, bool]
-        Control variable parameterisation flags.
-    ti_iphi_vars : list[str]
-        Names of time-invariant input variables.
-    ti_iphi_max : list[float]
-        Upper bounds for time-invariant inputs.
-    ti_iphi_min : list[float]
-        Lower bounds for time-invariant inputs.
-    tv_ophi_vars : list[str]
-        Names of measurable time-variant output variables.
-    tv_ophi_seg : list[int]
-        Number of sampling points for each output.
-    tv_ophi_offsett_ophi : list[float]
-        Normalised minimum time offset between output samples.
-    tv_ophi_sampling : dict[str, str]
-        Sampling group identifiers for synchronisation.
-    tv_ophi_forcedsamples : dict[str, list[float]]
-        Forced sampling times (normalised) for each output.
-    ti_ophi_vars : list[str]
-        Names of time-invariant output variables.
-    tf : float
-        Final simulation time.
-    ti : float
-        Initial simulation time / dead time.
-    active_models : list[str]
-        Names of active models (typically single model for PP).
-    theta_parameters : dict[str, list[float]]
-        Nominal parameter values for each model.
-    eps : float
-        Perturbation step for numerical derivatives.
-    maxpp : int
-        Maximum number of optimisation iterations/generations.
-    tolpp : float
-        Constraint tolerance for pymoo solvers.
-    population_size : int
-        Population size for evolutionary algorithms.
-    mutation : dict[str, list[bool]]
-        Free/fixed parameter masks for each model.
-    V_matrix : dict[str, np.ndarray]
-        Prior parameter covariance matrices.
-    design_criteria : str
-        Precision criterion ('D', 'A', 'E', 'ME').
-    system : dict
-        Full system configuration (passed to objective function).
-    models : dict
-        Full model definitions (passed to objective function).
-    optmethod : str
-        Optimisation method: 'PS' (Pattern Search), 'DE' (Differential Evolution),
-        'DEPS' (DE followed by PS refinement).
-
-    Returns
-    -------
-    result : pymoo.core.result.Result
-        Optimisation result object containing optimal decision vector (X or x).
-    index_dict : dict
-        Mapping of variable names to decision vector indices:
-            - 'ti' : dict[str, list[int]] — time-invariant inputs
-            - 'swps' : dict[str, list[int]] — switching times/levels
-            - 'st' : dict[str, list[int]] — sampling times
-
-    Raises
-    ------
-    ValueError
-        If optmethod is not one of 'PS', 'DE', 'DEPS'.
-
-    Notes
-    -----
-    Decision variable ordering:
-        1. Time-invariant input levels (normalised)
-        2. Time-variant input levels for each segment
-        3. Switching times between segments
-        4. Sampling times for outputs (grouped by synchronisation)
-
-    Constraints enforce:
-        - Monotonic increase/decrease for control profiles
-        - Minimum time gaps between switches and samples
-        - Sampling time ordering within groups
-
-    The objective function is negated for maximisation (pymoo minimises by default).
-
-    See Also
-    --------
-    _pp_of : Objective function wrapper for evaluation.
-    _pp_runner : Simulation kernel invoked within objective.
-    """
     bounds = []
     x0 = []
     index_dict = {
@@ -1357,6 +1211,7 @@ def _optimiser(
         'st': {}
     }
 
+    # Time-invariant inputs bounds and indexing
     for i, (name, mn, mx) in enumerate(zip(ti_iphi_vars, ti_iphi_min, ti_iphi_max)):
         lo, hi = mn / mx, 1.0
         bounds.append((lo, hi))
@@ -1441,9 +1296,22 @@ def _optimiser(
         active_solvers=active_models, theta_parameters=theta_parameters,
         tf=tf, eps=eps, mutation=mutation,
         V_matrix=V_matrix, design_criteria=design_criteria,
-        index_dict=index_dict, system=system, models=models
+        index_dict=index_dict, system=system, models=models,
+        des_opt=des_opt,
+        insilicos=insilicos
     )
-    from pymoo.core.problem import ElementwiseProblem, LoopedElementwiseEvaluation
+
+    metrics_history = []
+
+    def evaluate_full_metrics(x):
+        return _compute_metrics_only(
+            x, tv_iphi_vars, tv_iphi_max, ti_iphi_vars, ti_iphi_max,
+            tv_ophi_vars, ti_ophi_vars, active_models, theta_parameters,
+            tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
+            tf, eps, mutation, V_matrix, design_criteria,
+            index_dict, system, models, des_opt, insilicos
+        )
+
     class DEProblem(ElementwiseProblem):
         def __init__(self):
             super().__init__(
@@ -1453,7 +1321,6 @@ def _optimiser(
                 xl=lower,
                 xu=upper
             )
-
         def _evaluate(self, x, out, *args, **kwargs):
             f_val = local_obj(x)
             g = []
@@ -1461,7 +1328,7 @@ def _optimiser(
                 if kind == 'lvl':
                     offs = tv_iphi_offsetl[i]
                     const = tv_iphi_const[i]
-                    diff = x[i2] - x[i1] if const == 'inc' else x[i1] - x[i2]
+                    diff = x[i2]-x[i1] if const == 'inc' else x[i1]-x[i2]
                     g.append(offs - diff)
                 elif kind == 't':
                     offs = tv_iphi_offsett[i]
@@ -1474,48 +1341,61 @@ def _optimiser(
 
     problem = DEProblem()
 
+    metrics_history = []
+
+    callback = MetricsCallback(
+        metrics_history=metrics_history,
+        criterion=design_criteria,
+        worker_num=core_number,
+        core_number=core_number,
+        round_num=round_num,
+        evaluation_func=evaluate_full_metrics,  # NEW
+    )
+
     if optmethod == 'PS':
         algorithm = PatternSearch()
-        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), seed=None, verbose=True)
-
+        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), callback=callback, verbose=True)
     elif optmethod == 'DE':
         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
-        res_refine = pymoo_minimize(
-            problem,
-            algorithm,
-            termination=('n_gen', maxpp),
-            seed=None,
-            verbose=True,
-            constraint_tolerance=tolpp,
-            save_history=True
-        )
-
+        res_refine = pymoo_minimize(problem, algorithm,
+                                   termination=('n_gen', maxpp),
+                                   callback=callback,
+                                   verbose=True,
+                                   constraint_tolerance=tolpp,
+                                   save_history=True)
     elif optmethod == 'DEPS':
         algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
-        res_de = pymoo_minimize(
-            problem,
-            algorithm_de,
-            termination=('n_gen', maxpp/2),
-            seed=None,
-            verbose=True,
-            constraint_tolerance=tolpp,
-            save_history=True
-        )
+        metrics_history_de = []
+        callback_de = MetricsCallback(metrics_history=metrics_history_de,
+                                      criterion=design_criteria,
+                                      worker_num=core_number,
+                                      core_number=core_number,
+                                      round_num=round_num,
+                                      evaluation_func=evaluate_full_metrics)
+        res_de = pymoo_minimize(problem, algorithm_de,
+                               termination=('n_gen', maxpp // 2),
+                               callback=callback_de,
+                               verbose=True,
+                               constraint_tolerance=tolpp,
+                               save_history=True)
+        metrics_history.extend(metrics_history_de)
         algorithm_refine = PatternSearch()
-        res_refine = pymoo_minimize(
-            problem,
-            algorithm_refine,
-            termination=('n_gen', int(maxpp)),
-            seed=None,
-            verbose=True,
-            constraint_tolerance=tolpp,
-            x0=res_de.X
-        )
-
+        callback_ps = MetricsCallback(metrics_history=metrics_history,
+                                     criterion=design_criteria,
+                                     worker_num=core_number,
+                                     core_number=core_number,
+                                     round_num=round_num,
+                                     evaluation_func=evaluate_full_metrics)
+        res_refine = pymoo_minimize(problem, algorithm_refine,
+                                   termination=('n_gen', int(maxpp)),
+                                   x0=res_de.X,
+                                   callback=callback_ps,
+                                   verbose=True,
+                                   constraint_tolerance=tolpp)
     else:
-        raise ValueError("optmethod must be 'L', 'G', or 'GL'")
+        raise ValueError("optmethod must be 'PS', 'DE', or 'DEPS'")
 
-    return res_refine, index_dict
+    return res_refine, index_dict, metrics_history
 
 
 def _pp_of(
@@ -1528,98 +1408,89 @@ def _pp_of(
     tf, eps, mutation, V_matrix, design_criteria,
     index_dict,
     system,
-    models
+    models,
+    des_opt,
+    insilicos=None,
+    metrics_history=None,
+    iteration=None,
 ):
-    r"""
-    Objective function wrapper for MBDoE-PP optimisation.
-
-    This function evaluates the parameter precision objective for a given
-    design vector by invoking the simulation kernel (_pp_runner). Exceptions
-    and NaN values are handled by returning a large penalty value.
-
-    Parameters
-    ----------
-    x : np.ndarray or list
-        Decision variable vector (normalised).
-    tv_iphi_vars : list[str]
-        Time-variant input variable names.
-    tv_iphi_max : list[float]
-        Upper bounds for time-variant inputs.
-    ti_iphi_vars : list[str]
-        Time-invariant input variable names.
-    ti_iphi_max : list[float]
-        Upper bounds for time-invariant inputs.
-    tv_ophi_vars : list[str]
-        Time-variant output variable names.
-    ti_ophi_vars : list[str]
-        Time-invariant output variable names.
-    active_solvers : list[str]
-        Active model names (typically single model for PP).
-    theta_parameters : dict[str, list[float]]
-        Nominal parameter vectors for each model.
-    tv_iphi_cvp : dict[str, bool]
-        Control variable parameterisation flags.
-    tv_ophi_forcedsamples : dict[str, list[float]]
-        Forced sampling times (normalised).
-    tv_ophi_sampling : dict[str, str]
-        Sampling group identifiers.
-    tf : float
-        Final simulation time.
-    eps : float
-        Perturbation step for sensitivity computation.
-    mutation : dict[str, list[bool]]
-        Free/fixed parameter masks.
-    V_matrix : dict[str, np.ndarray]
-        Prior parameter covariance matrices.
-    design_criteria : str
-        Precision criterion ('D', 'A', 'E', 'ME').
-    index_dict : dict
-        Mapping of variable names to decision vector indices.
-    system : dict
-        Full system configuration.
-    models : dict
-        Full model definitions.
-
-    Returns
-    -------
-    obj_value : float
-        Negative of the precision objective (for minimisation).
-        Returns 1e6 if evaluation fails or results in NaN.
-
-    Notes
-    -----
-    The objective is negated because pymoo minimises by default, while
-    parameter precision seeks to maximise information content (det, trace, eigenvalue).
-
-    Full exception tracebacks are printed to stderr for debugging purposes.
-
-    See Also
-    --------
-    _pp_runner : Simulation kernel for model evaluation.
-    _optimiser : Optimisation problem setup.
     """
+    Objective function wrapper for MBDoE-PP.
+    This version EXACTLY matches your _pp_runner signature.
+    It also logs every evaluation into metrics_history.
+    """
+
     try:
-        _, _, _, pp_obj, _, _, _, _ = _pp_runner(
+        (
+            _,   # design
+            _,   # dynamics
+            _,   # internal info
+            pp_obj,  # objective
+            _, _, _, _
+        ) = _pp_runner(
             x,
-            tv_iphi_vars, tv_iphi_max,
-            ti_iphi_vars, ti_iphi_max,
-            tv_ophi_vars, ti_ophi_vars,
-            active_solvers, theta_parameters,
-            tv_iphi_cvp, tv_ophi_forcedsamples, tv_ophi_sampling,
-            tf, eps, mutation, V_matrix, design_criteria,
+            tv_iphi_vars,
+            tv_iphi_max,
+            ti_iphi_vars,
+            ti_iphi_max,
+            tv_ophi_vars,
+            ti_ophi_vars,
+            active_solvers,
+            theta_parameters,
+            tv_iphi_cvp,
+            tv_ophi_forcedsamples,
+            tv_ophi_sampling,
+            tf,
+            eps,
+            mutation,
+            V_matrix,
+            design_criteria,  # MBDOE_PP_criterion
             index_dict,
             system,
-            models
+            models,
+            des_opt,
+            insilicos=insilicos,
+            metrics_history=metrics_history,
+            iteration=iteration
         )
-        if np.isnan(pp_obj):
-            return 1e6
-        return -pp_obj  # negative => maximize pp_obj
+
+        # -------------------------------------------------------------
+        # Handle NaNs
+        # -------------------------------------------------------------
+        if pp_obj is None or np.isnan(pp_obj):
+            print(f"[Warning] NaN objective at iteration {iteration}")
+            f_val = 1e6
+        else:
+            f_val = -float(pp_obj)  # pymoo minimises → negative
+
+        # -------------------------------------------------------------
+        # LOG evaluation
+        # -------------------------------------------------------------
+        if metrics_history is not None:
+            metrics_history.append({
+                "iteration": iteration,
+                "objective": pp_obj,
+                "neg_objective": f_val,
+                "x": x.copy(),
+            })
+
+        return f_val
+
     except Exception as e:
-        print(f"\n{'=' * 60}")
-        print(f"Exception in pp_objective_function: {e}")
-        print(f"Full traceback:")
-        traceback.print_exc()  # ← THIS PRINTS THE FULL STACK TRACE
-        print(f"{'=' * 60}\n")
+        import traceback
+        print(f"\n[ERROR] Exception in _pp_of at iter {iteration}: {e}")
+        traceback.print_exc()
+
+        # Log even failures
+        if metrics_history is not None:
+            metrics_history.append({
+                "iteration": iteration,
+                "objective": None,
+                "neg_objective": None,
+                "x": x.copy(),
+                "error": str(e),
+            })
+
         return 1e6
 
 
@@ -1643,124 +1514,12 @@ def _pp_runner(
         MBDOE_PP_criterion,
         index_dict,
         system,
-        models
+        models,
+        des_opt,
+        insilicos=None,
+        metrics_history=None,
+        iteration=None
 ):
-    r"""
-    Simulate models and evaluate the parameter precision objective.
-
-    This function decodes the decision vector, constructs time grids, invokes
-    the simulator for nominal and perturbed parameters, computes local sensitivity
-    matrices, builds the Fisher Information Matrix (FIM), and calculates the
-    precision metric (D, A, E, or ME-optimality).
-
-    Parameters
-    ----------
-    x : np.ndarray or list
-        Decision variable vector (normalised).
-    tv_iphi_vars : list[str]
-        Time-variant input variable names.
-    tv_iphi_max : list[float]
-        Upper bounds for time-variant inputs.
-    ti_iphi_vars : list[str]
-        Time-invariant input variable names.
-    ti_iphi_max : list[float]
-        Upper bounds for time-invariant inputs.
-    tv_ophi_vars : list[str]
-        Measurable time-variant output variable names.
-    ti_ophi_vars : list[str]
-        Measurable time-invariant output variable names.
-    active_solvers : list[str]
-        Active model names (typically single model for PP).
-    theta_parameters : dict[str, list[float]]
-        Nominal parameter values for each model.
-    tv_iphi_cvp : dict[str, bool]
-        Control variable parameterisation flags.
-    tv_ophi_forcedsamples : dict[str, list[float]]
-        Forced sampling times (normalised).
-    tv_ophi_sampling : dict[str, str]
-        Sampling group identifiers.
-    tf : float
-        Final simulation time.
-    eps : float
-        Perturbation step for numerical sensitivity (forward differences).
-    mutation : dict[str, list[bool]]
-        Free/fixed parameter masks for each model.
-    V_matrix : dict[str, np.ndarray]
-        Prior parameter covariance matrices.
-    MBDOE_PP_criterion : str
-        Precision criterion:
-            - 'D': D-optimality (maximise det(FIM))
-            - 'A': A-optimality (maximise trace(FIM))
-            - 'E': E-optimality (maximise min eigenvalue)
-            - 'ME': Modified E-optimality (minimise condition number)
-    index_dict : dict
-        Mapping of variable names to decision vector indices.
-    system : dict
-        Full system configuration (passed to simula).
-    models : dict
-        Full model definitions (passed to simula).
-
-    Returns
-    -------
-    ti : dict[str, float]
-        Time-invariant input values (denormalised).
-    swps : dict[str, list[float]]
-        Switching times and levels for time-variant inputs (denormalised).
-    St : dict[str, np.ndarray]
-        Sampling times for each output (denormalised).
-    pp_obj : float
-        Parameter precision objective value (positive, to be maximised).
-    t_values : list[float]
-        Full simulation time vector (denormalised).
-    tv_ophi : dict[str, dict[str, np.ndarray]]
-        Time-variant outputs for each model and variable.
-    ti_ophi : dict[str, dict[str, float]]
-        Time-invariant outputs for each model and variable.
-    phit_interp : dict
-        Interpolation data for time-variant inputs.
-
-    Raises
-    ------
-    ValueError
-        If decision vector is None (optimiser failure).
-        If V_matrix shape does not match parameter dimensions.
-
-    Notes
-    -----
-    **Fisher Information Matrix (FIM):**
-
-    The FIM is computed as:
-
-    \[
-    \mathbf{M} = \mathbf{M}_0 + \mathbf{M}_p = \mathbf{Q}^T \mathbf{\Sigma}_y^{-1} \mathbf{Q} + \mathbf{V}^{-1}
-    \]
-
-    where:
-        - \( \mathbf{Q} \): Sensitivity matrix (\( \partial y / \partial \theta \))
-        - \( \mathbf{\Sigma}_y \): Measurement covariance (diagonal)
-        - \( \mathbf{V} \): Prior parameter covariance
-
-    **Precision Criteria:**
-
-    - **D-optimality**: \( \det(\mathbf{M}) \) — volume of confidence ellipsoid
-    - **A-optimality**: \( \text{trace}(\mathbf{M}) \) — average parameter variance
-    - **E-optimality**: \( \lambda_{\min}(\mathbf{M}) \) — worst-case variance
-    - **ME-optimality**: \( -\text{cond}(\mathbf{M}) \) — numerical conditioning
-
-    **Regularisation**: Prior covariance is regularised with \( \alpha = 10^{-8} \)
-    before inversion to avoid numerical instability.
-
-    The function automatically handles:
-        - Reduced vs full-size V_matrix (extracts free parameters)
-        - Missing uncertainty specifications (defaults to 1.0)
-        - Mixed time-variant and time-invariant outputs
-
-    See Also
-    --------
-    simula : Core simulation kernel for model evaluation.
-    _slicer : Decodes decision vector into design variables.
-    _pp_of : Objective function wrapper.
-    """
     if x is None:
         raise ValueError("MBDoE optimiser kernel was unsuccessful, increase iteration to avoid constraint violations.")
     x = x.tolist() if not isinstance(x, list) else x
@@ -1768,19 +1527,25 @@ def _pp_runner(
     dt_real = system['t_r']
     nodes = int(round(tf / dt_real)) + 1
     tlin = np.linspace(0, 1, nodes)
+
     ti, swps, St = _slicer(x, index_dict, tlin, tv_ophi_forcedsamples, tv_ophi_sampling)
     St = {var: np.array(sorted(St[var])) for var in St}
     t_values_flat = [tp for times in St.values() for tp in times]
     t_values = np.unique(np.concatenate((tlin, t_values_flat))).tolist()
 
     LSA = defaultdict(lambda: defaultdict(dict))
-    J_dot_matrix = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-                                                 len(theta_parameters[active_solvers[0]]))))
+    J_dot_matrix = defaultdict(
+        lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+                          len(theta_parameters[active_solvers[0]])))
+    )
     indices = {var: np.isin(t_values, St[var]) for var in tv_ophi_vars if var in St}
-    M0 = defaultdict(lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
-                                       len(theta_parameters[active_solvers[0]]))))
+    M0 = defaultdict(
+        lambda: np.zeros((len(theta_parameters[active_solvers[0]]),
+                          len(theta_parameters[active_solvers[0]])))
+    )
     M = {}
     tv_ophi, ti_ophi, phit_interp = {}, {}, {}
+    free_params_by_solver = {}
 
     for solver_name in active_solvers:
         thetac = theta_parameters[solver_name]
@@ -1805,9 +1570,9 @@ def _pp_runner(
         y_combined = dict(y_values_dict)
 
         free_params_indices = [i for i, is_free in enumerate(mutation[solver_name]) if is_free]
+        free_params_by_solver[solver_name] = free_params_indices
 
-        y_i_values_dict = {}
-
+        # Finite-difference sensitivities
         for para_idx in free_params_indices:
             modified_theta = theta.copy()
             modified_theta[para_idx] += eps
@@ -1827,13 +1592,21 @@ def _pp_runner(
                                                           y_modified_combined[var] - y_combined[var]
                                                   ) / eps
 
-        solver_LSA_list = []
-        for var in indices:
-            row = [LSA[var][solver_name][i].mean() for i in free_params_indices]
-            solver_LSA_list.append(np.array(row))
-        solver_LSA = np.array(solver_LSA_list)
+        # Build sensitivity matrix Q
+        rows = []
+        obs_vars = []
 
-        # Build variance-covariance matrix Sigma_y
+        for var in indices:
+            mask = indices[var]
+            for k, is_meas in enumerate(mask):
+                if is_meas:
+                    row = [LSA[var][solver_name][p][k] for p in free_params_indices]
+                    rows.append(row)
+                    obs_vars.append(var)
+
+        solver_LSA = np.array(rows, dtype=float)  # Q matrix
+
+        # Build measurement covariance Sigma_y
         std_dev = {}
         for grp, keys in [('tvo', tv_ophi_vars), ('tio', ti_ophi_vars)]:
             for var in keys:
@@ -1842,46 +1615,46 @@ def _pp_runner(
                     unc = 1.0
                 std_dev[var] = unc
 
-        vars_order = list(indices.keys())
-        N_r = len(vars_order)
-        Sigma_y = np.zeros((N_r, N_r))
-        for i, var in enumerate(vars_order):
+        N_obs = len(obs_vars)
+        Sigma_y = np.zeros((N_obs, N_obs))
+        for i, var in enumerate(obs_vars):
             Sigma_y[i, i] = std_dev.get(var, 1.0) ** 2
         Sigma_y_inv = np.linalg.inv(Sigma_y)
 
-        # Fisher Information Matrix
-        J = solver_LSA
-        M_fisher = J.T @ Sigma_y_inv @ J
+        # Fisher Information Matrix from measurements
+        Q = solver_LSA
+        M_fisher = Q.T @ Sigma_y_inv @ Q
 
         if J_dot_matrix[solver_name].shape != M_fisher.shape:
             J_dot_matrix[solver_name] = np.zeros_like(M_fisher)
         J_dot_matrix[solver_name] += M_fisher
         M0[solver_name] = J_dot_matrix[solver_name]
 
-        # Check if V_matrix is already reduced or full
+        # Reduce V_matrix to free parameters
         if V_matrix[solver_name].shape[0] == len(free_params_indices):
             reduced_V_matrix = V_matrix[solver_name]
         elif V_matrix[solver_name].shape[0] == len(theta_parameters[solver_name]):
             reduced_V_matrix = V_matrix[solver_name][np.ix_(free_params_indices, free_params_indices)]
         else:
             raise ValueError(
-                f"V_matrix shape {V_matrix[solver_name].shape} doesn't match either "
-                f"free params ({len(free_params_indices)}) or total params ({len(theta_parameters[solver_name])})"
+                f"V_matrix shape {V_matrix[solver_name].shape} doesn't match either free params or total params"
             )
 
-        # Mp = np.linalg.pinv(reduced_V_matrix)
-        # M[solver_name] = M0[solver_name] + Mp
-
-        # Regularise prior covariance before inverting
+        # Regularize prior covariance before inverting
         alpha = 1e-8
         V_reg = reduced_V_matrix + alpha * np.eye(reduced_V_matrix.shape[0])
         Mp = np.linalg.inv(V_reg)
-        M[solver_name] = M0[solver_name] + Mp
 
-    # ================================================================
-    # EVALUATE CRITERION
-    # ================================================================
-    solver_name = active_solvers[0]
+        # Build final FIM (with or without priors)
+        if des_opt.get('priors', True):
+            M[solver_name] = M0[solver_name] + Mp
+        else:
+            M[solver_name] = M0[solver_name]
+
+    # =====================================================================
+    # CRITERION-SPECIFIC OBJECTIVE COMPUTATION
+    # =====================================================================
+    solver_name = active_solvers[0] if active_solvers else None
 
     if MBDOE_PP_criterion == 'D':
         pp_obj = np.linalg.det(M[solver_name])
@@ -1894,7 +1667,269 @@ def _pp_runner(
 
     elif MBDOE_PP_criterion == 'ME':
         pp_obj = -np.linalg.cond(M[solver_name])
+
+    elif MBDOE_PP_criterion == 'ORB':
+        # QR decomposition with column pivoting
+        m, n = Q.shape
+
+        _, R, P = scipy.linalg.qr(Q, pivoting=True, mode='economic')
+        diagR = np.abs(np.diag(R))
+        maxd = diagR.max() if diagR.size > 0 else 1.0
+        # estimability_scores = diagR / maxd if maxd > 0 else diagR
+        estimability_scores = diagR
+
+        # Filter only at machine precision
+        tol = max(m, n) * np.finfo(float).eps
+        estimable_mask = estimability_scores > tol
+        effective_rank = int(estimable_mask.sum())
+        estimable_scores = estimability_scores[estimable_mask] if effective_rank > 0 else np.array([])
+
+        # Harmonic mean objective
+        pp_obj = effective_rank / np.sum(1.0 / estimable_scores) if effective_rank > 0 else 0.0
+
+        # Store metrics - FIX: Use filtered scores for condition number
+        ninformative = effective_rank
+        cond_scaled = (estimable_scores[0] / estimable_scores[-1]
+                       if effective_rank > 1 else 1.0)
+
+
+    # elif MBDOE_PP_criterion == 'SEM':
+    #     # ✅ FIX 4-6: Use consistent FIM M (not Z.T @ Z), fix entropy normalization
+    #     trace_M = np.trace(M[solver_name])
+    #
+    #     if trace_M > np.finfo(float).eps:
+    #         # Normalize FIM to density matrix
+    #         rho = M[solver_name] / trace_M
+    #         eigvals = np.linalg.eigvalsh(rho)
+    #         eigvals_positive = eigvals[eigvals > np.finfo(float).eps]
+    #
+    #         if eigvals_positive.size > 0:
+    #             # Von Neumann entropy
+    #             shannon_entropy = -np.sum(eigvals_positive * np.log(eigvals_positive + 1e-15))
+    #
+    #             # ✅ FIX 5: Maximum entropy based on number of positive eigenvalues
+    #             n_effective = len(eigvals_positive)
+    #             max_entropy = np.log(n_effective) if n_effective > 1 else 0.0
+    #
+    #             # Normalized entropy (objective to maximize)
+    #             pp_obj = shannon_entropy / max_entropy if max_entropy > 0 else 0.0
+    #
+    #             # Additional QEM metrics
+    #             purity = float(np.sum(eigvals_positive ** 2))
+    #             participation = float(1.0 / purity) if purity > 0 else 0.0
+    #             quantum_capacity = float(eigvals_positive.max())
+    #
+    #             # Fidelity to maximally mixed state
+    #             n_full = M[solver_name].shape[0]
+    #             uniform_state = np.eye(n_full) / n_full
+    #             rho_sqrt = scipy.linalg.sqrtm(rho)
+    #             fidelity = float(np.trace(scipy.linalg.sqrtm(rho_sqrt @ uniform_state @ rho_sqrt)))
+    #             distinguishability = 0.5 * np.linalg.norm(rho - uniform_state, ord="nuc")
+    #
+    #             # Gradient norm
+    #             gradient_components = -(1.0 + np.log(eigvals_positive))
+    #             gradient_norm = float(np.linalg.norm(gradient_components))
+    #         else:
+    #             pp_obj = shannon_entropy = max_entropy = 0.0
+    #             purity = participation = quantum_capacity = 0.0
+    #             fidelity = distinguishability = gradient_norm = 0.0
+    #     else:
+    #         pp_obj = shannon_entropy = max_entropy = 0.0
+    #         purity = participation = quantum_capacity = 0.0
+    #         fidelity = distinguishability = gradient_norm = 0.0
+
+    elif MBDOE_PP_criterion == 'SEM':
+        # ✅ FIX 4-6: Use consistent FIM M (not Z.T @ Z), fix entropy normalization
+        trace_M = np.trace(M[solver_name])
+
+        if trace_M > np.finfo(float).eps:
+            # ✅ Step 2: Get eigenvalues of M directly (not normalized rho)
+            eigvals = np.linalg.eigvalsh(M[solver_name])  # 🔄 CHANGED: M instead of rho
+            eigvals_positive = eigvals[eigvals > np.finfo(float).eps]
+
+            if eigvals_positive.size > 0:
+                # ✅ Step 2: Form probability distribution by normalizing positive eigenvalues
+                eigvals_normalized = eigvals_positive / eigvals_positive.sum()  # 🔄 CHANGED: Manual normalization
+
+                # ✅ Step 3: Von Neumann entropy (unchanged)
+                shannon_entropy = -np.sum(eigvals_normalized * np.log(eigvals_normalized + 1e-15))
+
+                # ✅ Step 4: Maximum entropy and normalized objective
+                n_effective = len(eigvals_normalized)
+                max_entropy = np.log(n_effective) if n_effective > 1 else 0.0
+
+                # Normalized entropy (objective to maximize) - Option A
+                pp_obj = shannon_entropy / max_entropy if max_entropy > 0 else 0.0
+
+                # Additional QEM metrics (on probability distribution)
+                purity = float(np.sum(eigvals_normalized ** 2))
+                participation = float(1.0 / purity) if purity > 0 else 0.0
+                quantum_capacity = float(eigvals_normalized.max())
+
+                # Fidelity to uniform probability distribution
+                uniform_prob = np.ones(n_effective) / n_effective  # 🔄 CHANGED: Uniform probability vector
+                fidelity = float(
+                    np.sum(np.sqrt(eigvals_normalized * uniform_prob)))  # 🔄 CHANGED: Bhattacharyya coefficient
+                distinguishability = 0.5 * np.linalg.norm(eigvals_normalized - uniform_prob,
+                                                          ord=1)  # 🔄 CHANGED: Total variation distance
+
+                # Gradient norm
+                gradient_components = -(1.0 + np.log(eigvals_normalized + 1e-15))
+                gradient_norm = float(np.linalg.norm(gradient_components))
+            else:
+                pp_obj = shannon_entropy = max_entropy = 0.0
+                purity = participation = quantum_capacity = 0.0
+                fidelity = distinguishability = gradient_norm = 0.0
+        else:
+            pp_obj = shannon_entropy = max_entropy = 0.0
+            purity = participation = quantum_capacity = 0.0
+            fidelity = distinguishability = gradient_norm = 0.0
+
     else:
         pp_obj = None
 
+    # =====================================================================
+    # METRICS COLLECTION (for convergence tracking)
+    # =====================================================================
+    spec_metrics = _fim_spectral_metrics(M[solver_name])
+    eigvals_full = spec_metrics.pop("_eigvals_full")
+    eigvals_positive = spec_metrics.pop("_eigvals_pos")
+
+    metrics = {"criterion": MBDOE_PP_criterion, "objective": pp_obj}
+    metrics.update(spec_metrics)
+    nominal_theta = np.asarray(theta_parameters[solver_name], dtype=float)
+    theta_true = _get_true_theta_vector(des_opt, models, insilicos, solver_name)
+
+    metrics["_eigen_directions"] = _fim_eigen_direction_rows(
+        M[solver_name],
+        parameter_indices=free_params_by_solver.get(solver_name),
+        solver_name=solver_name,
+        true_parameter_values=theta_true,
+        nominal_parameter_values=nominal_theta,
+        parameter_normalization_values=nominal_theta,
+    )
+
+    # Per-parameter eigenvalue diagnostics
+    if eigvals_full.size > 0:
+        total_full = float(eigvals_full.sum())
+        sorted_indices = np.argsort(eigvals_full)[::-1]
+        for rank, idx in enumerate(sorted_indices):
+            eigenvalue = float(eigvals_full[idx])
+            metrics[f"param_{idx}_eigenvalue"] = eigenvalue
+            metrics[f"param_{idx}_percentage"] = (
+                100.0 * eigenvalue / total_full if total_full > 0 else 0.0
+            )
+            metrics[f"param_{idx}_rank"] = rank + 1
+
+    # Add ORB-specific metrics
+    if MBDOE_PP_criterion == "ORB":
+        metrics.update({
+            "n_params": int(n),
+            "n_informative": int(ninformative),
+            "min_estimability": float(estimable_scores.min()) if effective_rank > 0 else 0.0,
+            "max_estimability": float(estimable_scores.max()) if effective_rank > 0 else 0.0,
+            "mean_estimability": float(estimable_scores.mean()) if effective_rank > 0 else 0.0,
+            "orb_cond_scaled": float(cond_scaled),
+        })
+        if effective_rank > 0:
+            for idx in range(effective_rank):
+                param_idx = P[idx]
+                metrics[f"param_{param_idx}_estimability"] = float(estimability_scores[idx])
+                metrics[f"param_{param_idx}_rank_estimability"] = idx + 1
+
+    # Add SEM-specific metrics
+    if MBDOE_PP_criterion == "SEM" and trace_M >= np.finfo(float).eps:
+        metrics.update({
+            "entropy": float(shannon_entropy),
+            "entropy_normalized": float(pp_obj),
+            "max_entropy": float(max_entropy),
+            "purity": float(purity),
+            "participation": float(participation),
+            "quantum_capacity": float(quantum_capacity),
+            "fidelity": float(fidelity),
+            "distinguishability": float(distinguishability),
+            "gradient_norm": float(gradient_norm),
+        })
+
+    if metrics_history is not None:
+        if iteration is not None:
+            metrics["iteration"] = iteration
+        metrics_history.append(metrics)
+
     return ti, swps, St, pp_obj, t_values, tv_ophi, ti_ophi, phit_interp
+
+
+def _estimate_hessian_spectral(
+        objective_func,
+        x_best,
+        h=1e-3,
+        tol_neg=1e-8,
+        n_directions=20,  # Number of random directions to sample
+        random_state=None,
+):
+    """
+    Estimate non-convexity via directional second derivatives.
+
+    Instead of just diagonals, this samples random directions on the unit sphere
+    to find 'hidden' negative curvature (saddle points) that are not axis-aligned.
+
+    Returns dict with both diagonal and spectral non-convexity metrics.
+    """
+    x_best = np.asarray(x_best, dtype=float).ravel()
+    n = x_best.size
+
+    if n == 0:
+        return {}
+
+    # 1. Diagonal Hessian (Legacy/Cheap Check)
+    H_diag = np.zeros(n)
+    f0 = float(objective_func(x_best))
+
+    for i in range(n):
+        e_i = np.zeros_like(x_best)
+        e_i[i] = 1.0
+        try:
+            f_plus = float(objective_func(x_best + h * e_i))
+            f_minus = float(objective_func(x_best - h * e_i))
+            H_diag[i] = (f_plus - 2.0 * f0 + f_minus) / (h ** 2)
+        except Exception:
+            H_diag[i] = np.nan
+
+    # 2. Spectral Sampling (Random Directions)
+    rng = np.random.default_rng(random_state)
+    dir_curvatures = []
+
+    # Create random unit vectors
+    if n_directions > 0:
+        rand_dirs = rng.normal(size=(n_directions, n))
+        # Normalize to unit sphere
+        norms = np.linalg.norm(rand_dirs, axis=1, keepdims=True)
+        rand_dirs = rand_dirs / (norms + 1e-16)
+
+        for v in rand_dirs:
+            try:
+                # Directional derivative approx: v^T H v
+                f_p = float(objective_func(x_best + h * v))
+                f_m = float(objective_func(x_best - h * v))
+                curv = (f_p - 2.0 * f0 + f_m) / (h ** 2)
+                dir_curvatures.append(curv)
+            except:
+                continue
+
+    dir_curvatures = np.array(dir_curvatures)
+
+    # 3. Aggregated Metrics
+    return {
+        # Axis-aligned metrics (Diagonal)
+        "curv_diag_num_neg": int(np.sum(H_diag < -tol_neg)),
+        "curv_diag_min": float(np.nanmin(H_diag)),
+
+        # Spectral metrics (Directional)
+        "curv_spec_min": float(np.min(dir_curvatures)) if len(dir_curvatures) > 0 else 0.0,
+        "curv_spec_num_neg": int(np.sum(dir_curvatures < -tol_neg)),
+        "curv_spec_prob_neg": float(np.mean(dir_curvatures < -tol_neg)) if len(dir_curvatures) > 0 else 0.0,
+
+        # Combined "Godzilla" Metric (Worst curvature found anywhere)
+        "non_convexity_index": min(float(np.nanmin(H_diag)),
+                                   float(np.min(dir_curvatures)) if len(dir_curvatures) > 0 else 0.0)
+    }
