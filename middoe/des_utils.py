@@ -615,6 +615,7 @@ def configure_logger(name=None, level=logging.INFO):
     level : int, optional
         Logging level (default: logging.INFO).
         Common levels:
+
             - logging.DEBUG (10): Detailed diagnostic information.
             - logging.INFO (20): General informational messages.
             - logging.WARNING (30): Warning messages.
@@ -704,3 +705,300 @@ def _write_final_results_txt(
 
         f.write("St (sampling times):\n")
         f.write(repr(design_decisions.get("St", {})) + "\n")
+
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers for des_pp / des_md: option validation, parameter scaling,
+# measurement sigma, prior information and sampling-time constraints.
+# ---------------------------------------------------------------------------
+
+#: Paper-era keys for ``des_opt['meth']`` (valid until git commit b1c8613),
+#: accepted as aliases of the current names.
+_DES_METH_ALIASES = {'L': 'PS', 'G': 'DE', 'GL': 'DEPS'}
+_DES_METHODS = ('PS', 'DE', 'DEPS')
+_PP_CRITERIA = ('D', 'A', 'E', 'ME', 'ORB', 'SEM')
+_MD_CRITERIA = ('HR', 'BFF')
+_ERRT_VALUES = ('abs', 'rel')
+
+
+def _validate_des_inputs(des_opt, system, models, kind):
+    r"""
+    Validate the MBDoE inputs and return a working copy of ``des_opt``.
+
+    The user's ``des_opt`` is not modified: defaults and the alias mapping are
+    written into a shallow copy only.
+
+    Parameters
+    ----------
+    des_opt : dict
+        Design settings of :func:`middoe.des_pp.mbdoe_pp` (``kind='pp'``) or
+        :func:`middoe.des_md.mbdoe_md` (``kind='md'``).
+    system : dict
+        System definition (only ``errt``, ``sigma_floor`` and ``t_d`` are checked).
+    models : dict
+        Model definitions (``can_m`` and ``theta`` are checked).
+    kind : {'pp', 'md'}
+        Which design routine is being configured.
+
+    Returns
+    -------
+    dict
+        Shallow copy of ``des_opt`` with ``meth`` mapped to 'PS'/'DE'/'DEPS'
+        (default 'PS'; paper-era aliases 'L'->'PS', 'G'->'DE', 'GL'->'DEPS')
+        and, for PP, ``priors`` (default False) and ``conv_rep`` (default True).
+
+    Raises
+    ------
+    ValueError
+        Unknown criterion (``pp_ob``/``md_ob``) or ``meth``; ``eps`` missing, None,
+        non-numeric or not positive; unknown ``errt``; non-positive ``sigma_floor``;
+        non-scalar ``t_d``; a zero or non-finite nominal parameter.
+    """
+    if not isinstance(des_opt, dict):
+        raise TypeError("des_opt must be a dict")
+    opt = dict(des_opt)
+
+    if kind == 'pp':
+        ob_key, valid = 'pp_ob', _PP_CRITERIA
+    elif kind == 'md':
+        ob_key, valid = 'md_ob', _MD_CRITERIA
+    else:
+        raise ValueError(f"kind must be 'pp' or 'md', got {kind!r}")
+    crit = opt.get(ob_key)
+    if crit not in valid:
+        raise ValueError(f"des_opt['{ob_key}'] = {crit!r} is not supported; valid values are {list(valid)}.")
+
+    meth = opt.get('meth', 'PS')
+    meth = _DES_METH_ALIASES.get(meth, meth)
+    if meth not in _DES_METHODS:
+        raise ValueError(
+            f"des_opt['meth'] = {opt.get('meth')!r} is not supported; valid values are {list(_DES_METHODS)} "
+            f"(aliases {_DES_METH_ALIASES})."
+        )
+    opt['meth'] = meth
+
+    eps = opt.get('eps')
+    try:
+        eps_ok = eps is not None and not isinstance(eps, bool) and np.isfinite(float(eps)) and float(eps) > 0
+    except (TypeError, ValueError):
+        eps_ok = False
+    if not eps_ok:
+        raise ValueError(
+            f"des_opt['eps'] = {eps!r} is not valid: give a positive finite float, the finite-difference "
+            f"step in normalised parameter units (e.g. 1e-3). Automatic selection (eps=None) is not supported."
+        )
+
+    if kind == 'pp':
+        opt.setdefault('priors', False)
+        opt.setdefault('conv_rep', True)
+
+    _check_errt(system)
+    _dead_time(system)
+    for sv in models.get('can_m', []):
+        _theta_scaling(models['theta'][sv], name=sv)
+    # The design normalises every input by its maximum (x = u / max, bounds [min/max, 1]) and
+    # the level offset by the same maximum (offl / max): that needs max > 0 and min <= max.
+    for grp in ('tvi', 'tii'):
+        for var, spec in (system.get(grp) or {}).items():
+            try:
+                mx, mn = float(spec['max']), float(spec['min'])
+            except (KeyError, TypeError, ValueError):
+                raise ValueError(f"system['{grp}']['{var}'] needs numeric 'min' and 'max' for the design.")
+            if not (np.isfinite(mx) and np.isfinite(mn) and mx > 0 and mn <= mx):
+                raise ValueError(
+                    f"system['{grp}']['{var}']: min={mn!r}, max={mx!r}. The design scales the input by its "
+                    f"maximum, so 'max' must be finite and > 0 and 'min' <= 'max' (use units or an offset "
+                    f"that make the maximum positive, e.g. K instead of degC).")
+    return opt
+
+
+def _dead_time(system):
+    r"""Return the scalar dead time ``system['t_d']`` (default 0.0); raise if it is not a scalar."""
+    t_d = system.get('t_d', 0.0)
+    if t_d is None:
+        return 0.0
+    if np.ndim(t_d) != 0:
+        raise ValueError(f"system['t_d'] must be a scalar (dead time in time units), got {t_d!r}.")
+    return float(t_d)
+
+
+def _theta_scaling(theta, name=None):
+    r"""
+    Return the normalisation of a nominal parameter vector.
+
+    Parameters are written as theta = thetac * x with thetac = |theta| and the
+    nominal point x0 = sign(theta), so negative nominal values keep their sign.
+
+    Returns
+    -------
+    thetac : list[float]
+        Absolute nominal values.
+    x0 : np.ndarray
+        Signs of the nominal values (+1/-1).
+
+    Raises
+    ------
+    ValueError
+        If any nominal value is zero or not finite.
+    """
+    th = np.asarray(theta, dtype=float).ravel()
+    if th.size and (np.any(th == 0.0) or not np.all(np.isfinite(th))):
+        label = f"models['theta']['{name}']" if name is not None else "theta"
+        raise ValueError(
+            f"{label} = {list(th)} contains a zero or non-finite value. The design normalises "
+            f"theta = |theta_nominal| * x, so every nominal value must be finite and non-zero."
+        )
+    return list(np.abs(th)), np.sign(th)
+
+
+def _check_errt(system):
+    r"""Validate the system-level and per-response ``errt`` keys and ``sigma_floor``."""
+    errt_sys = system.get('errt', 'abs')
+    if errt_sys not in _ERRT_VALUES:
+        raise ValueError(f"system['errt'] = {errt_sys!r}; valid values are {list(_ERRT_VALUES)}.")
+    for grp in ('tvo', 'tio'):
+        for var, spec in (system.get(grp) or {}).items():
+            errt = (spec or {}).get('errt', errt_sys)
+            if errt not in _ERRT_VALUES:
+                raise ValueError(f"system['{grp}']['{var}']['errt'] = {errt!r}; valid values are {list(_ERRT_VALUES)}.")
+    floor = system.get('sigma_floor', 1e-6)
+    try:
+        floor_ok = np.isfinite(float(floor)) and float(floor) > 0
+    except (TypeError, ValueError):
+        floor_ok = False
+    if not floor_ok:
+        raise ValueError(f"system['sigma_floor'] = {floor!r} must be a positive float.")
+
+
+def _sigma_y(system, var, y_hat, grp='tvo'):
+    r"""
+    Measurement standard deviation of response ``var`` at the predictions ``y_hat``.
+
+    ``errt = system[grp][var].get('errt', system.get('errt', 'abs'))``:
+
+    - ``'abs'``: sigma = ``unc`` (absolute standard deviation);
+    - ``'rel'``: sigma = ``unc * |y_hat|``, floored at ``system.get('sigma_floor', 1e-6)``.
+
+    A missing, None or NaN ``unc`` falls back to 1.0 (previous behaviour).
+
+    Returns
+    -------
+    np.ndarray
+        Standard deviations with the shape of ``y_hat``.
+    """
+    spec = (system.get(grp) or {}).get(var) or {}
+    unc = spec.get('unc', 1.0)
+    if unc is None or np.isnan(unc):
+        unc = 1.0
+    errt = spec.get('errt', system.get('errt', 'abs'))
+    y = np.asarray(y_hat, dtype=float)
+    if errt == 'abs':
+        return np.full(y.shape, float(unc))
+    if errt == 'rel':
+        floor = float(system.get('sigma_floor', 1e-6))
+        return np.maximum(float(unc) * np.abs(y), floor)
+    raise ValueError(f"errt = {errt!r} for response '{var}'; valid values are {list(_ERRT_VALUES)}.")
+
+
+def _theta_cov_x(V, thetac, free_idx):
+    r"""
+    Convert a physical parameter covariance to normalised units, reduced to the free parameters.
+
+    V_x = V_phys[free, free] / outer(|thetac|, |thetac|)[free, free]. ``V`` may be given for all
+    parameters or for the free parameters only. Returns None when ``V`` is None.
+    """
+    if V is None:
+        return None
+    V = np.asarray(V, dtype=float)
+    free_idx = list(free_idx)
+    n_free, n_tot = len(free_idx), len(thetac)
+    if V.shape == (n_free, n_free):
+        V_red = V
+    elif V.shape == (n_tot, n_tot):
+        V_red = V[np.ix_(free_idx, free_idx)]
+    else:
+        raise ValueError(f"V_matrix shape {V.shape} doesn't match either free params ({n_free}) or total params ({n_tot})")
+    thc = np.abs(np.asarray(thetac, dtype=float))[free_idx]
+    return V_red / np.outer(thc, thc)
+
+
+def _prior_information(V, thetac, free_idx, rel_alpha=1e-8):
+    r"""
+    Prior information matrix Mp = inv(V_x + alpha*I) in normalised parameter units.
+
+    The regularisation is relative to each diagonal element,
+    ``V_x + rel_alpha * diag(diag(V_x))`` (falling back to ``rel_alpha * trace(V_x)/n``
+    for a zero diagonal element), so it stays negligible whatever the parameter units.
+    A single ``alpha = rel_alpha * trace(V_x)/n`` is not enough: the diagonal of V_x can
+    span many orders of magnitude (e.g. 6e-8 and 6 for thetac = [500, 0.02]), and the
+    small variances would then be biased by tens of percent. Returns None when there
+    is no ``V`` (no V means no prior).
+    """
+    V_x = _theta_cov_x(V, thetac, free_idx)
+    if V_x is None:
+        return None
+    n = V_x.shape[0]
+    if n == 0:
+        return np.zeros((0, 0))
+    d = np.diag(V_x).copy()
+    fallback = np.trace(V_x) / n
+    d[d <= 0] = fallback if fallback > 0 else 1.0
+    return np.linalg.inv(V_x + rel_alpha * np.diag(d))
+
+
+def _snap_to_grid(v, tlin):
+    r"""Snap a normalised time to the nearest node of ``tlin`` (same rule as :func:`_slicer`)."""
+    return float(tlin[np.argmin(np.abs(tlin - v))])
+
+
+def _sampling_constraint_list(tv_ophi_vars, index_dict, tv_ophi_sampling, tv_ophi_forcedsamples):
+    r"""
+    Constraint tuples for the sampling times.
+
+    - ``('st', i, j1, j2)``: consecutive free samples j1 < j2 of response i;
+    - ``('stf', i, j, f)``: free sample j of response i against forced sample time f
+      (normalised). The forced list is that of the first response of the sampling
+      group, as in :func:`_slicer`.
+    """
+    groups = {}
+    for var in tv_ophi_vars:
+        groups.setdefault(tv_ophi_sampling[var], []).append(var)
+    cons = []
+    for i, name in enumerate(tv_ophi_vars):
+        idxs = index_dict['st'][name]
+        for j in range(len(idxs) - 1):
+            cons.append(('st', i, idxs[j], idxs[j + 1]))
+        forced = tv_ophi_forcedsamples.get(groups[tv_ophi_sampling[name]][0], [])
+        for j in idxs:
+            for f in forced:
+                cons.append(('stf', i, j, float(f)))
+    return cons
+
+
+def _sampling_constraint_value(kind, x, i1, i2, gap, tlin):
+    r"""
+    Constraint value g (feasible when g <= 0) for an ``'st'`` or ``'stf'`` tuple.
+
+    Times are snapped to the grid first, so the minimum gap holds for the
+    sampling times that are actually used. ``gap`` is max(offt, t_r)/tf.
+    """
+    slack = 1e-9 * gap
+    if kind == 'st':
+        return gap - (_snap_to_grid(x[i2], tlin) - _snap_to_grid(x[i1], tlin)) - slack
+    if kind == 'stf':
+        return gap - abs(_snap_to_grid(x[i1], tlin) - i2) - slack
+    raise ValueError(f"unknown sampling constraint kind {kind!r}")
+
+
+def _sampling_gaps(tv_ophi_offsett, tf, t_r):
+    r"""
+    Minimum normalised gap per response: max(offt, t_r)/tf.
+
+    ``tv_ophi_offsett`` is already offt/tf. The t_r term is one grid step of the
+    simulation grid (1/(nodes-1), equal to t_r/tf when tf/t_r is an integer), so a
+    zero ``offt`` can no longer let two samples fall on the same node.
+    """
+    nodes = int(round(tf / t_r)) + 1
+    step = 1.0 / (nodes - 1) if nodes > 1 else 1.0
+    return [max(float(o), step) for o in tv_ophi_offsett]

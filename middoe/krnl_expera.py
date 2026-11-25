@@ -525,6 +525,10 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
                 Preliminary/classic design values.
             - 'errt' : str, optional
                 Error type: 'abs' (absolute) or 'rel' (relative, default: 'abs').
+            - 'sigma_floor' : float, optional
+                Lower bound on the noise standard deviation for ``errt='rel'``
+                (default: 1e-6). The written ``MES_E`` is ``max(unc * |y|, sigma_floor)``,
+                so a zero true response (e.g. y(0) = 0) no longer gives sigma = 0.
     design_decisions : dict or None
         MBDoE design decisions. If None, runs preliminary design. If provided:
             - 'St' : dict[str, np.ndarray]
@@ -578,13 +582,16 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
     **Measurement Noise**:
     Two error models supported:
+
         - **Absolute ('abs')**: \( y_{noisy} = y_{true} + \mathcal{N}(0, \sigma^2) \)
-        - **Relative ('rel')**: \( y_{noisy} = y_{true} + \mathcal{N}(0, (\sigma \cdot y_{true})^2) \)
+        - **Relative ('rel')**: \( y_{noisy} = y_{true} + \mathcal{N}(0, s^2) \) with
+          :math:`s = \max(\sigma \cdot |y_{true}|, \sigma_{floor})`
 
     Negative values are clipped to zero (physical constraint).
 
     **DataFrame Structure**:
     The output DataFrame contains multiple sections separated by blank columns:
+
         1. **Per-variable measurements**: Separate columns for each output variable
            with sampling times (MES_X), noisy values (MES_Y), and uncertainties (MES_E)
         2. **Global simulation**: Time vector (X:all), all inputs, time-invariant outputs
@@ -602,11 +609,11 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
 
     References
     ----------
-    .. [1] Franceschini, G., & Macchietto, S. (2008).
+    1. Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
 
-    .. [2] Bard, Y. (1974).
+    2. Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press.
 
     See Also
@@ -646,12 +653,16 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
     errortype = insilicos.get('errt', 'abs')
     classic_des = insilicos['prels']
     theta_parameters = insilicos['theta']
+    sigma_floor = float(insilicos.get('sigma_floor', 1e-6))
+    if not np.isfinite(sigma_floor) or sigma_floor < 0:
+        raise ValueError(f"insilicos['sigma_floor'] must be finite and >= 0, got {sigma_floor}")
 
-    # Standard deviations for measured tv_ophi variables
+    # Standard deviations for measured outputs (time-variant and time-invariant)
     std_dev = {
-        var: system['tvo'][var]['unc']
-        for var in system['tvo'].keys()
-        if system['tvo'][var].get('meas', True)
+        var: cfg['unc']
+        for grp in ('tvo', 'tio')
+        for var, cfg in (system.get(grp) or {}).items()
+        if cfg.get('meas', True)
     }
 
     # If no design decisions are provided, run the "initial" case
@@ -686,7 +697,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         df_combined = _inssimulator(
             t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac,
             cvp_initial, std_dev, t_acc_unique, case, model_name,
-            system, models, errortype
+            system, models, errortype, sigma_floor=sigma_floor
         )
 
     else:
@@ -722,17 +733,28 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
             for var in swpsu:
                 if var.endswith('l'):
                     # Length-based scaling
-                    var_base = var.rstrip('l')
+                    var_base = var[:-1]
                     swps_scaled[var] = np.array(swpsu[var]) / phitsc[var_base]
                 elif var.endswith('t'):
-                    # Time-based scaling
-                    swps_scaled[var] = np.array(swpsu[var]) / tsc
+                    # Time-based scaling. (t_k * tf) / tf can differ from the grid node t_k
+                    # by 1 ulp; snap such switch times back onto the simulation grid so the
+                    # generated profile is exactly the designed one.
+                    ts = np.array(swpsu[var], dtype=float) / tsc
+                    grid = np.unique(np.asarray(t_acc_unique, dtype=float))
+                    if grid.size and ts.size:
+                        idx = np.clip(np.searchsorted(grid, ts), 0, grid.size - 1)
+                        prev = np.maximum(idx - 1, 0)
+                        idx = np.where(np.abs(grid[prev] - ts) < np.abs(grid[idx] - ts), prev, idx)
+                        near = np.abs(grid[idx] - ts) <= 1e-9 * max(1.0, float(np.max(np.abs(grid))))
+                        ts = np.where(near, grid[idx], ts)
+                    swps_scaled[var] = ts
                 else:
                     raise ValueError(f"Unrecognized variable format for {var} in swps.")
 
         df_combined = _inssimulator(
             t_values, swps_scaled, swpsu, phi_scaled, phisc, phit_scaled, phitsc, tsc, theta, thetac,
-            cvp_doe, std_dev, t_acc_unique, case, model_name, system, models, errortype
+            cvp_doe, std_dev, t_acc_unique, case, model_name, system, models, errortype,
+            sigma_floor=sigma_floor
         )
 
     # Define Excel path for in-silico data
@@ -741,15 +763,9 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
     experiment_number = str(expr)
     # Check if the file already exists
     if os.path.isfile(excel_path):
-        # Open the file in append mode if it exists
-        with pd.ExcelWriter(excel_path, mode='a', engine='openpyxl') as writer:
-            existing_sheets = writer.book.sheetnames
-            if experiment_number in existing_sheets:
-                # Append to the existing sheet
-                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
-            else:
-                # Create a new sheet
-                df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
+        # Append; replace the sheet if this round was run before (pandas >= 1.3, openpyxl)
+        with pd.ExcelWriter(excel_path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+            df_combined.to_excel(writer, sheet_name=experiment_number, index=False)
     else:
         # If the file does not exist, create it and write the data
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
@@ -879,14 +895,14 @@ def _construct_par(model_name, theta_parameters):
     Returns
     -------
     theta : list[float]
-        Normalized parameter vector (all ones: [1, 1, ..., 1]).
+        Normalized parameter vector: the sign of each true value ([1, ..., 1] when all > 0).
     thetac : list[float]
-        Scaling factors (true parameter values).
+        Scaling factors: the absolute true parameter values.
 
     Raises
     ------
     ValueError
-        If theta_parameters is invalid or cannot be accessed.
+        If theta_parameters is invalid, non-finite, or contains a zero.
 
     Notes
     -----
@@ -920,15 +936,25 @@ def _construct_par(model_name, theta_parameters):
     >>> # Physical parameters: theta * thetac = [1.5, 2.3, 0.8]
     """
     try:
-        thetac = theta_parameters
-        theta = [1] * len(thetac)
-        return theta, thetac
+        theta_arr = np.asarray(theta_parameters, dtype=float).ravel()
     except Exception as e:
         raise ValueError(f"Unable to adjust theta or thetac for model {model_name}: {e}")
+    if not np.all(np.isfinite(theta_arr)):
+        raise ValueError(f"insilicos['theta'] for model {model_name} must be finite, got {list(theta_parameters)}")
+    zero = np.where(theta_arr == 0)[0]
+    if zero.size:
+        raise ValueError(
+            f"insilicos['theta'] for model {model_name} has zero entries at positions {zero.tolist()}; "
+            f"theta = theta_c * x cannot represent 0 (use a small nonzero value)")
+    # theta = thetac * x with thetac = |theta| > 0 and x = sign(theta), so a negative true
+    # parameter keeps its sign in the simulated truth.
+    thetac = np.abs(theta_arr).tolist()
+    theta = np.sign(theta_arr).tolist()
+    return theta, thetac
 
 
 def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, thetac, cvp, std_dev,
-                  t_valuesc, case, model_name, system, models, errortype):
+                  t_valuesc, case, model_name, system, models, errortype, sigma_floor=1e-6):
     r"""
     Execute forward simulation and add measurement noise to create synthetic experimental data.
 
@@ -979,6 +1005,9 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         Model definitions.
     errortype : str
         Error type: 'abs' (absolute noise) or 'rel' (relative noise).
+    sigma_floor : float, optional
+        Lower bound on sigma for 'rel' noise: sigma = max(unc * |y|, sigma_floor).
+        Default 1e-6.
 
     Returns
     -------
@@ -1082,7 +1111,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
     # Identify measured variables from system
     measured_vars = [
         var for var in system['tvo'].keys()
-        if system['tvo'][var].get('measured', True)
+        if system['tvo'][var].get('meas', True)
     ]
 
     # Prepare lists of independent and dependent variables
@@ -1116,7 +1145,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
             if errortype == 'abs':
                 sigma = std_dev[dep_var]
             elif errortype == 'rel':
-                sigma = std_dev[dep_var] * abs(original_val)
+                sigma = max(std_dev[dep_var] * abs(original_val), sigma_floor)
             else:
                 raise ValueError(f"Unsupported errortype: {errortype}")
 
@@ -1136,10 +1165,21 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         phit_order = list(phit_interp.keys())
 
     # Noise added once for ti_ophi
-    ti_ophi_noisy_once = {
-        var: np.random.normal(val[0], abs(std_dev.get(var, 0) * val[0]))
-        for var, val in ti_ophi.items()
-    }
+    # Measured tio (present in std_dev) get noise and MES_Y:/MES_E: columns; scalar or list accepted.
+    ti_ophi_noisy_once, ti_ophi_sig = {}, {}
+    for var, val in ti_ophi.items():
+        v0 = float(np.ravel(np.asarray(val, dtype=float))[0])
+        if var in std_dev:
+            if errortype == 'abs':
+                sig = float(std_dev[var])
+            elif errortype == 'rel':
+                sig = max(float(std_dev[var]) * abs(v0), sigma_floor)
+            else:
+                raise ValueError(f"Unsupported errortype: {errortype}")
+            ti_ophi_noisy_once[var] = np.random.normal(v0, sig)
+            ti_ophi_sig[var] = sig
+        else:
+            ti_ophi_noisy_once[var] = v0
 
     global_results = []
     for i, t_global in enumerate(t_valuesc):
@@ -1162,8 +1202,12 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
 
         global_results.append(row)
 
-    global_columns = (['X:all'] + phi_order + phit_order + ti_ophi_order)
+    global_columns = (['X:all'] + phi_order + phit_order +
+                      [f"MES_Y:{v}" if v in ti_ophi_sig else v for v in ti_ophi_order])
     df_global = pd.DataFrame(global_results, columns=global_columns)
+    for v in ti_ophi_order:
+        if v in ti_ophi_sig:
+            df_global[f"MES_E:{v}"] = ti_ophi_sig[v]
 
     # Combine var_dfs and df_global horizontally
     all_dfs = var_dfs + [df_global]

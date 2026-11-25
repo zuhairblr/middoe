@@ -1,6 +1,9 @@
 # des_pp.py
 import scipy.linalg
 from middoe.des_utils import _slicer, _reporter, configure_logger, _write_final_results_txt
+from middoe.des_utils import (_validate_des_inputs, _theta_scaling, _sigma_y, _prior_information,
+                              _sampling_constraint_list, _sampling_constraint_value, _sampling_gaps,
+                              _dead_time)
 from middoe.krnl_simula import simula
 from multiprocessing import Pool
 import traceback
@@ -47,12 +50,12 @@ def mbdoe_pp(
     des_opt : dict
         Optimisation settings, including:
 
-        - 'ppob' : str
-            Precision criterion ('D', 'A', 'E', 'ME', 'ORB', 'SEM'):
+        - 'pp_ob' : str
+            Precision criterion ('D', 'A', 'E', 'ME', 'ORB', 'SEM'); any other value raises ValueError:
 
             * 'D': D-optimality - Scale-invariant criterion that minimises the volume of the confidence ellipsoid by maximising det(FIM). Advantages: Strong overall precision. Disadvantages: May excessively prioritise sensitive parameters.
 
-            * 'A': A-optimality - Minimises the average parameter variance (trace of inverse FIM). Advantages: Balances overall precision. Disadvantages: Not scale-invariant, ignores parameter correlations.
+            * 'A': A-optimality - Minimises the average parameter variance (trace of inverse FIM); the reported pp_obj is -tr(FIM^-1), and a singular or ill-conditioned FIM (cond >= 1e12) is penalised. Advantages: Balances overall precision. Disadvantages: Not scale-invariant, ignores parameter correlations.
 
             * 'E': E-optimality - Maximises the minimum eigenvalue of FIM (minimises worst-case parameter variance). Advantages: Targets most uncertain parameter. Disadvantages: May be overly conservative, sensitive to ill-conditioning.
 
@@ -63,16 +66,24 @@ def mbdoe_pp(
             * 'SEM': Spectral Entropy Maximization - Uses a Shannon Entropy-inspired approach to maximise the entropy of the normalised FIM, promoting a uniform distribution of information across parameters. Advantages: Encourages balanced parameter precision, robust to scaling issues. Disadvantages: Computationally intensive for each iteration.
 
         - 'itr' : dict
-            Iteration controls with keys 'maxpp' (int, maximum iterations), 'toldpp' (float, convergence tolerance), 'pps' (int, population size).
+            Iteration controls with keys 'maxpp' (int, maximum iterations), 'tolpp' (float, constraint tolerance passed to pymoo), 'pps' (int, population size).
 
         - 'eps' : float
-            Perturbation step size for numerical derivatives.
+            Perturbation step size for numerical derivatives (normalised parameter units, > 0). Required; None raises ValueError.
 
         - 'plt' : bool
             Enable plotting of results.
 
         - 'meth' : str, optional
-            Optimisation method ('DE', 'PS', 'DEPS').
+            Optimisation method ('PS', 'DE', 'DEPS'; default 'PS'). The paper-era keys 'L', 'G', 'GL' are accepted as aliases of 'PS', 'DE', 'DEPS'.
+
+        - 'priors' : bool, optional
+            Add the prior information inv(V) from models['V_matrix'] to the FIM (default False, as in paper eq. 4 where the prior term is neglected). V is converted from physical to normalised units, V_x = V / outer(theta, theta). Without a V for the model no prior is added.
+
+        - 'conv_rep' : bool, optional
+            Export convergence/FIM metrics to Excel (default True).
+
+        The dict passed in is not modified; defaults are applied to an internal copy.
 
         - 'initial_ranking' : list[int], optional
             Pre-computed parameter ranking (set automatically if LSA available).
@@ -83,11 +94,17 @@ def mbdoe_pp(
         - 't_s' : tuple[float, float]
             Start and end times (ti, tf).
 
-        - 't_d' : tuple[float, float]
-            Restricted initial/final intervals (dead time).
+        - 't_d' : float
+            Dead time (scalar, time units): switching and free sampling times are restricted to [t_d, tf - t_d].
 
         - 't_r' : float
-            Time resolution for simulation.
+            Time resolution for simulation. Two samples of a response are at least max(offt, t_r) apart (also free vs forced samples), checked after snapping to the grid.
+
+        - 'errt' : str, optional
+            Default measurement-error type for all responses: 'abs' (default, 'unc' is an absolute standard deviation) or 'rel' (sigma = ``unc * |y_hat|``). Can be overridden per response with system['tvo'][var]['errt'].
+
+        - 'sigma_floor' : float, optional
+            Lower bound of the relative-error sigma, used where y_hat is near 0 (default 1e-6).
 
         - 'tvi' : dict
             Time-variant input definitions with keys 'max', 'min' (float bounds), 'stps' (int, number of switching segments), 'const' (str, constraint type 'inc'/'dec'/'rel'), 'offt' (float, minimum time offset between switches), 'offl' (float, minimum level offset), 'cvp' (str, control variable profile 'CPF' piecewise-constant or 'LPF' piecewise-linear).
@@ -96,7 +113,7 @@ def mbdoe_pp(
             Time-invariant input definitions ('max', 'min').
 
         - 'tvo' : dict
-            Time-variant output definitions with keys 'meas' (bool, include in measurement), 'sp' (int, number of sampling points), 'offt' (float, minimum time between samples), 'samp_s' (str, sampling synchronisation group), 'samp_f' (list[float], forced sampling times), 'unc' (float, measurement uncertainty standard deviation).
+            Time-variant output definitions with keys 'meas' (bool, include in measurement), 'sp' (int, number of sampling points), 'offt' (float, minimum time between samples), 'samp_s' (str, sampling synchronisation group), 'samp_f' (list[float], forced sampling times), 'unc' (float, measurement standard deviation if errt='abs', relative fraction if errt='rel'), 'errt' (str, optional, 'abs' or 'rel').
 
         - 'tio' : dict
             Time-invariant output definitions.
@@ -108,13 +125,13 @@ def mbdoe_pp(
             Active model names (typically single model for PP).
 
         - 'theta' : dict[str, list[float]]
-            Nominal parameter values for each model.
+            Nominal parameter values for each model (non-zero; negative values keep their sign).
 
         - 'mutation' : dict[str, list[bool]]
             Parameter masks indicating which parameters are free (True) vs fixed (False).
 
-        - 'V_matrix' : dict[str, np.ndarray]
-            Prior parameter covariance matrices (typically diagonal).
+        - 'V_matrix' : dict[str, np.ndarray], optional
+            Parameter covariance matrices in physical units (as written by uncert); used only when des_opt['priors'] is True. May be missing or lack a model.
 
         - 'LSA' : dict[str, np.ndarray], optional
             Pre-computed local sensitivity analysis matrices for initial ranking.
@@ -171,13 +188,13 @@ def mbdoe_pp(
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Franceschini, G., & Macchietto, S. (2008).
+    2. Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
        https://doi.org/10.1016/j.ces.2007.11.034
@@ -200,7 +217,7 @@ def mbdoe_pp(
     ...     'tvi': {'T': {'min': 278, 'max': 313, 'stps': 3, 'cvp': 'CPF',
     ...                   'const': 'rel', 'offt': 5.0, 'offl': 1.0}},
     ...     'tii': {'C0': {'min': 0.15, 'max': 0.35}},
-    ...     't_s': (0.0, 180.0), 't_d': (10.0, 10.0)
+    ...     't_s': (0.0, 180.0), 't_d': 10.0
     ... }
     >>>
     >>> # Define model
@@ -213,8 +230,8 @@ def mbdoe_pp(
     >>>
     >>> # Configure MBDoE-PP
     >>> des_opt = {
-    ...     'ppob': 'D', 'meth': 'DEPS',
-    ...     'itr': {'maxpp': 5000, 'toldpp': 1e-8, 'pps': 40},
+    ...     'pp_ob': 'D', 'meth': 'DEPS',
+    ...     'itr': {'maxpp': 5000, 'tolpp': 1e-8, 'pps': 40},
     ...     'eps': 0.01, 'plt': False
     ... }
     >>>
@@ -228,11 +245,9 @@ def mbdoe_pp(
         round = int(insilicos)
         insilicos = None
 
-    # Set default values for new options if not provided
-    if 'conv_rep' not in des_opt:
-        des_opt['conv_rep'] = True  # Default: report convergence metrics
-    if 'priors' not in des_opt:
-        des_opt['priors'] = True  # Default: include priors (Mp) in FIM
+    # Validate up front (clear ValueError instead of a 1e6 penalty at every point) and work on a
+    # copy: defaults (meth='PS', priors=False, conv_rep=True) are not written into the user's dict.
+    des_opt = _validate_des_inputs(des_opt, system, models, 'pp')
 
     # Assuming active solvers and mutation info available
     active_solvers = models['can_m']
@@ -273,7 +288,7 @@ def mbdoe_pp(
             )
             best_core = 0
         except Exception as e:
-            raise RuntimeError(f"Single-core optimisation failed: {e}")
+            raise RuntimeError(f"Single-core optimisation failed: {e}") from e
 
         print("Design your experiment based on:")
         print("  tii   :", best_design_decisions['tii'])
@@ -357,8 +372,11 @@ def _safe_run(args):
 def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round=0):
     import numpy as np
 
+    # Idempotent; also covers direct calls that bypass mbdoe_pp.
+    des_opt = _validate_des_inputs(des_opt, system, models, 'pp')
+
     tf = system['t_s'][1]
-    ti = system['t_d']
+    ti = _dead_time(system)
 
     # Time-variant inputs
     tv_iphi_vars = list(system['tvi'].keys())
@@ -394,10 +412,10 @@ def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round
     population_size = des_opt['itr']['pps']
     eps = des_opt['eps']
 
-    if 'V_matrix' in models:
-        V_matrix = {solver: np.array(models['V_matrix'][solver]) for solver in models['can_m']}
-    else:
-        V_matrix = {solver: np.array([[1e5 if i == j else 0 for j in range(len(models['theta'][solver]))] for i in range(len(models['theta'][solver]))]) for solver in models['can_m']}
+    # No placeholder covariance: a model without V gets no prior term.
+    V_models = models.get('V_matrix') or {}
+    V_matrix = {solver: np.array(V_models[solver], dtype=float)
+                for solver in models['can_m'] if V_models.get(solver) is not None}
 
     if 'mutation' in models:
         mutation = models['mutation']
@@ -405,7 +423,7 @@ def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round
         mutation = {solver: [True] * len(models['theta'][solver]) for solver in models['can_m']}
 
     pltshow = des_opt['plt']
-    optmethod = des_opt.get('meth', 'L')
+    optmethod = des_opt['meth']  # validated / alias-mapped, default 'PS'
 
     # Call optimizer and get metrics history
     result, index_dict, metrics_history = _optimiser(
@@ -427,7 +445,12 @@ def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round
 
     x_final = getattr(result, 'X', getattr(result, 'x', None))
     if x_final is None:
-        raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
+        raise RuntimeError(
+            f"MBDoE-PP: the optimiser '{optmethod}' found no feasible design (it returned no solution). "
+            "Check that the design constraints can all be met together: input bounds (min <= max), "
+            "minimum gaps between switches/samples ('offl'/'offt'), number of samples vs. the batch "
+            "time, and forced samples ('samp_f'). Increasing des_opt['itr']['pps'] or 'maxpp' can "
+            "also help.")
 
     try:
         phi, swps, St, pp_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _pp_runner(
@@ -839,8 +862,8 @@ def _compute_metrics_only(
         # Setup Simulation
         LSA = defaultdict(lambda: defaultdict(dict))
         solver_name = active_solvers[0]
-        theta_c = theta_parameters[solver_name]
-        theta = np.ones(len(theta_c))
+        # theta = |theta_nominal| * x with x0 = sign(theta_nominal)
+        theta_c, theta = _theta_scaling(theta_parameters[solver_name], name=solver_name)
 
         # Denormalize inputs
         ti_iphi_data = ti
@@ -875,35 +898,27 @@ def _compute_metrics_only(
         indices = {var: np.isin(tvalues, St[var]) for var in tv_ophi_vars if var in St}
         Q_rows = []
         obs_vars_order = []
+        obs_sigma = []
         for var, mask in indices.items():
+            sig_var = _sigma_y(system, var, y_nom[var])  # absolute or relative errors (errt)
             for k, is_sampled in enumerate(mask):
                 if is_sampled:
                     row = [LSA[var][solver_name][p][k] for p in free_idx]
                     Q_rows.append(row)
                     obs_vars_order.append(var)
+                    obs_sigma.append(sig_var[k])
         Q = np.array(Q_rows, dtype=float)
 
         # 4. Measurement covariance Σ_y
-        n_obs = len(obs_vars_order)
-        Sigma_y = np.zeros((n_obs, n_obs))
-        for i, var in enumerate(obs_vars_order):
-            unc = system.get("tvo", {}).get(var, {}).get("unc", 1.0)
-            if unc is None or np.isnan(unc):
-                unc = 1.0
-            Sigma_y[i, i] = unc ** 2
+        Sigma_y = np.diag(np.asarray(obs_sigma, dtype=float) ** 2)
         Sigma_y_inv = np.linalg.inv(Sigma_y)
 
-        # 5. Parameter prior covariance (reduced to free parameters)
-        V_full = V_matrix[solver_name]
-        if V_full.shape[0] == len(theta_c):
-            V_red = V_full[np.ix_(free_idx, free_idx)]
-        else:
-            V_red = V_full
-
-        # 6. Fisher Information Matrix
+        # 5./6. Fisher Information Matrix (+ prior in normalised units, only if requested and V exists)
         M = Q.T @ Sigma_y_inv @ Q
-        if des_opt.get("priors", True):
-            M += np.linalg.inv(V_red)
+        if des_opt.get("priors", False):
+            Mp = _prior_information(V_matrix.get(solver_name), theta_c, free_idx)
+            if Mp is not None:
+                M = M + Mp
 
         # =====================================================================
         # Generic FIM spectral metrics (shared across criteria)
@@ -914,7 +929,7 @@ def _compute_metrics_only(
 
         metrics = dict(base_metrics)
         metrics["criterion"] = design_criteria.upper()
-        nominal_theta = np.asarray(theta_c, dtype=float)
+        nominal_theta = np.asarray(theta_parameters[solver_name], dtype=float)
         theta_true = _get_true_theta_vector(des_opt, models, insilicos, solver_name)
 
         metrics["_eigen_directions"] = _fim_eigen_direction_rows(
@@ -923,7 +938,7 @@ def _compute_metrics_only(
             solver_name=solver_name,
             true_parameter_values=theta_true,
             nominal_parameter_values=nominal_theta,
-            parameter_normalization_values=nominal_theta,
+            parameter_normalization_values=np.asarray(theta_c, dtype=float),  # |theta_nominal|
         )
 
         # =====================================================================
@@ -1279,10 +1294,12 @@ def _optimiser(
         for j in range(len(idxs) - 1):
             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
 
-    for i, name in enumerate(tv_ophi_vars):
-        idxs = index_dict['st'][name]
-        for j in range(len(idxs) - 1):
-            constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+    # Sampling times: consecutive free samples ('st') and free vs forced samples ('stf'), with a
+    # minimum gap of max(offt, t_r)/tf evaluated on the grid-snapped times.
+    constraint_index_list.extend(
+        _sampling_constraint_list(tv_ophi_vars, index_dict, tv_ophi_sampling, tv_ophi_forcedsamples))
+    st_gaps = _sampling_gaps(tv_ophi_offsett_ophi, tf, system['t_r'])
+    tlin_grid = np.linspace(0, 1, int(round(tf / system['t_r'])) + 1)
 
     total_constraints = len(constraint_index_list)
 
@@ -1333,9 +1350,8 @@ def _optimiser(
                 elif kind == 't':
                     offs = tv_iphi_offsett[i]
                     g.append(offs - (x[i2] - x[i1]))
-                elif kind == 'st':
-                    offs = tv_ophi_offsett_ophi[i]
-                    g.append(offs - (x[i2] - x[i1]))
+                elif kind in ('st', 'stf'):
+                    g.append(_sampling_constraint_value(kind, x, i1, i2, st_gaps[i], tlin_grid))
             out['F'] = f_val
             out['G'] = np.array(g, dtype=np.float64)
 
@@ -1354,7 +1370,8 @@ def _optimiser(
 
     if optmethod == 'PS':
         algorithm = PatternSearch()
-        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), callback=callback, verbose=True)
+        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxpp), callback=callback, verbose=True,
+                                    constraint_tolerance=tolpp)
     elif optmethod == 'DE':
         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
         res_refine = pymoo_minimize(problem, algorithm,
@@ -1393,7 +1410,7 @@ def _optimiser(
                                    verbose=True,
                                    constraint_tolerance=tolpp)
     else:
-        raise ValueError("optmethod must be 'PS', 'DE', or 'DEPS'")
+        raise ValueError(f"optmethod must be 'PS', 'DE' or 'DEPS' (aliases 'L', 'G', 'GL'), got {optmethod!r}")
 
     return res_refine, index_dict, metrics_history
 
@@ -1548,8 +1565,8 @@ def _pp_runner(
     free_params_by_solver = {}
 
     for solver_name in active_solvers:
-        thetac = theta_parameters[solver_name]
-        theta = np.array([1.0] * len(thetac))
+        # theta = |theta_nominal| * x with x0 = sign(theta_nominal); zero nominal values raise
+        thetac, theta = _theta_scaling(theta_parameters[solver_name], name=solver_name)
         ti_iphi_data = ti
         swps_data = swps
         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
@@ -1595,30 +1612,23 @@ def _pp_runner(
         # Build sensitivity matrix Q
         rows = []
         obs_vars = []
+        obs_sigma = []
 
         for var in indices:
             mask = indices[var]
+            # sigma per point: 'unc' (errt='abs') or max(unc*|y_hat|, sigma_floor) (errt='rel')
+            sig_var = _sigma_y(system, var, y_combined[var])
             for k, is_meas in enumerate(mask):
                 if is_meas:
                     row = [LSA[var][solver_name][p][k] for p in free_params_indices]
                     rows.append(row)
                     obs_vars.append(var)
+                    obs_sigma.append(sig_var[k])
 
         solver_LSA = np.array(rows, dtype=float)  # Q matrix
 
         # Build measurement covariance Sigma_y
-        std_dev = {}
-        for grp, keys in [('tvo', tv_ophi_vars), ('tio', ti_ophi_vars)]:
-            for var in keys:
-                unc = system.get(grp, {}).get(var, {}).get('unc', 1.0)
-                if unc is None or np.isnan(unc):
-                    unc = 1.0
-                std_dev[var] = unc
-
-        N_obs = len(obs_vars)
-        Sigma_y = np.zeros((N_obs, N_obs))
-        for i, var in enumerate(obs_vars):
-            Sigma_y[i, i] = std_dev.get(var, 1.0) ** 2
+        Sigma_y = np.diag(np.asarray(obs_sigma, dtype=float) ** 2)
         Sigma_y_inv = np.linalg.inv(Sigma_y)
 
         # Fisher Information Matrix from measurements
@@ -1630,26 +1640,13 @@ def _pp_runner(
         J_dot_matrix[solver_name] += M_fisher
         M0[solver_name] = J_dot_matrix[solver_name]
 
-        # Reduce V_matrix to free parameters
-        if V_matrix[solver_name].shape[0] == len(free_params_indices):
-            reduced_V_matrix = V_matrix[solver_name]
-        elif V_matrix[solver_name].shape[0] == len(theta_parameters[solver_name]):
-            reduced_V_matrix = V_matrix[solver_name][np.ix_(free_params_indices, free_params_indices)]
-        else:
-            raise ValueError(
-                f"V_matrix shape {V_matrix[solver_name].shape} doesn't match either free params or total params"
-            )
-
-        # Regularize prior covariance before inverting
-        alpha = 1e-8
-        V_reg = reduced_V_matrix + alpha * np.eye(reduced_V_matrix.shape[0])
-        Mp = np.linalg.inv(V_reg)
-
-        # Build final FIM (with or without priors)
-        if des_opt.get('priors', True):
-            M[solver_name] = M0[solver_name] + Mp
-        else:
-            M[solver_name] = M0[solver_name]
+        # Prior information (only if requested AND a real V exists for this model):
+        # V (physical units) -> V_x = V / outer(thetac, thetac) on the free parameters,
+        # Mp = inv(V_x + 1e-8 * diag(diag(V_x))) (regularisation relative to each variance).
+        Mp = None
+        if des_opt.get('priors', False):
+            Mp = _prior_information(V_matrix.get(solver_name), thetac, free_params_indices)
+        M[solver_name] = M0[solver_name] + Mp if Mp is not None else M0[solver_name]
 
     # =====================================================================
     # CRITERION-SPECIFIC OBJECTIVE COMPUTATION
@@ -1660,7 +1657,13 @@ def _pp_runner(
         pp_obj = np.linalg.det(M[solver_name])
 
     elif MBDOE_PP_criterion == 'A':
-        pp_obj = np.trace(M[solver_name])
+        # A-optimality (paper eq. 15): minimise tr(M^-1). pp_obj is maximised (f = -pp_obj in _pp_of),
+        # so pp_obj = -tr(M^-1). No pinv: a singular / ill-conditioned M gives NaN -> 1e6 penalty.
+        try:
+            Minv = np.linalg.inv(M[solver_name])
+            pp_obj = -np.trace(Minv) if np.linalg.cond(M[solver_name]) < 1e12 else np.nan
+        except np.linalg.LinAlgError:
+            pp_obj = np.nan
 
     elif MBDOE_PP_criterion == 'E':
         pp_obj = np.min(np.linalg.eigvalsh(M[solver_name]))
@@ -1786,7 +1789,10 @@ def _pp_runner(
             fidelity = distinguishability = gradient_norm = 0.0
 
     else:
-        pp_obj = None
+        raise ValueError(
+            f"des_opt['pp_ob'] = {MBDOE_PP_criterion!r} is not supported; valid values are "
+            f"['D', 'A', 'E', 'ME', 'ORB', 'SEM']."
+        )
 
     # =====================================================================
     # METRICS COLLECTION (for convergence tracking)
@@ -1806,7 +1812,7 @@ def _pp_runner(
         solver_name=solver_name,
         true_parameter_values=theta_true,
         nominal_parameter_values=nominal_theta,
-        parameter_normalization_values=nominal_theta,
+        parameter_normalization_values=np.abs(nominal_theta),
     )
 
     # Per-parameter eigenvalue diagnostics

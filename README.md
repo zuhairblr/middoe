@@ -242,7 +242,9 @@ MIDDoE provides a comprehensive set of tutorials and case studies demonstrating 
 - 🪨 **Mineral Systems**  
 - ⚗️ **Chemical Processes**  
 
-📝 **Documentation** will be available soon to guide users through package functionalities.
+📝 **Documentation** is available at [middoe.readthedocs.io](https://middoe.readthedocs.io/en/latest/), covering installation, the data-file and model-file formats, all configuration dictionaries and the full API reference.
+
+📂 **Case studies** are in the repository under [`tests/paper1`](https://github.com/zuhairblr/middoe/tree/main/tests/paper1) and [`tests/paper3`](https://github.com/zuhairblr/middoe/tree/main/tests/paper3); the case studies of the MIDDoE paper are collected in [`tests/middoe_paper`](https://github.com/zuhairblr/middoe/tree/main/tests/middoe_paper).
 
 ---
 
@@ -321,7 +323,7 @@ We warmly thank the research community for their valuable feedback and ongoing c
 - Documentation: [https://middoe.readthedocs.io/en/latest/](https://middoe.readthedocs.io/en/latest/)  
 - Published Paper: [https://doi.org/10.1016/j.dche.2025.100276](https://doi.org/10.1016/j.dche.2025.100276)  
 - Issues & Support: [https://github.com/zuhairblr/middoe/issues](https://github.com/zuhairblr/middoe/issues)  
-- Case Studies and Examples: [https://github.com/zuhairblr/middoe/tree/main/tests/paper](https://github.com/zuhairblr/middoe/tree/main/tests/paper)
+- Case Studies and Examples: [tests/paper1](https://github.com/zuhairblr/middoe/tree/main/tests/paper1), [tests/paper3](https://github.com/zuhairblr/middoe/tree/main/tests/paper3), and the MIDDoE paper case studies in [tests/middoe_paper](https://github.com/zuhairblr/middoe/tree/main/tests/middoe_paper)
 
 
 ---

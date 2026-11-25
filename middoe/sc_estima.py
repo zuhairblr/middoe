@@ -327,16 +327,16 @@ def estima(result, system, models, iden_opt, round):
             - Same structure as uncert() output
             - Parameters ranked beyond k_optimal are fixed
 
-    Side Effects
-    ------------
+    Notes
+    -----
+    **Side Effects**:
+
     - Updates models['mutation'][solver] with optimal parameter mask
     - Updates models['theta'][solver] with re-estimated parameter values
     - Updates models['V_matrix'][solver] with covariance for active parameters
     - Temporarily modifies iden_opt settings (restored before return)
     - Generates rCC vs k plots via plot_rCC_vs_k()
 
-    Notes
-    -----
     **Estimability Analysis Workflow**:
         1. **Parameter Ranking**: Use orthogonal decomposition to rank parameters
            by their independent contribution to sensitivity (parameter_ranking())
@@ -348,14 +348,17 @@ def estima(result, system, models, iden_opt, round):
     **Corrected Critical Ratio (rCC)**:
     The rCC metric quantifies the trade-off between model fit and parameter
     uncertainty. For k parameters estimated:
+
         \[
         rCC(k) = \frac{n_{params} - k}{n_{obs}} \left( rCK_{ub} - 1 \right)
         \]
+
     where rCK_{ub} is an upper bound on the corrected Kubáček criterion accounting
     for bias introduced by fixing parameters.
 
     **Why Subset Selection?**:
     Full parameter sets often lead to:
+
         - **Ill-conditioning**: High parameter correlations (multicollinearity)
         - **Overfitting**: Model captures noise rather than signal
         - **Large uncertainties**: Poor parameter determination
@@ -373,6 +376,7 @@ def estima(result, system, models, iden_opt, round):
 
     **Temporary Setting Modifications**:
     During subset evaluation:
+
         - var-cov='M' (measurement-based, fast)
         - init=None (use previous round values)
         - log=False (suppress verbose output)
@@ -381,25 +385,26 @@ def estima(result, system, models, iden_opt, round):
 
     **Integration with MBDoE**:
     Estimability analysis is typically run after preliminary experiments to:
+
         - Identify which parameters require more informative data
         - Guide next-round experimental design
         - Prevent wasting experiments on non-estimable parameters
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Yao, K.Z., Shaw, B.M., Kou, B., McAuley, K.B., & Bacon, D.W. (2003).
+    2. Yao, K.Z., Shaw, B.M., Kou, B., McAuley, K.B., & Bacon, D.W. (2003).
        Modeling ethylene/butene copolymerization with multi-site catalysts:
        Parameter estimability and experimental design.
        *Polymer Reaction Engineering*, 11(3), 563–588.
        https://doi.org/10.1081/PRE-120024426
 
-    .. [3] Wu, S., McLean, K.A.P., Harris, T.J., & McAuley, K.B. (2011).
+    3. Wu, S., McLean, K.A.P., Harris, T.J., & McAuley, K.B. (2011).
        Selection of optimal parameter set using estimability analysis and MSE-based
        model-selection criterion.
        *International Journal of Advanced Mechatronic Systems*, 3(3), 188-197.
@@ -441,7 +446,8 @@ def estima(result, system, models, iden_opt, round):
     rCC_values = {}
     J_k_values = {}
 
-    # Temporarily modify settings for fast iterative evaluation
+    # Temporarily modify settings for fast iterative evaluation (restored before return)
+    log_orig = iden_opt.get('log', False)
     iden_opt['init'] = None
     iden_opt['log'] = False
     modelsbase = copy.deepcopy(models)
@@ -453,11 +459,23 @@ def estima(result, system, models, iden_opt, round):
 
     print(f"Estimability analysis for round {round} is running")
 
+    varcovorig = iden_opt.get('var-cov', 'H')
+    best_uncert_result = None
     for solver, res in result.items():
-        varcovorig = iden_opt['var-cov']
         iden_opt['var-cov'] = 'M'  # Fast measurement-based covariance
         meth = iden_opt['meth']
-        Z = res['LSA']
+        # Scaled sensitivities (paper S10): q_ij = dy_i/dtheta_j * sigma_theta_j / sigma_y_i,
+        # with the nominal |theta| as prior scale, so the ranking is unit-independent.
+        opt = res['optimization_result']
+        active = np.asarray(opt['activeparams'], bool)
+        theta_act = np.abs(np.asarray(opt['scpr'], float)[active])
+        sigma_rows = res.get('sigma_rows')
+        if sigma_rows is None:
+            sigma_rows = opt.get('sigma_rows') if isinstance(opt, dict) else None
+        if sigma_rows is None:
+            raise KeyError(f"estima: per-row sigma ('sigma_rows') missing for model '{solver}'; "
+                           f"pass the 'results' of the current uncert()")
+        Z = np.asarray(res['LSA'], float) * theta_act[None, :] / np.asarray(sigma_rows, float)[:, None]
         n_parameters = Z.shape[1]
 
         # Rank parameters by estimability
@@ -484,7 +502,7 @@ def estima(result, system, models, iden_opt, round):
             models['V_matrix'][solver] = best_uncert_result['results'][solver]['V_matrix']
 
     # Restore original settings
-    iden_opt['log'] = True
+    iden_opt['log'] = log_orig
     iden_opt['init'] = None
     iden_opt['var-cov'] = varcovorig
 
@@ -506,6 +524,7 @@ def parameter_ranking(Z):
         Local sensitivity array (Jacobian matrix):
             - m: number of observations (measurements)
             - n: number of parameters
+
         Each column Z[:,j] represents the sensitivity of all observations to
         parameter j: \( Z_{ij} = \frac{\partial y_i}{\partial \theta_j} \).
 
@@ -519,7 +538,9 @@ def parameter_ranking(Z):
     -----
     **Algorithm (Greedy Gram-Schmidt)**:
     For k = 1 to n:
+
         1. For each remaining parameter j:
+
            - Compute residual: \( r_j = Z_j - Q Q^T Z_j \)
            - Compute norm: \( \|r_j\| \)
         2. Select j* = argmax \( \|r_j\| \)
@@ -557,7 +578,7 @@ def parameter_ranking(Z):
 
     References
     ----------
-    .. [1] Golub, G. H., & Van Loan, C. F. (2013).
+    1. Golub, G. H., & Van Loan, C. F. (2013).
        *Matrix Computations* (4th ed.), Section 5.2. Johns Hopkins University Press.
 
     See Also
@@ -676,16 +697,18 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     -----
     **Corrected Critical Ratio (rCC)**:
     For k parameters estimated (n-k fixed):
+
         \[
         rCC(k) = \frac{n-k}{n_{obs}} \left( rCK_{ub} - 1 \right)
         \]
+
     where:
         \[
         rCK_{ub} = \max\left( rC - 1, \frac{2 rC}{n-k+2} \right)
         \]
     and:
         \[
-        rC = \frac{J_k - J_\theta}{n - k}
+        rC = \frac{J_k - J_{\theta}}{n - k}
         \]
 
     **Interpretation**:
@@ -712,6 +735,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     **Computational Cost**:
     Requires n-1 parameter estimations, each solving a nonlinear optimization
     problem. For expensive models, consider:
+
         - Using faster solver during evaluation (already done: var-cov='M')
         - Reducing iterations (iden_opt['maxit'])
         - Parallel evaluation (if multiple solvers)
@@ -722,11 +746,11 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
 
     References
     ----------
-    .. [1] Kubáček, L. (1996).
+    1. Kubáček, L. (1996).
        On a linearization of regression models.
        *Applications of Mathematics*, 41(6), 439-456.
 
-    .. [2] Brun, R., Reichert, P., & Künsch, H. R. (2001).
+    2. Brun, R., Reichert, P., & Künsch, H. R. (2001).
        Practical identifiability analysis of large environmental simulation models.
        *Water Resources Research*, 37(4), 1015-1030.
 
@@ -779,15 +803,17 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
         models_k.pop('normalized_parameters', None)
         iden_opt_k = copy.deepcopy(iden_opt)
 
-        # Build mask for top-k parameters
-        selected_mask = [False] * len(ranking_known)
+        # Build mask for top-k parameters (ranking indexes the active columns;
+        # map back to global parameter positions)
+        active = np.where(models['mutation'][solvera])[0]
+        selected_mask = [False] * len(models['mutation'][solvera])
         for i in range(k):
-            selected_mask[ranking_known[i]] = True
+            selected_mask[active[ranking_known[i]]] = True
         models_k['mutation'][solvera] = selected_mask
 
         # Estimate and compute uncertainty
-        results_k = parmest(system_k, models_k, iden_opt_k, case='freeze')
-        uncert_k = uncert(results_k, system_k, models_k, iden_opt_k, case='freeze')
+        results_k = parmest(system_k, models_k, iden_opt_k, case='freeze', data=data)
+        uncert_k = uncert(results_k, system_k, models_k, iden_opt_k, case='freeze', data=data)
         uncert_results_list.append(uncert_k)
 
         # Extract metrics
@@ -814,7 +840,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
 
     # If all parameters selected, use baseline result
     if k_optimal == n_parameters:
-        best_uncert = result
+        best_uncert = {'results': result, 'obs': None}
     else:
         # Re-run for optimal k with original settings
         system_best = copy.deepcopy(system)
@@ -822,10 +848,11 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
         models_best.pop('normalized_parameters', None)
         iden_opt_best = copy.deepcopy(iden_opt)
 
-        # Apply optimal mask
-        selected_mask = [False] * len(ranking_known)
+        # Apply optimal mask (global positions)
+        active = np.where(models['mutation'][solvera])[0]
+        selected_mask = [False] * len(models['mutation'][solvera])
         for i in range(k_optimal):
-            selected_mask[ranking_known[i]] = True
+            selected_mask[active[ranking_known[i]]] = True
         models_best['mutation'][solvera] = selected_mask
 
         # Restore original settings for best quality
@@ -833,8 +860,8 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
         iden_opt_best['meth'] = meth
 
         # Execute final estimation and uncertainty
-        best_results = parmest(system_best, models_best, iden_opt_best, case='freeze')
-        best_uncert = uncert(best_results, system_best, models_best, iden_opt_best, case='freeze')
+        best_results = parmest(system_best, models_best, iden_opt_best, case='freeze', data=data)
+        best_uncert = uncert(best_results, system_best, models_best, iden_opt_best, case='freeze', data=data)
 
     # Visualize results
     plot_rCC_vs_k(x_values, rCC_values, round, solvera)

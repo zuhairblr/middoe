@@ -679,6 +679,9 @@
 
 
 from middoe.des_utils import _slicer, _reporter,  configure_logger
+from middoe.des_utils import (_validate_des_inputs, _theta_scaling, _sigma_y, _theta_cov_x,
+                              _sampling_constraint_list, _sampling_constraint_value, _sampling_gaps,
+                              _dead_time)
 from functools import partial
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.operators.sampling.lhs import LHS
@@ -712,38 +715,55 @@ def mbdoe_md(
     ----------
     des_opt : dict
         Optimisation settings, including:
-            - 'mdob' : str
-                Discrimination criterion:
+            - 'md_ob' : str
+                Discrimination criterion ('HR' or 'BFF'; any other value raises ValueError):
                     * 'HR': Hunter-Reiner T-optimality
                         Maximises sum of squared differences between model predictions
                         across all time points and measured outputs. Suitable for
                         discriminating models with significant structural differences.
 
-                    * 'BFF': Buzzi-Ferraris-Forzatti T-optimality
-                        Alternative T-optimality criterion with different weighting
-                        scheme for model divergence computation. Accounts for signal
-                        magnitude in discrimination objective.
+                    * 'BFF': Buzzi-Ferraris-Forzatti criterion
+                        Sum over the designed sampling times (union of St; at each time
+                        only the responses sampled there) of
+                        d^T (Sigma_y + W_1 + W_2)^-1 d, with d the prediction difference
+                        and W_l = Q_l V_l Q_l^T, V_l = models['V_matrix'][l] (physical
+                        units, converted to normalised units). A model without V
+                        contributes W = 0. A singular S is penalised (worst value).
 
             - 'itr' : dict
                 Iteration controls:
                     * 'maxmd': int — maximum iterations
-                    * 'toldmd': float — convergence tolerance
+                    * 'tolmd': float — constraint tolerance passed to pymoo
                     * 'pps': int — population size
             - 'eps' : float
-                Perturbation step size for numerical derivatives.
+                Perturbation step size for numerical derivatives (normalised parameter
+                units, > 0). Required; None raises ValueError.
             - 'plt' : bool
                 Enable plotting of results.
             - 'meth' : str, optional
-                Optimisation method ('DE', 'PS', 'DEPS').
+                Optimisation method ('PS', 'DE', 'DEPS'; default 'PS'). The paper-era
+                keys 'L', 'G', 'GL' are accepted as aliases of 'PS', 'DE', 'DEPS'.
+
+        The dict passed in is not modified.
 
     system : dict
         System model and constraints:
             - 't_s' : tuple[float, float]
                 Start and end times (ti, tf).
-            - 't_d' : tuple[float, float]
-                Restricted initial/final intervals (dead time).
+            - 't_d' : float
+                Dead time (scalar, time units, default 0): switching and free sampling
+                times are restricted to [t_d, tf - t_d].
             - 't_r' : float
-                Time resolution for simulation.
+                Time resolution for simulation. Two samples of a response are at least
+                max(offt, t_r) apart (also free vs forced samples), checked after
+                snapping to the grid.
+            - 'errt' : str, optional
+                Default measurement-error type: 'abs' (default; 'unc' is an absolute
+                standard deviation) or 'rel' (sigma = ``unc * |y_hat|``, with y_hat the mean
+                of the two models' ``|predictions|`` in BFF). Per-response override:
+                system['tvo'][var]['errt'].
+            - 'sigma_floor' : float, optional
+                Lower bound of the relative-error sigma (default 1e-6).
             - 'tvi' : dict
                 Time-variant input definitions with keys:
                     * 'max', 'min': float — bounds
@@ -762,7 +782,9 @@ def mbdoe_md(
                     * 'offt': float — minimum time between samples
                     * 'samp_s': str — sampling synchronisation group
                     * 'samp_f': list[float] — forced sampling times
-                    * 'unc': float — measurement uncertainty (standard deviation)
+                    * 'unc': float — measurement standard deviation (errt='abs') or
+                      relative fraction (errt='rel')
+                    * 'errt': str, optional — 'abs' or 'rel'
             - 'tio' : dict
                 Time-invariant output definitions.
 
@@ -771,11 +793,13 @@ def mbdoe_md(
             - 'can_m' : list[str]
                 Competing models to discriminate (active solver names).
             - 'theta' : dict[str, list[float]]
-                Nominal parameter values for each model.
+                Nominal parameter values for each model (non-zero; negative values keep
+                their sign).
             - 'mutation' : dict[str, list[bool]]
                 Parameter masks indicating which parameters are free (True) vs fixed (False).
             - 'V_matrix' : dict[str, np.ndarray], optional
-                Parameter covariance matrices (default: diagonal with small values).
+                Parameter covariance matrices in physical units (as written by uncert),
+                used by BFF. A missing model means W = 0 for that model.
 
     round : int
         Current experimental design round (used for logging/reporting).
@@ -815,6 +839,7 @@ def mbdoe_md(
     representative model.
 
     **Workflow for Model Discrimination:**
+
     1. Calibrate all candidate models on available data
     2. Design discriminative experiment using MBDoE-MD (HR or BFF criterion)
     3. Conduct designed experiment
@@ -832,18 +857,18 @@ def mbdoe_md(
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Hunter, W.G., & Reiner, A.M. (1965).
+    2. Hunter, W.G., & Reiner, A.M. (1965).
        Designs for discriminating between two rival models.
        *Technometrics*, 7(3), 307–323.
        https://doi.org/10.2307/1266591
 
-    .. [3] Buzzi-Ferraris, G., & Forzatti, P. (1984).
+    3. Buzzi-Ferraris, G., & Forzatti, P. (1984).
        Sequential experimental design for model discrimination in the case of
        multiple responses. *Chemical Engineering Science*, 39(1), 81-85.
        https://doi.org/10.1016/0009-2509(84)80132-3
@@ -875,7 +900,7 @@ def mbdoe_md(
     ...         'X0': {'min': 0.19, 'max': 0.595}
     ...     },
     ...     't_s': (0.0, 20.0),
-    ...     't_d': (1.0, 1.0)
+    ...     't_d': 1.0
     ... }
     >>>
     >>> # Define 4 competing models (after calibration)
@@ -899,9 +924,9 @@ def mbdoe_md(
     >>>
     >>> # Configure MBDoE-MD with Hunter-Reiner criterion
     >>> des_opt = {
-    ...     'mdob': 'HR',
+    ...     'md_ob': 'HR',
     ...     'meth': 'DEPS',
-    ...     'itr': {'maxmd': 5000, 'toldmd': 1e-8, 'pps': 50},
+    ...     'itr': {'maxmd': 5000, 'tolmd': 1e-8, 'pps': 50},
     ...     'eps': 0.01,
     ...     'plt': True
     ... }
@@ -916,6 +941,9 @@ def mbdoe_md(
     >>> print(f"Sampling times: {design['St']['X']}")
     >>> print(f"HR discrimination value: {design['md_obj']:.4e}")
     """
+    # Validate up front (clear ValueError instead of a 1e6 penalty at every point); works on a copy.
+    des_opt = _validate_des_inputs(des_opt, system, models, 'md')
+
     if num_parallel_runs > 1:
         with Pool(num_parallel_runs) as pool:
             results_list = pool.map(
@@ -1051,8 +1079,11 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     _runner_md : Simulation kernel for design evaluation.
     _reporter : Result formatting and visualisation.
     """
+    # Idempotent; also covers direct calls that bypass mbdoe_md.
+    des_opt = _validate_des_inputs(des_opt, system, models, 'md')
+
     tf = system['t_s'][1]
-    ti = system['t_s'][0]
+    ti = _dead_time(system)  # dead time t_d (scalar), as in MBDoE-PP
 
     tv_iphi_vars = list(system['tvi'].keys())
     tv_iphi_max = [system['tvi'][var]['max'] for var in tv_iphi_vars]
@@ -1086,20 +1117,8 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
     tolmd = des_opt['itr']['tolmd']
     eps = des_opt['eps']
 
-    # Ensure V_matrix is a dict of solver -> NumPy array (for indexing safety)
-    if 'V_matrix' in models:
-        V_matrix = {
-            solver: np.array(models['V_matrix'][solver])
-            for solver in models['can_m']
-        }
-    else:
-        V_matrix = {
-            solver: np.array([
-                [1e-50 if i == j else 0 for j in range(len(models['theta'][solver]))]
-                for i in range(len(models['theta'][solver]))
-            ])
-            for solver in models['can_m']
-        }
+    # No placeholder covariance: BFF reads models.get('V_matrix', {}).get(solver) inside
+    # _runner_md; a model without V contributes W = 0.
 
     # Ensure mutation is a dict of solver -> list[bool]
     if 'mutation' in models:
@@ -1111,7 +1130,7 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
         }
     population_size = des_opt['itr']['pps']
     pltshow = des_opt['plt']
-    optmethod = des_opt.get('meth', 'L')
+    optmethod = des_opt['meth']  # validated / alias-mapped, default 'PS'
 
     result, index_dict = _optimiser_md(
         tv_iphi_vars, tv_iphi_seg, tv_iphi_max, tv_iphi_min, tv_iphi_const,
@@ -1128,7 +1147,12 @@ def _run_single_md(des_opt, system, models, core_number=0, round=round):
 
     x_final = getattr(result, 'X', getattr(result, 'x', None))
     if x_final is None:
-        raise ValueError("Optimization result has neither 'X' nor 'x' attribute.")
+        raise RuntimeError(
+            f"MBDoE-MD: the optimiser '{optmethod}' found no feasible design (it returned no solution). "
+            "Check that the design constraints can all be met together: input bounds (min <= max), "
+            "minimum gaps between switches/samples ('offl'/'offt'), number of samples vs. the batch "
+            "time, and forced samples ('samp_f'). Increasing des_opt['itr']['pps'] or 'maxmd' can "
+            "also help.")
 
     try:
         phi, swps, St, md_obj, t_values, tv_ophi_dict, ti_ophi_dict, phit = _runner_md(
@@ -1369,10 +1393,12 @@ def _optimiser_md(
         for j in range(len(idxs) - 1):
             constraint_index_list.append(('t', i, idxs[j], idxs[j + 1]))
 
-    for i, name in enumerate(tv_ophi_vars):
-        idxs = index_dict['st'][name]
-        for j in range(len(idxs) - 1):
-            constraint_index_list.append(('st', i, idxs[j], idxs[j + 1]))
+    # Sampling times: consecutive free samples ('st') and free vs forced samples ('stf'), with a
+    # minimum gap of max(offt, t_r)/tf evaluated on the grid-snapped times.
+    constraint_index_list.extend(
+        _sampling_constraint_list(tv_ophi_vars, index_dict, tv_ophi_sampling, tv_ophi_forcedsamples))
+    st_gaps = _sampling_gaps(tv_ophi_offsett_ophi, tf, system['t_r'])
+    tlin_grid = np.linspace(0, 1, int(round(tf / system['t_r'])) + 1)
 
     total_constraints = len(constraint_index_list)
 
@@ -1411,9 +1437,8 @@ def _optimiser_md(
                 elif kind == 't':
                     offs = tv_iphi_offsett[i]
                     g.append(offs - (x[i2] - x[i1]))
-                elif kind == 'st':
-                    offs = tv_ophi_offsett_ophi[i]
-                    g.append(offs - (x[i2] - x[i1]))
+                elif kind in ('st', 'stf'):
+                    g.append(_sampling_constraint_value(kind, x, i1, i2, st_gaps[i], tlin_grid))
             out['F'] = f_val
             out['G'] = np.array(g, dtype=np.float64)
 
@@ -1421,7 +1446,8 @@ def _optimiser_md(
 
     if optmethod == 'PS':
         algorithm = PatternSearch()
-        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxmd), seed=None, verbose=True)
+        res_refine = pymoo_minimize(problem, algorithm, termination=('n_gen', maxmd), seed=None, verbose=True,
+                                    constraint_tolerance=tolmd)
 
     elif optmethod == 'DE':
         algorithm = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.7)
@@ -1458,7 +1484,7 @@ def _optimiser_md(
         )
 
     else:
-        raise ValueError("optmethod must be 'L', 'G', or 'GL'")
+        raise ValueError(f"optmethod must be 'PS', 'DE' or 'DEPS' (aliases 'L', 'G', 'GL'), got {optmethod!r}")
 
     return res_refine, index_dict
 
@@ -1658,15 +1684,21 @@ def _runner_md(
         J_{\text{HR}} = \sum_{i<j} \sum_{t \in S_t} \sum_{y} (y_i(t) - y_j(t))^2
         \]
 
-    **BFF (Bayesian-Frequentist Fusion) Criterion:**
+    **BFF (Buzzi-Ferraris & Forzatti) Criterion:**
         Accounts for parameter uncertainty via local sensitivity analysis:
 
         \[
-        J_{\text{BFF}} = \sum_{i<j} \sum_{t} (y_i - y_j)^T S^{-1} (y_i - y_j)
+        J_{\text{BFF}} = \sum_{i<j} \sum_{t \in S_t} (y_i - y_j)^T S^{-1} (y_i - y_j)
         \]
 
         where \( S = \Sigma_y + W_i + W_j \) combines measurement noise and
-        parameter-induced covariance (\( W = V \Sigma_{\theta}^{-1} V^T \)).
+        parameter-induced covariance (\( W = Q V_x Q^T \), Q the sensitivities with
+        respect to the normalised parameters and \( V_x = V / (\theta_c \theta_c^T) \)
+        the covariance from ``models['V_matrix']`` in the same units; W = 0 for a
+        model without V). The sum runs over the designed sampling times (union of
+        St over responses); at each time only the responses sampled there enter
+        d and S. A singular S makes the objective NaN, which _md_of maps to the
+        worst value (1e6 for the minimised -J).
 
     The function logs the objective value via the configured logger.
 
@@ -1700,8 +1732,8 @@ def _runner_md(
     phit_interp = {}
 
     for solver_name in active_solvers:
-        thetac = theta_parameters[solver_name]
-        theta = np.array([1.0] * len(thetac))
+        # theta = |theta_nominal| * x with x0 = sign(theta_nominal); zero nominal values raise
+        thetac, theta = _theta_scaling(theta_parameters[solver_name], name=solver_name)
         ti_iphi_data = ti
         swps_data = swps
         phisc = {var: ti_iphi_max[i] for i, var in enumerate(ti_iphi_vars)}
@@ -1764,40 +1796,66 @@ def _runner_md(
                     md_obj += np.sum((y1[mask] - y2[mask]) ** 2)
 
     elif design_criteria == 'BFF':
-        std_dev = {}
-        for var in tv_ophi_vars:
-            unc = system.get('tvo', {}).get(var, {}).get('unc', 1.0)
-            if unc is None or np.isnan(unc):
-                unc = 1.0
-            std_dev[var] = unc
+        V_models = (models.get('V_matrix') or {}) if isinstance(models, dict) else {}
 
-        Sigma_y = np.diag([std_dev[var] ** 2 for var in tv_ophi_vars])
+        def _vtheta_x(s):
+            # free parameters and V in normalised units (zeros when the model has no V)
+            free = [k for k, v in enumerate(mutation[s]) if v]
+            Vx = _theta_cov_x(V_models.get(s), theta_parameters[s], free)
+            if Vx is None:
+                Vx = np.zeros((len(free), len(free)))
+            return free, Vx
+
+        # Designed sampling indices only (union over responses); at each time only the
+        # responses sampled there.
+        t_sel = sorted({int(k) for mask in indices.values() for k in np.flatnonzero(mask)})
 
         for i, s1 in enumerate(active_solvers):
+            free_s1, Vx1 = _vtheta_x(s1)
             for s2 in active_solvers[i+1:]:
-                for t_idx, t in enumerate(t_values):
-                    y1 = np.array([y_values_dict[s1][var][t_idx] for var in tv_ophi_vars])
-                    y2 = np.array([y_values_dict[s2][var][t_idx] for var in tv_ophi_vars])
+                free_s2, Vx2 = _vtheta_x(s2)
+                for t_idx in t_sel:
+                    vt = [var for var in tv_ophi_vars if indices[var][t_idx]]
+                    y1 = np.array([y_values_dict[s1][var][t_idx] for var in vt])
+                    y2 = np.array([y_values_dict[s2][var][t_idx] for var in vt])
                     diff = y1 - y2
 
-                    # Sensitivity matrices at time t
-                    free_s1 = [i for i, v in enumerate(mutation[s1]) if v]
-                    thetac_s1 = np.array(theta_parameters[s1])[free_s1]
-                    V1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in tv_ophi_vars])
-                    Sigma_theta_s1_inv = np.diag(1.0 / (thetac_s1 ** 2 + 1e-50))
-                    W1 = V1 @ Sigma_theta_s1_inv @ V1.T
+                    # measurement sigma: absolute 'unc', or relative to the mean |prediction|
+                    sig = np.array([
+                        _sigma_y(system, var, 0.5 * (abs(a) + abs(b)))
+                        for var, a, b in zip(vt, y1, y2)
+                    ], dtype=float)
+                    Sigma_y = np.diag(sig ** 2)
 
-                    free_s2 = [i for i, v in enumerate(mutation[s2]) if v]
-                    thetac_s2 = np.array(theta_parameters[s2])[free_s2]
-                    V2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in tv_ophi_vars])
-                    Sigma_theta_s2_inv = np.diag(1.0 / (thetac_s2 ** 2 + 1e-50))
-                    W2 = V2 @ Sigma_theta_s2_inv @ V2.T
+                    # Sensitivities (normalised parameters) at time t
+                    Q1 = np.array([[LSA[var][s1][p][t_idx] for p in free_s1] for var in vt]).reshape(len(vt), len(free_s1))
+                    Q2 = np.array([[LSA[var][s2][p][t_idx] for p in free_s2] for var in vt]).reshape(len(vt), len(free_s2))
+                    W1 = Q1 @ Vx1 @ Q1.T
+                    W2 = Q2 @ Vx2 @ Q2.T
 
+                    S = Sigma_y + W1 + W2
+                    # A singular S must not be rewarded in the maximised objective: NaN -> worst
+                    # value in _md_of. The condition check is done on the diagonally scaled S so
+                    # that responses with very different magnitudes are not flagged.
+                    d = np.sqrt(np.diag(S))
+                    if not np.all(np.isfinite(d)) or np.any(d <= 0):
+                        md_obj = np.nan
+                        break
+                    Sn = S / np.outer(d, d)
                     try:
-                        S = Sigma_y + W1 + W2
-                        md_obj += diff.T @ np.linalg.inv(S) @ diff
+                        if np.linalg.cond(Sn) >= 1e12:
+                            raise np.linalg.LinAlgError("ill-conditioned S")
+                        md_obj += float(diff @ np.linalg.solve(S, diff))
                     except np.linalg.LinAlgError:
-                        md_obj += 1e6  # Penalise ill-conditioned cases
+                        md_obj = np.nan
+                        break
+                if np.isnan(md_obj):
+                    break
+            if np.isnan(md_obj):
+                break
+
+    else:
+        raise ValueError(f"des_opt['md_ob'] = {design_criteria!r} is not supported; valid values are ['HR', 'BFF'].")
 
     logger = configure_logger()
     logger.info(f"mbdoe-MD:{design_criteria} is running with {md_obj:.4f}")

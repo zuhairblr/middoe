@@ -592,12 +592,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from middoe.log_utils import  read_excel
+from middoe.iden_parmest import _normalize_iden_opt, _match_times, _check_sigma_fallback
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def uncert(resultpr, system, models, iden_opt, case=None):
+def uncert(resultpr, system, models, iden_opt, case=None, data=None):
     r"""
     Perform comprehensive uncertainty and sensitivity analysis on parameter estimation results.
 
@@ -654,14 +655,22 @@ def uncert(resultpr, system, models, iden_opt, case=None):
                                  requires 2 evaluations per parameter)
                     * 'forward': Forward finite difference (first-order accuracy,
                                  requires 1 evaluation per parameter)
-                Default: 'central'.
+
+                Default: 'central'. Any other value raises ValueError.
 
             - 'var-cov' : str, optional
                 Covariance method (from paper Table S3):
-                    * 'H': Hessian-based (from optimizer, local approximation)
-                    * 'J': Jacobian-based (from sensitivity matrix, local approximation)
+                    * 'H': Hessian-based (numerical Hessian of the objective computed
+                           by parmest with var-cov='H'; scaled by the objective:
+                           WLS 2*H^-1, MLE H^-1, LS/Chi 2*(fun/dof)*H^-1)
+                    * 'M': Jacobian/FIM-based, (Q^T W Q)^-1 (alias 'J')
                     * 'B': Bootstrap-based (global, requires var-cov='B' in parmest)
-                Default: 'J' if not specified.
+
+                Default: 'H' if not specified.
+
+            - 'ob' : str, optional
+                Objective used in parmest ('LS', 'WLS', 'MLE', 'Chi'; alias 'CS').
+                Needed for var-cov='H'.
 
             - 'eps' : float or dict[str, float], optional
                 Finite-difference step size. If None, automatically determined via
@@ -673,6 +682,10 @@ def uncert(resultpr, system, models, iden_opt, case=None):
         Analysis mode:
             - None: Update models dictionary in-place with results.
             - Any other value: Return results without modifying models.
+
+    data : dict, optional
+        Experimental data ``{sheet_name: DataFrame}``. If None (default) the data
+        are read from ``data.xlsx`` in the working directory.
 
     Returns
     -------
@@ -692,8 +705,11 @@ def uncert(resultpr, system, models, iden_opt, case=None):
                         Maximum Likelihood Estimation objective.
                     * 'MSE' : float
                         Mean Squared Error.
-                    * 'CS' : float
-                        Chi-squared statistic.
+                    * 'Chi' : float
+                        Relative least squares, ``sum(((y - y_hat)/max(|y|, sigma))^2)``
+                        (the same 'Chi' as minimised by parmest).
+                    * 'sigma_rows' : np.ndarray
+                        Per-row measurement sigma used (rows of 'LSA').
                     * 'LSA' : np.ndarray, shape (n_observations, n_active_params)
                         Local Sensitivity Analysis matrix (Jacobian).
                     * 'Z' : np.ndarray
@@ -733,6 +749,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     -----
     **Sensitivity Analysis**:
     The Local Sensitivity Analysis (LSA) matrix is computed via finite differences:
+
         - **Forward**: \( \frac{\partial y}{\partial \theta_i} \approx \frac{y(\theta + h e_i) - y(\theta)}{h} \)
         - **Central**: \( \frac{\partial y}{\partial \theta_i} \approx \frac{y(\theta + h e_i) - y(\theta - h e_i)}{2h} \)
 
@@ -740,15 +757,15 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     **Variance-Covariance Estimation Methods** (from paper Table S3):
 
-        - **'H' (Hessian-based)**: Local uncertainty from optimizer's Hessian matrix.
-          \[
-          \mathbf{V} = \sigma^2 \mathbf{H}^{-1}
-          \]
-          where \( \sigma^2 \) is estimated from residual variance.
-          Advantages: Fast, automatic from optimizer
-          Disadvantages: Assumes local linearity, may be inaccurate for ill-conditioned problems
+        - **'H' (Hessian-based)**: Local uncertainty from the Hessian \( \mathbf{H} \) of the
+          fitted objective at the optimum (computed by ``parmest`` with finite differences):
+          \( \mathbf{V} = 2\mathbf{H}^{-1} \) for 'WLS', \( \mathbf{V} = \mathbf{H}^{-1} \) for
+          'MLE', and \( \mathbf{V} = 2 (f/\nu) \mathbf{H}^{-1} \) for 'LS' and 'Chi', where
+          \( f \) is the objective value and \( \nu \) the degrees of freedom.
+          Advantages: includes the curvature of the real objective.
+          Disadvantages: needs a well-converged fit (use a tight 'tol').
 
-        - **'J' (Jacobian-based)**: Local uncertainty from Fisher Information Matrix.
+        - **'M' (Fisher-matrix based, alias 'J')**: Local uncertainty from the Fisher Information Matrix.
           \[
           \mathbf{M} = \mathbf{Q}^T \mathbf{W} \mathbf{Q}, \quad \mathbf{V} = \mathbf{M}^{-1}
           \]
@@ -756,38 +773,48 @@ def uncert(resultpr, system, models, iden_opt, case=None):
           Advantages: More robust than Hessian for parameter-sensitive models
           Disadvantages: Requires explicit sensitivity computation
 
-        - **'B' (Bootstrap)**: Global uncertainty via residual resampling.
+        - **'B' (Bootstrap)**: Uncertainty from refitting resampled data sets (pairs bootstrap).
           Accounts for parameter bounds via truncated normal correction.
           Advantages: Most robust, accounts for non-linearity
           Disadvantages: Computationally expensive, requires running parmest with var-cov='B'
 
     **Confidence Intervals**:
     95% confidence intervals are computed using t-distribution:
+
         \[
         CI_i = t_{0.975, \nu} \cdot \sqrt{V_{ii}}
         \]
+
     where \( \nu = n_{obs} - n_{params} \) is degrees of freedom.
 
     **t-Statistics**:
     Parameter significance is tested via:
+
         \[
         t_i = \frac{\theta_i}{\sqrt{V_{ii}}}
         \]
-    Large \( |t_i| \) (typically > 1.96 for 95% confidence) indicates the parameter
+
+    Large :math:`|t_i|` (typically > 1.96 for 95% confidence) indicates the parameter
     is significantly different from zero.
 
     **Normalized Sensitivities (Z-scores)**:
     Sensitivities are normalized by parameter uncertainties and measurement errors:
+
         \[
         Z_{ij} = \frac{\partial y_i}{\partial \theta_j} \cdot \frac{\sqrt{V_{jj}}}{\sigma_i}
         \]
+
     This quantifies the relative influence of parameter \( j \) on observable \( i \).
 
     **Model Weights (P-test)**:
-    When multiple models are analyzed, relative probabilities are computed via P-test:
+    When multiple models are analyzed, relative probabilities are computed via P-test
+    (Galvanin et al. 2016; paper eq. 2 without the misprinted leading "1 -"):
+
         \[
-        P_k = \frac{\exp(-\chi_k^2 / 2)}{\sum_m \exp(-\chi_m^2 / 2)} \times 100\%
+        P_k = \frac{1/\chi_k^2}{\sum_m 1/\chi_m^2} \times 100\%
         \]
+
+    with \( \chi^2 \) the 'Chi' value. A model with \( \chi^2 = 0 \) gets 100%.
     This provides model comparison based on goodness-of-fit (higher probability → better model).
 
     **Mesh-Independency Test**:
@@ -797,6 +824,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     **Ill-Conditioning Diagnostics**:
     The function automatically logs conditioning metrics:
+
         - Rank of sensitivity matrix \( \mathbf{Q} \)
         - Condition numbers of \( \mathbf{Q} \) and \( \mathbf{M} \)
         - Minimum eigenvalue of \( \mathbf{M} \)
@@ -804,6 +832,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     **In-Place Updates** (case=None):
     When case=None, the function updates models dictionary:
+
         - models['theta']: Updated with final estimates
         - models['V_matrix']: Updated with covariance matrices
         - models['LSA']: Updated with sensitivity matrices
@@ -811,16 +840,16 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Bard, Y. (1974).
+    2. Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
 
-    .. [3] Franceschini, G., & Macchietto, S. (2008).
+    3. Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
        https://doi.org/10.1016/j.ces.2007.11.034
@@ -836,8 +865,8 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     >>> # After parameter estimation
     >>> results_pe = parmest(system, models, iden_opt={'meth': 'SLSQP', 'ob': 'WLS'})
     >>>
-    >>> # Uncertainty analysis with Jacobian-based covariance (recommended)
-    >>> iden_opt_ua = {'sens_m': 'central', 'var-cov': 'J', 'log': True}
+    >>> # Uncertainty analysis with Fisher-matrix covariance
+    >>> iden_opt_ua = {'sens_m': 'central', 'var-cov': 'M', 'log': True}
     >>> uncert_results = uncert(results_pe, system, models, iden_opt_ua)
     >>>
     >>> # Access results
@@ -859,9 +888,12 @@ def uncert(resultpr, system, models, iden_opt, case=None):
     """
 
     # Sensitivity method and varcov selection
-    data = read_excel()
-    sens_method = iden_opt.get('sens_m', 'central')
-    varcov_key  = iden_opt.get('var-cov', 'H')  # 'M', 'H', or 'B'
+    # validate options and map aliases ('J'->'M', 'CS'->'Chi', ...); written back
+    _normalize_iden_opt(iden_opt, need_meth=False)
+    data = data if data is not None else read_excel()
+    _check_sigma_fallback(data, system)   # raise/warn where 'unc' replaces a missing MES_E
+    sens_method = iden_opt.get('sens_m') or 'central'
+    varcov_key  = iden_opt['var-cov']  # 'M', 'H', or 'B'
 
     # Identify measurement variables
     tv_iphi_vars = list(system.get('tvi', {}))
@@ -934,9 +966,11 @@ def uncert(resultpr, system, models, iden_opt, case=None):
             models=models,
             varcov=varcov_key,
             resultpr=resultpr,
-            sens_method=sens_method
+            sens_method=sens_method,
+            objf=iden_opt.get('ob')
         )
         observed_values = obs
+        sigma_rows = resultpr[solver].get('sigma_rows') if isinstance(resultpr[solver], dict) else None
 
         resultun[solver] = {
             'optimization_result': solver_results,
@@ -960,7 +994,8 @@ def uncert(resultpr, system, models, iden_opt, case=None):
             'ti_output_m': ti_output_m,
             'estimations': thetac,
             'found_eps': epsf[solver],
-            'M': M
+            'M': M,
+            'sigma_rows': sigma_rows
         }
 
     # Store back eps
@@ -977,6 +1012,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 
     # Optionally update models in‐place
     if case is None:
+        models.setdefault('V_matrix', {})
         for sv in models['can_m']:
             if 'thetastart' not in models:
                 models['thetastart'] = {}
@@ -1005,7 +1041,7 @@ def uncert(resultpr, system, models, iden_opt, case=None):
 def _uncert_metrics(
     theta, data, active_solvers, thetac, eps, thetas,
     ti_iphi_vars, tv_iphi_vars, tv_ophi_vars, ti_ophi_vars,
-    system, models, varcov, resultpr, sens_method='forward'
+    system, models, varcov, resultpr, sens_method='forward', objf=None
 ):
     r"""
     Compute comprehensive uncertainty metrics including sensitivities, covariance, and quality measures.
@@ -1054,6 +1090,9 @@ def _uncert_metrics(
         Parameter estimation results (used for 'H' and 'B' methods).
     sens_method : str, optional
         Sensitivity method: 'forward' or 'central' (default: 'forward').
+    objf : str, optional
+        Objective minimised by parmest ('LS', 'WLS', 'MLE', 'Chi'); sets the
+        scaling of the Hessian-based covariance (varcov='H').
 
     Returns
     -------
@@ -1064,7 +1103,7 @@ def _uncert_metrics(
     MLE : float
         Negative log-likelihood: \( \sum_i [\log(2\pi\sigma_i^2) + (r_i/\sigma_i)^2]/2 \).
     Chi : float
-        Chi-squared statistic: \( \sum_i (r_i/\sigma_i)^2 \).
+        Relative least squares: \( \sum_i (r_i/|y_i|)^2 \) (|y| floored at 1e-8).
     LSA : np.ndarray, shape (n_observations, n_active_params)
         Local Sensitivity Analysis matrix (Jacobian): \( Q_{ij} = \partial y_i / \partial \theta_j \).
     Z : np.ndarray, shape (n_observations, n_active_params)
@@ -1107,9 +1146,10 @@ def _uncert_metrics(
     Central differences provide second-order accuracy but require twice as many simulations.
 
     **Measurement Error Handling**:
-    Measurement uncertainties ('MES_E:{var}') are interpreted as fractional (relative)
-    standard deviations. They are converted to absolute errors by multiplying with the
-    predicted signal magnitude. A floor of \( 10^{-12} \) prevents zero weights.
+    Measurement uncertainties ('MES_E:{var}') are absolute standard deviations.
+    If the column is missing, system['tvo'|'tio'][var]['unc'] is used (default 1.0).
+    Sigmas must be finite and > 0 (ValueError otherwise). Rows with NaN in MES_X
+    or MES_Y are skipped.
 
     **Variance-Covariance Methods**:
         1. **'M' (Measurement-based)**:
@@ -1119,9 +1159,10 @@ def _uncert_metrics(
             - Assumes measurement errors dominate parameter uncertainties
 
         2. **'H' (Hessian-based)**:
-            - Uses inverse Hessian from optimization: \( V = \sigma^2 H^{-1} \)
-            - Variance scale: \( \sigma^2 = f_{opt} / \nu \), where \( \nu = n_{obs} - n_{params} \)
-            - Assumes Gaussian errors and local quadratic objective
+            - Uses the physical inverse Hessian of the objective from parmest
+            - WLS: \( V = 2 H^{-1} \); MLE: \( V = H^{-1} \);
+              LS and Chi: \( V = 2 (f_{opt}/\nu) H^{-1} \), \( \nu = n_{obs} - n_{active} \)
+            - V is restricted to the active (free) parameters
 
         3. **'B' (Bootstrap-based)**:
             - Uses pre-computed bootstrap covariance from parmest()
@@ -1205,6 +1246,8 @@ def _uncert_metrics(
     _REPORT_LEVEL  = logging.INFO  # keep it white in most color schemes
     _SIG_FLOOR     = 1e-12   # floor for absolute sigmas
 
+    if sens_method not in ('forward', 'central'):
+        raise ValueError(f"Unknown sens_m={sens_method!r}; valid values: ['central', 'forward']")
     theta_full = np.array(theta, dtype=float)
     active_idx = np.where(thetas)[0]
     print(f'active_idx: {active_idx}')
@@ -1288,29 +1331,37 @@ def _uncert_metrics(
                 xcol = f"MES_X:{var}"
                 ycol = f"MES_Y:{var}"
                 ecol = f"MES_E:{var}"
-                mask = ~sheet[xcol].isna().values
-                times = sheet[xcol][mask].values
-                y_t   = sheet[ycol][mask].values
-                idx   = np.isin(t_all, times)
-                y_p   = np.array(tv_ref[var])[idx]
+                if xcol not in sheet or ycol not in sheet:
+                    continue
+                mask = ~sheet[xcol].isna().values & ~sheet[ycol].isna().values
+                times = sheet[xcol][mask].values.astype(float)
+                y_t   = sheet[ycol][mask].values.astype(float)
+                if times.size == 0:
+                    continue
+                pos   = _match_times(t_all, times, var)
+                y_p   = np.asarray(tv_ref[var], dtype=float)[pos]
 
-                # relative sigma from sheet, convert to absolute using |y_p|
+                # absolute sigma from sheet; fallback: system 'unc' (same as parmest)
                 if ecol in sheet:
-                    rel = sheet[ecol][mask].values.astype(float)
-                    y_e = rel
+                    y_e = pd.to_numeric(sheet[ecol][mask], errors='raise').values.astype(float)
                 else:
-                    y_e = np.full_like(y_t, 1.0, dtype=float)
+                    y_e = np.full_like(y_t, float(system['tvo'][var].get('unc', 1.0)), dtype=float)
+                if not np.all(np.isfinite(y_e)) or np.any(y_e <= 0):
+                    raise ValueError(f"Sheet '{sheet_name}', {ecol}: sigma must be finite and > 0")
             else:
                 # time-independent measurement
                 ycol = f"MES_Y:{var}"
                 ecol = f"MES_E:{var}"
-                y_t  = np.array([sheet[ycol].iloc[0]])
-                y_p  = np.array([ti_ref[var]])
-                if ecol in sheet:
-                    rel = float(sheet[ecol].iloc[0])
-                    y_e = np.array([rel], dtype=float)
+                if ycol not in sheet or pd.isna(sheet[ycol].iloc[0]):
+                    continue
+                y_t  = np.array([float(sheet[ycol].iloc[0])])
+                y_p  = np.array([float(np.ravel(ti_ref[var])[0])])
+                if ecol in sheet and not pd.isna(sheet[ecol].iloc[0]):
+                    y_e = np.array([float(pd.to_numeric(sheet[ecol].iloc[0], errors='raise'))], dtype=float)
                 else:
-                    y_e = np.array([1.0], dtype=float)
+                    y_e = np.array([float(system['tio'][var].get('unc', 1.0))], dtype=float)
+                if not np.all(np.isfinite(y_e)) or np.any(y_e <= 0):
+                    raise ValueError(f"Sheet '{sheet_name}', {ecol}: sigma must be finite and > 0")
 
             var_measurements.setdefault(var, []).extend(zip(y_t, y_p, y_e))
 
@@ -1321,24 +1372,27 @@ def _uncert_metrics(
                 if mode == 'forward':
                     tvp, tip = sims
                     if var in tv_ophi_vars:
-                        y2 = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
+                        y2 = np.asarray(tvp[var], dtype=float)[pos]
                     else:
-                        y2 = np.array([tip[var]])
+                        y2 = np.array([float(np.ravel(tip[var])[0])])
                     d = (y2 - y_p) / (h * thetac_arr[p])
                 else:
                     tvp, tip, tvm, tim = sims
                     if var in tv_ophi_vars:
-                        y_p_p = np.array([tvp[var][np.where(t_all==t)[0][0]] for t in times])
-                        y_p_m = np.array([tvm[var][np.where(t_all==t)[0][0]] for t in times])
+                        y_p_p = np.asarray(tvp[var], dtype=float)[pos]
+                        y_p_m = np.asarray(tvm[var], dtype=float)[pos]
                     else:
-                        y_p_p = np.array([tip[var]])
-                        y_p_m = np.array([tim[var]])
+                        y_p_p = np.array([float(np.ravel(tip[var])[0])])
+                        y_p_m = np.array([float(np.ravel(tim[var])[0])])
                     d = (y_p_p - y_p_m) / (2*h*thetac_arr[p])
                 cols.append(d)
             if len(cols):
                 Q_accum[var].append(np.stack(cols, axis=1))
 
     # Flatten Q into LSA
+    Q_accum = {v: q for v, q in Q_accum.items() if q}
+    if not Q_accum:
+        raise ValueError("uncert: no valid measurements (MES_X/MES_Y) found in the data")
     LSA = np.vstack([np.vstack(Q_accum[v]) for v in Q_accum])
     obs = sum(len(vals) for vals in var_measurements.values())
     dof = max(obs - n_active, 1)
@@ -1358,32 +1412,65 @@ def _uncert_metrics(
 
     elif varcov == 'H':
         hess_inv = resultpr[solver].get('hess_inv')
-        err = resultpr[solver].get('fun', 1.0) / dof
-        V = err * np.array(hess_inv)
+        try:
+            hess_inv = np.asarray(hess_inv, dtype=float)
+        except (TypeError, ValueError):
+            hess_inv = None
+        n_all = len(thetac_arr)
+        if hess_inv is None or hess_inv.shape != (n_all, n_all):
+            raise ValueError(f"var-cov='H' needs the Hessian-based covariance from parmest "
+                             f"(run parmest with iden_opt['var-cov']='H'); model '{solver}' has none")
+        fun = float(resultpr[solver].get('fun', 1.0))
+        # hess_inv is the physical inverse Hessian of the objective (plain sums)
+        if objf == 'WLS':
+            V = 2.0 * hess_inv
+        elif objf == 'MLE':
+            V = hess_inv
+        elif objf in ('LS', 'Chi'):
+            V = 2.0 * (fun / dof) * hess_inv
+        else:   # objective unknown: residual-variance scaling (legacy)
+            V = (fun / dof) * hess_inv
+        V = V[np.ix_(active_idx, active_idx)]   # active parameters only (as 'M')
+        bad = np.where(~(np.diag(V) > 0))[0]
+        if bad.size:
+            logger.warning(
+                f"Model '{solver}': the Hessian of the objective is not positive definite at the "
+                f"reported optimum (non-positive variance for active parameter(s) {bad.tolist()}). "
+                f"Their CI/t-values will be NaN. The optimiser has probably stopped before a true "
+                f"minimum (e.g. a loose 'tol'); tighten it or use iden_opt['var-cov']='M'.")
         M = np.linalg.pinv(V)
 
     elif varcov == 'B':
         V = resultpr[solver].get('v')
         if V is None:
             raise ValueError(f"No bootstrap v matrix found for model '{solver}'")
-        M = np.linalg.pinv(V)
+        # V is full size with zero rows/columns for fixed parameters; the information
+        # matrix is that of the active parameters (as for 'M' and 'H')
+        M = np.linalg.pinv(np.asarray(V, float)[np.ix_(active_idx, active_idx)])
         logger.info(f"Using bootstrap var–cov for {solver}")
 
     else:
         raise ValueError(f"Unknown varcov option '{varcov}'")
 
     # --- Ill-conditioning diagnostics ----------------------------------
+    # Computed on dimensionless quantities, so that parameter units do not decide the result:
+    #   Q_s = LSA * |theta| / sigma   (relative-parameter, sigma-weighted sensitivities)
+    #   M_s = D M D, D = diag(|theta|) (information on relative parameter changes;
+    #         1/sqrt(eig) = relative standard deviation along an eigenvector)
     ill_report = {}
+    th_abs = np.abs(theta_full[active_idx] * thetac_arr[active_idx])
+    sig_rows = np.concatenate([np.array([s for _, _, s in var_measurements[v]]) for v in Q_accum])
     try:
-        s = np.linalg.svd(LSA, compute_uv=False)
+        Qs = LSA * th_abs[None, :] / sig_rows[:, None]
+        s = np.linalg.svd(Qs, compute_uv=False)
         ill_report['Q_singular_values'] = s
-        ill_report['Q_rank'] = int(np.sum(s > s[0] * np.finfo(float).eps))
+        ill_report['Q_rank'] = int(np.sum(s > s[0] * max(Qs.shape) * np.finfo(float).eps))
         ill_report['Q_cond'] = float(s[0] / s[-1]) if s[-1] > 0 else np.inf
     except Exception as e:
         ill_report['Q_error'] = str(e)
 
     try:
-        eig = np.linalg.eigvalsh(M)
+        eig = np.linalg.eigvalsh(th_abs[:, None] * np.asarray(M, float) * th_abs[None, :])
         ill_report['M_eigenvalues'] = eig
         ill_report['M_min_eig'] = float(eig.min())
         ill_report['M_max_eig'] = float(eig.max())
@@ -1399,7 +1486,7 @@ def _uncert_metrics(
         ill_report.get('M_min_eig', _TINY_EIG) < _TINY_EIG
     )
     ill_report['summary'] = (
-        f"Rank(Q)={ill_report.get('Q_rank','?')}/{n_active}, "
+        f"(scaled) Rank(Q)={ill_report.get('Q_rank','?')}/{n_active}, "
         f"cond(Q)≈{ill_report.get('Q_cond',np.nan):.2e}, "
         f"cond(M)≈{ill_report.get('M_cond',np.nan):.2e}, "
         f"λ_min(M)≈{ill_report.get('M_min_eig',np.nan):.2e}; "
@@ -1426,11 +1513,18 @@ def _uncert_metrics(
 
     with np.errstate(divide='ignore', invalid='ignore'):
         numer = theta_full[active_idx] * thetac_arr[active_idx]
-        t_values = np.where(theta_std != 0, numer / theta_std, np.inf)
+        # no sensitivity / zero variance -> t is undefined (NaN), not infinite
+        t_values = np.where(theta_std != 0, numer / theta_std, np.nan)
 
     # Z-scores (normalized sensitivities)
     resp_sigs = np.concatenate([np.array([s for _, _, s in var_measurements[v]]) for v in Q_accum])
     Z = LSA * theta_std / resp_sigs[:, None]
+    # per-row sigma (rows of LSA), exported for sc_estima's scaled sensitivities
+    try:
+        if isinstance(resultpr.get(solver, None), dict):
+            resultpr[solver]['sigma_rows'] = resp_sigs
+    except Exception:
+        pass
 
     # Compute LS, WLS, MLE, Chi, MSE, R2
     LS = WLS = MLE = Chi = 0.0
@@ -1442,7 +1536,8 @@ def _uncert_metrics(
             LS  += r**2
             WLS += (r/s)**2
             MLE += 0.5*(np.log(2*np.pi*s**2)+(r/s)**2)
-            Chi += r**2/s**2
+            s_floor = s if np.isfinite(s) else 0.0
+            Chi += (r / max(abs(y), s_floor, 1e-8))**2   # relative LS, |y| floored at sigma; same as parmest 'Chi'
             total_err += r**2
             R2_data[v]['y'].append(y)
             R2_data[v]['yp'].append(y_pred)
@@ -1567,7 +1662,14 @@ def _report(result, mutation, models, logging_flag):
     solver_parameters = {}
     solver_cov_matrices = {}
     solver_confidence_intervals = {}
-    sum_of_chi_squared = sum(1 / (res['Chi']) ** 2 for res in result.values())
+    # P-test: P_i = (1/chi2_i) / sum_j(1/chi2_j) * 100, chi2 = 'Chi'; chi2 = 0 -> 100 %
+    chi = {s: float(res['Chi']) for s, res in result.items()}
+    zero = [s for s, c in chi.items() if c <= 0]
+    if zero:
+        weights = {s: (1.0 if s in zero else 0.0) for s in chi}
+    else:
+        weights = {s: 1.0 / c for s, c in chi.items()}
+    sum_of_chi_squared = sum(weights.values())
     for solver, res in result.items():
         opt = res['optimization_result']
         scpr = opt['scpr']
@@ -1577,7 +1679,7 @@ def _report(result, mutation, models, logging_flag):
         solver_confidence_intervals[solver] = {
             i: ci for i, ci in enumerate(res['CI'])
         }
-        res['P'] = ((1 / (res['Chi']) ** 2) / sum_of_chi_squared) * 100
+        res['P'] = (weights[solver] / sum_of_chi_squared) * 100
         if logging_flag:
             logger.info(f"Solver {solver}: Estimated θ = {scpr}")
             logger.info(f"Solver {solver}: t-val = {res['t_values']}")
@@ -1731,15 +1833,27 @@ def _fdm_mesh_independency(
     plt.savefig(f"{base}.png"); plt.close()
     pd.DataFrame(eigs, index=eps_values).to_excel(f"{base}.xlsx")
 
-    # Choose epsilon minimizing variation
-    valid = np.isfinite(eigs).all(axis=1)
-    idx = np.where(valid)[0]
+    # Choose epsilon minimising the variation of the eigenvalues over a window of 5 steps.
+    # The variation is measured on log10(eigenvalue): relative, so every eigenvalue counts
+    # alike whatever the parameter units (on a linear scale the largest variance, i.e. the
+    # sloppiest direction, would decide alone). Windows with a non-finite or non-positive
+    # eigenvalue are skipped.
+    # Eigenvalues that are 0 for most steps (directions without sensitivity) are left out.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        logeig = np.where(eigs > 0, np.log10(np.where(eigs > 0, eigs, 1.0)), np.nan)
+    cols = np.where(np.mean(np.isfinite(logeig), axis=0) >= 0.8)[0]
     win = 5
     half = win//2
     best, best_var = eps_values[0], np.inf
-    for i in idx[half:-half]:
-        var = eigs[i-half:i+half+1].std(axis=0).sum()
-        if var<best_var:
+    for i in range(half, len(eps_values) - half):
+        if cols.size:
+            block = logeig[i-half:i+half+1][:, cols]
+        else:   # no usable log scale: linear variation (previous rule)
+            block = eigs[i-half:i+half+1]
+        if not np.isfinite(block).all():
+            continue
+        var = block.std(axis=0).sum()
+        if var < best_var:
             best_var, best = var, eps_values[i]
     logger.info(f"Selected epsilon={best:.1e} for {solver}")
     return best

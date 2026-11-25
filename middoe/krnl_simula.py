@@ -324,7 +324,88 @@ import importlib
 from subprocess import DEVNULL
 import time
 import random
+import inspect
 import importlib.util
+
+
+class SimulationError(RuntimeError):
+    """
+    Raised when a model simulation fails or returns an invalid result.
+
+    This covers an exception raised inside the user's model (the original
+    exception is chained as ``__cause__`` and its message is included), a
+    model file whose ``solve_model`` has the wrong signature, and a result
+    with the wrong structure (missing ``'tvo'``, a missing measured output,
+    wrong length or non-finite values).
+    """
+
+
+def _check_model_output(res, system, n, model_name=None):
+    """
+    Validate the result returned by an external ``solve_model`` ('pys').
+
+    Requires a dict with a ``'tvo'`` dict that contains every *measured*
+    time-variant output (``system['tvo'][k].get('meas', True)``), each of
+    length ``n`` and with finite values. Unmeasured outputs may be omitted;
+    if present they are checked as well. Returns ``(tv_ophi, ti_ophi)``.
+    """
+    who = f" for model '{model_name}'" if model_name is not None else ''
+    if not isinstance(res, dict) or not isinstance(res.get('tvo'), dict):
+        got = type(res).__name__
+        if isinstance(res, dict):
+            got += f" with keys {list(res)}"
+        raise SimulationError(
+            f"solve_model{who} must return a dict with a 'tvo' dict "
+            f"({{'tvo': {{...}}, 'tio': {{...}}}}); got {got}")
+    tvo = res['tvo']
+    for k, cfg in system.get('tvo', {}).items():
+        measured = cfg.get('meas', True) if isinstance(cfg, dict) else True
+        if k not in tvo:
+            if measured:
+                raise SimulationError(
+                    f"solve_model{who}: result['tvo'] is missing the measured output '{k}' "
+                    f"(returned keys: {list(tvo)})")
+            continue
+        try:
+            v = np.asarray(tvo[k], dtype=float)
+        except (TypeError, ValueError) as e:
+            raise SimulationError(f"solve_model{who}: result['tvo']['{k}'] is not numeric: {e}") from e
+        if v.ndim != 1 or v.shape[0] != n:
+            raise SimulationError(
+                f"solve_model{who}: result['tvo']['{k}'] has shape {v.shape}, expected ({n},) "
+                f"(one value per time point)")
+        if not np.all(np.isfinite(v)):
+            raise SimulationError(f"solve_model{who}: result['tvo']['{k}'] contains non-finite values")
+    tio = res.get('tio', {})
+    if tio is None:
+        tio = {}
+    if not isinstance(tio, dict):
+        raise SimulationError(f"solve_model{who}: result['tio'] must be a dict, got {type(tio).__name__}")
+    for k, cfg in system.get('tio', {}).items():
+        measured = cfg.get('meas', True) if isinstance(cfg, dict) else True
+        if k in tio:
+            try:
+                v = np.asarray(tio[k], dtype=float)
+            except (TypeError, ValueError) as e:
+                raise SimulationError(f"solve_model{who}: result['tio']['{k}'] is not numeric: {e}") from e
+            if not np.all(np.isfinite(v)):
+                raise SimulationError(f"solve_model{who}: result['tio']['{k}'] contains non-finite values")
+    return tvo, tio
+
+
+def _check_solve_model_signature(func, model_name, src=None):
+    """Raise SimulationError unless ``func`` accepts ``(t, y0, tii, tvi, theta)``."""
+    try:
+        sig = inspect.signature(func)
+    except (TypeError, ValueError):
+        return  # builtins / C functions: cannot inspect, let the call decide
+    try:
+        sig.bind(None, None, None, None, None)
+    except TypeError as e:
+        where = f" in {src}" if src else ''
+        raise SimulationError(
+            f"solve_model{where} (model '{model_name}') must accept 5 positional arguments "
+            f"(t, y0, tii, tvi, theta); its signature is {sig}: {e}") from None
 
 
 def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, model_name, system, models):
@@ -412,6 +493,9 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         If required modules (krnl_models, pygpas) cannot be imported.
     ValueError
         If CVP method is unrecognized or if switching point arrays have mismatched lengths.
+    SimulationError
+        If the model raises, the integration fails, ``solve_model`` has the wrong
+        signature, or the model output is invalid (see solver_selector).
 
     Notes
     -----
@@ -455,6 +539,7 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
 
     **Normalization Convention**:
     All variables, parameters, and time are normalized internally:
+
         - Variables: \( \phi_{physical} = \phi_{norm} \cdot \phi_{max} \)
         - Parameters: \( \theta_{physical} = \theta_{norm} \cdot \theta_c \)
         - Time: \( t_{physical} = t_{norm} \cdot t_{scale} \)
@@ -464,25 +549,27 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
 
     **Initial Conditions**:
     Each time-variant output can specify:
+
         - Numeric value: Used directly as \( y_0 \)
         - 'variable': References uphi['{var}_0'] (e.g., 'CA_0' for initial concentration)
 
     **Integration Backend**:
     solver_selector() handles ODE integration using:
+
         - SciPy solve_ivp (LSODA) for Python models
         - Custom solve_model() for external scripts
         - gPAS evaluate() for gPROMS models
 
-    **Retry Logic**:
-    Simulation failures trigger automatic retries with small delays. This handles
-    transient numerical issues or gPROMS connection problems.
+    **Error Handling**:
+    A failing or invalid model raises :class:`SimulationError` with the model's own
+    error message (see solver_selector); simulation failures are not silenced.
 
     References
     ----------
-    .. [1] Hairer, E., Nørsett, S. P., & Wanner, G. (1993).
+    1. Hairer, E., Nørsett, S. P., & Wanner, G. (1993).
        *Solving Ordinary Differential Equations I: Nonstiff Problems* (2nd ed.). Springer.
 
-    .. [2] gPROMS documentation: www.psenterprise.com/products/gproms
+    2. gPROMS documentation: www.psenterprise.com/products/gproms
 
     See Also
     --------
@@ -548,6 +635,8 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
             model = getattr(module, 'solve_model')
         except Exception as e:
             raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
+        if model_type == 'pys':
+            _check_solve_model_signature(model, model_name, models['src'][model_name])
 
     elif callable(model_type):
         # Direct function reference
@@ -613,7 +702,10 @@ def _Piecewiser(t, swps, cvp, phit):
         \[
         u(t) = u_k \quad \text{for } t \in [t_k, t_{k+1})
         \]
-    Implemented using scipy.interpolate.interp1d with kind='previous'.
+    Implemented with ``np.searchsorted(..., side='right')`` on the sorted switching
+    times. A time point within a relative tolerance of 1e-9 of a switching time
+    takes the new level, so a switch time that differs from a grid node only by
+    floating-point round-off (e.g. ``(t_k * tf) / tf``) does not lag one step.
 
     **Linear Piecewise Function (LPF)**:
     Linear interpolation between switching points:
@@ -629,9 +721,11 @@ def _Piecewiser(t, swps, cvp, phit):
         \]
 
     **Extrapolation**:
-    Both CPF and LPF extrapolate beyond the range of switching points:
-        - Before first switching point: use first level
-        - After last switching point: use last level
+    Beyond the range of switching points:
+        - After the last switching point: both CPF and LPF use the last level.
+        - Before the first switching point: LPF uses the first level; CPF returns
+          NaN (as ``interp1d(kind='previous')`` did), so the first switching time
+          should be at t = 0.
 
     **Use in MBDoE**:
     Switching points are optimization variables in MBDoE for parameter precision.
@@ -647,7 +741,7 @@ def _Piecewiser(t, swps, cvp, phit):
     See Also
     --------
     simula : Main function that calls this for input interpolation.
-    scipy.interpolate.interp1d : Used for CPF interpolation.
+    numpy.searchsorted : Used for CPF interpolation.
     numpy.interp : Used for LPF interpolation.
 
     Examples
@@ -686,8 +780,22 @@ def _Piecewiser(t, swps, cvp, phit):
                         f"[Piecewiser-CPF] Length mismatch for '{var}': "
                         f"len({time_key})={len(swps[time_key])}, len({level_key})={len(swps[level_key])}"
                     )
-                f_previous = interp1d(swps[time_key], swps[level_key], kind='previous', fill_value="extrapolate")
-                result[var] = f_previous(t)
+                # Zero-order hold with a switch-time tolerance. interp1d(kind='previous') gave the
+                # OLD level at a grid node when the switch time was the node + 1 ulp (e.g. after a
+                # physical -> normalised round trip t*tf/tf), so the generated data and the fit
+                # used profiles shifted by one grid step. Times are sorted (as interp1d did) and a
+                # node within 1e-9 (relative) of a switch time takes the NEW level.
+                ts = np.asarray(swps[time_key], dtype=float).ravel()
+                ls = np.asarray(swps[level_key], dtype=float).ravel()
+                order = np.argsort(ts, kind='stable')
+                ts, ls = ts[order], ls[order]
+                tt = np.asarray(t, dtype=float)
+                tol = 1e-9 * max(1.0, float(np.max(np.abs(tt))) if tt.size else 1.0,
+                                 float(np.max(np.abs(ts))) if ts.size else 1.0)
+                k = np.searchsorted(ts, tt + tol, side='right') - 1
+                vals = ls[np.clip(k, 0, len(ls) - 1)]
+                # Before the first switch time interp1d(kind='previous') returned NaN; keep that.
+                result[var] = np.where(k < 0, np.nan, vals)
             else:
                 raise KeyError(f"Missing keys for CPF method: '{time_key}' or '{level_key}'")
 
@@ -843,11 +951,11 @@ def _backscal(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit,
 
 def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     r"""
-    Select and execute appropriate ODE solver backend with automatic retry logic.
+    Select and execute the appropriate ODE solver backend.
 
     This function dispatches to the correct integration backend based on model type,
-    handling SciPy solve_ivp, external Python scripts, and gPROMS models. It includes
-    automatic retry logic to handle transient numerical failures or connection issues.
+    handling SciPy solve_ivp, external Python scripts, and gPROMS models. Model
+    failures and invalid model outputs raise :class:`SimulationError`.
 
     Parameters
     ----------
@@ -891,11 +999,13 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     -----
     **Solver Backends**:
         1. **'pys' (External Python Script)**:
+
            - Dynamically loads .py file from models['src'][model_name]
            - Calls solve_model(t, y0, tii, tvi, theta)
            - Returns {'tvo': {...}, 'tio': {...}}
 
         2. **'gpr' (gPROMS)**:
+
            - Requires pygpas package
            - Opens .gPJ file via StartedConnected client
            - Sets inputs via client.set_input_value()
@@ -903,16 +1013,18 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
            - Retrieves outputs via client.get_value()
 
         3. **Default (SciPy solve_ivp)**:
+
            - Uses LSODA method (automatic stiffness detection)
            - Integrates from min(t) to max(t)
            - Evaluates at specified time points (t_eval=t)
            - Returns {'y1': sol[0], 'y2': sol[1], ...}
 
-    **Retry Logic**:
-    Maximum 1 retry attempt for each backend:
-        - 0.5s delay between attempts for SciPy
-        - 1.0s delay between attempts for gPROMS
-        - Prints failure messages to console
+    **Output Checks** ('pys'):
+    The result must be a dict with a ``'tvo'`` dict holding every *measured*
+    output of ``system['tvo']`` (``meas`` not False), each with ``len(t)``
+    finite values. Unmeasured outputs may be omitted. ``solve_model`` must
+    accept ``(t, y0, tii, tvi, theta)``. For SciPy-integrated models the
+    outputs must have ``len(t)`` finite values.
 
     **SciPy Integration Settings**:
         - Method: LSODA (stiff/non-stiff automatic switching)
@@ -928,10 +1040,12 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
         - Requires valid credentials in models['creds']
 
     **Error Handling**:
-    If all retries fail:
-        - Prints error message with attempt count
-        - Returns empty dicts (simulation failed)
-        - Calling code should check for empty results
+    Any failure raises :class:`SimulationError` (a ``RuntimeError``): an
+    exception raised inside the user's model (chained as ``__cause__``, with its
+    message included), a failed SciPy integration, a failed gPROMS evaluation, a
+    wrong ``solve_model`` signature or an invalid result. Nothing is printed and
+    no empty result is returned. A model script that cannot be loaded raises
+    ``KeyError`` as before.
 
     **Output Naming Convention**:
     For SciPy models, outputs are automatically named 'y1', 'y2', etc.
@@ -940,11 +1054,11 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
 
     References
     ----------
-    .. [1] Hindmarsh, A. C. (1983).
+    1. Hindmarsh, A. C. (1983).
        ODEPACK, A Systematized Collection of ODE Solvers.
        *Scientific Computing*, 55-64. North-Holland.
 
-    .. [2] gPROMS documentation: www.psenterprise.com/products/gproms
+    2. gPROMS documentation: www.psenterprise.com/products/gproms
 
     See Also
     --------
@@ -966,35 +1080,32 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
     ... )
     >>> print(tv_out.keys())  # ['y1', 'y2']
     """
-    max_retries = 1
-    retry_count = 0
-    success = False
-    tv_ophi, ti_ophi = {}, {}
     sim_mode = models['krt'][model_name]
+    n_t = len(t)
 
     if sim_mode == 'pys':
-        while not success and retry_count < max_retries:
-            try:
-                # Load external model dynamically
-                script_path = models['src'][model_name]
+        # Load external model dynamically. Loading problems are reported as KeyError
+        # (as in simula); a wrong signature or an invalid result as SimulationError;
+        # an exception raised by the user's model is re-raised as SimulationError with
+        # the original exception chained (no print, no sleep, no silent {}).
+        script_path = models['src'][model_name]
+        try:
+            spec = importlib.util.spec_from_file_location("external_model", script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            external_solver_func = getattr(module, 'solve_model')
+        except Exception as e:
+            raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
+        _check_solve_model_signature(external_solver_func, model_name, script_path)
 
-                spec = importlib.util.spec_from_file_location("external_model", script_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                external_solver_func = getattr(module, 'solve_model')
-                external_result = external_solver_func(t, y0, phi, phit, theta)
-
-                tv_ophi = external_result.get('tvo', {})
-                ti_ophi = external_result.get('tio', {})
-                success = True
-            except Exception as e:
-                retry_count += 1
-                print(f"SciPy file-based simulation attempt {retry_count} for model '{model_name}' failed: {e}")
-                time.sleep(0.5)
-
-        if not success:
-            print(f"All {max_retries} SciPy file-based simulation attempts failed for model '{model_name}'")
+        try:
+            external_result = external_solver_func(t, y0, phi, phit, theta)
+        except SimulationError:
+            raise
+        except Exception as e:
+            raise SimulationError(
+                f"Model '{model_name}' raised {type(e).__name__}: {e}  (model file: {script_path})") from e
+        tv_ophi, ti_ophi = _check_model_output(external_result, system, n_t, model_name)
 
     elif sim_mode == 'gpr':
         try:
@@ -1005,6 +1116,11 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
                 "The 'pygpas' module is required for gPROMS-based simulations. "
                 "Please install it manually or ensure it's available in your environment."
             )
+        max_retries = 1
+        retry_count = 0
+        success = False
+        last_exc = None
+        tv_ophi, ti_ophi = {}, {}
         while not success and retry_count < max_retries:
             try:
                 ports = random.randint(10000, 90000)
@@ -1029,34 +1145,43 @@ def solver_selector(model, t, y0, phi, phit, theta, models, model_name, system):
                     success = True
             except Exception as e:
                 retry_count += 1
-                print(f"GP simulation attempt {retry_count} for model '{model_name}' failed: {e}")
-                time.sleep(1)
+                last_exc = e
+                if retry_count < max_retries:
+                    time.sleep(1)
 
         if not success:
-            print(f"All {max_retries} GP simulation attempts failed for model '{model_name}'")
+            raise SimulationError(
+                f"gPROMS simulation of model '{model_name}' failed after {max_retries} attempt(s): "
+                f"{type(last_exc).__name__}: {last_exc}") from last_exc
 
     else:
-        while not success and retry_count < max_retries:
-            try:
-                from scipy.integrate import solve_ivp
-                result = solve_ivp(
-                    model,
-                    [min(t), max(t)],
-                    y0,
-                    method='LSODA',
-                    t_eval=t,
-                    args=(phi, phit, theta, t),
-                    rtol=1e-8,
-                    atol=1e-10,
-                )
-                if not result.success:
-                    raise RuntimeError(f"SciPy solver failed: {result.message}")
-                tv_ophi = {f'y{i+1}': result.y[i] for i in range(result.y.shape[0])}
-                ti_ophi = {}
-                success = True
-            except Exception as e:
-                retry_count += 1
-                print(f"SciPy simulation attempt {retry_count} for model '{model_name}' failed: {e}")
-                time.sleep(0.5)
+        # 'pym' (middoe.krnl_models) or a callable: model is the ODE right-hand side.
+        from scipy.integrate import solve_ivp
+        try:
+            result = solve_ivp(
+                model,
+                [min(t), max(t)],
+                y0,
+                method='LSODA',
+                t_eval=t,
+                args=(phi, phit, theta, t),
+                rtol=1e-8,
+                atol=1e-10,
+            )
+        except Exception as e:
+            raise SimulationError(
+                f"Model '{model_name}' raised {type(e).__name__}: {e}") from e
+        if not result.success:
+            raise SimulationError(f"SciPy solver failed for model '{model_name}': {result.message}")
+        tv_ophi = {f'y{i+1}': result.y[i] for i in range(result.y.shape[0])}
+        ti_ophi = {}
+        # Output check: states are named y1..yn by position, so only length/finiteness
+        # can be checked here (missing names are reported by the caller).
+        for k, v in tv_ophi.items():
+            if len(v) != n_t:
+                raise SimulationError(
+                    f"Model '{model_name}': output '{k}' has {len(v)} values, expected {n_t}")
+            if not np.all(np.isfinite(v)):
+                raise SimulationError(f"Model '{model_name}': output '{k}' contains non-finite values")
 
     return tv_ophi, ti_ophi, phit

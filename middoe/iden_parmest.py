@@ -738,12 +738,88 @@ import numpy as np
 import copy
 import multiprocessing as mp
 from operator import attrgetter
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from numdifftools import Hessian
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import minimize, differential_evolution, OptimizeResult
 from middoe.krnl_simula import simula
+try:
+    from middoe.krnl_simula import SimulationError
+except ImportError:  # pragma: no cover - older krnl_simula without the class
+    class SimulationError(RuntimeError):
+        """Raised when a user model returns invalid output."""
 from middoe.iden_utils import _initialize_dictionaries
 from middoe.log_utils import  read_excel
+
+
+# ------------------------------------------------------------------
+# Option names: canonical values and backward-compatible aliases
+# (paper Table S3 keys 'G'/'Ls'/'Ln'; pre-2025-11-23 keys 'SQP'/'NM'/'LBFGSB';
+#  paper docstring keys 'CS' and 'J')
+# ------------------------------------------------------------------
+_METH_ALIAS = {'G': 'DE', 'Ls': 'SLSQP', 'Ln': 'NMS',
+               'SQP': 'TC', 'NM': 'NMS', 'LBFGSB': 'LMBFGS'}
+_OB_ALIAS = {'CS': 'Chi'}
+_VC_ALIAS = {'J': 'M'}
+_VALID_METH = ('SLSQP', 'LMBFGS', 'TC', 'NMS', 'BFGS', 'DE')
+_VALID_OB = ('LS', 'WLS', 'MLE', 'Chi')
+_VALID_VC = ('H', 'M', 'B')
+_VALID_SENS = ('central', 'forward')
+
+
+def _canonical_option(iden_opt, key, aliases, valid, default=None, required=False):
+    """Map an alias to its canonical name, validate it and write it back."""
+    if key not in iden_opt or iden_opt[key] is None:
+        if required:
+            raise ValueError(f"iden_opt['{key}'] is required; valid values: {list(valid)}")
+        if default is None:
+            return None
+        iden_opt[key] = default
+    val = iden_opt[key]
+    if not isinstance(val, str):
+        raise ValueError(f"iden_opt['{key}'] must be a string, got {val!r}; valid values: {list(valid)}")
+    canon = aliases.get(val, val)
+    if canon not in valid:
+        raise ValueError(f"Unknown iden_opt['{key}']={val!r}; valid values: {list(valid)}"
+                         f" (accepted aliases: {aliases})")
+    iden_opt[key] = canon
+    return canon
+
+
+def _normalize_iden_opt(iden_opt, need_meth=True):
+    """
+    Validate ``iden_opt`` and map paper-era / documented aliases to canonical names
+    (``meth``, ``ob``, ``var-cov``, ``sens_m``). The canonical names are written back
+    into ``iden_opt`` so that downstream code (uncert, estima, reports) sees them.
+    """
+    if need_meth:
+        _canonical_option(iden_opt, 'meth', _METH_ALIAS, _VALID_METH, required=True)
+        _canonical_option(iden_opt, 'ob', {**_OB_ALIAS}, _VALID_OB, required=True)
+    else:
+        if iden_opt.get('meth') is not None:
+            _canonical_option(iden_opt, 'meth', _METH_ALIAS, _VALID_METH)
+        if iden_opt.get('ob') is not None:
+            _canonical_option(iden_opt, 'ob', _OB_ALIAS, _VALID_OB)
+    _canonical_option(iden_opt, 'var-cov', _VC_ALIAS, _VALID_VC, default='H')
+    if iden_opt.get('sens_m') is not None:
+        _canonical_option(iden_opt, 'sens_m', {}, _VALID_SENS)
+    return iden_opt
+
+
+def _signed_scaling(theta, mask=None, name=''):
+    """
+    Return (thetac, x0) with thetac = |theta| and x0 = sign(theta), so that
+    theta = thetac * x0 and bounds/thetac keep their orientation. A free
+    parameter with theta == 0 cannot be scaled and raises ValueError.
+    """
+    th = np.asarray(theta, dtype=float)
+    if not np.all(np.isfinite(th)):
+        raise ValueError(f"Model '{name}': non-finite nominal parameter values {th.tolist()}")
+    m = np.ones(th.shape, bool) if mask is None else np.asarray(mask, bool)
+    zero = np.where((th == 0) & m)[0]
+    if zero.size:
+        raise ValueError(f"Model '{name}': free parameter(s) at index {zero.tolist()} have a nominal "
+                         f"value of 0, which cannot be used for scaling; give a non-zero nominal value.")
+    return np.abs(th), np.sign(th)
 
 
 # ------------------------------------------------------------------
@@ -936,7 +1012,7 @@ def _count_observations(data, system):
         for v in tv_o:
             xc, yc = f"MES_X:{v}", f"MES_Y:{v}"
             if xc in sh and yc in sh:
-                mask = ~sh[xc].isna().values
+                mask = ~sh[xc].isna().values & ~sh[yc].isna().values
                 N += int(mask.sum())
 
         # time-invariant outputs
@@ -952,7 +1028,7 @@ def _count_observations(data, system):
 # Public entry point
 # ============================================================
 
-def parmest(system, models, iden_opt, case=None):
+def parmest(system, models, iden_opt, case=None, data=None):
     r"""
     Perform parameter estimation for dynamic models using experimental data.
 
@@ -1015,34 +1091,76 @@ def parmest(system, models, iden_opt, case=None):
                     * 'LS': Least Squares (deterministic models, no error information)
                     * 'WLS': Weighted Least Squares (heteroscedastic errors)
                     * 'MLE': Maximum Likelihood Estimation (incorporates uncertainty)
-                    * 'CS': Chi-Square (normalized residuals)
+                    * 'Chi': relative least squares, ``sum(((y - y_hat)/max(|y|, sigma))^2)`` (alias 'CS')
+
+              Aliases accepted for 'meth': 'G'->'DE', 'Ls'->'SLSQP', 'Ln'->'NMS',
+              'SQP'->'TC', 'NM'->'NMS', 'LBFGSB'->'LMBFGS'. Unknown values raise
+              ValueError; the canonical name is written back into iden_opt.
             - 'ms' : bool, optional
                 Enable multi-start optimization (default: False).
             - 'var-cov' : str, optional
                 Covariance estimation method (from paper Table S3):
-                    * 'H': Hessian-based (local, from optimizer)
-                    * 'J': Jacobian-based (local, from sensitivity matrix)
+                    * 'H': Hessian-based (numerical Hessian of the objective at the optimum)
+                    * 'M': Jacobian/FIM-based (alias 'J')
                     * 'B': Bootstrap resampling (global, computationally expensive)
+
+                Default: 'H'.
             - 'nboot' : int, optional
                 Number of bootstrap replicates (default: 100).
             - 'log' : bool, optional
                 Enable verbose logging (default: False).
             - 'maxit' : int, optional
-                Maximum optimization iterations (default: 1000).
+                Maximum optimization iterations (default: 1000), per optimiser pass.
             - 'tol' : float, optional
-                Convergence tolerance (default: 1e-6).
+                Convergence tolerance (default: 1e-6). With 'fnorm' (default) the
+                objective is divided by its own size, so for every method it acts
+                relative to the objective at the optimum: LMBFGS 'ftol' (relative
+                decrease per iteration), SLSQP 'ftol', NMS 'fatol', TC 'gtol'
+                (gradient w.r.t. the internal variables). BFGS uses SciPy's gtol
+                (1e-5) and DE its own tol (1e-8); 'tol' does not apply to them.
+                Values like 0.1 stop LMBFGS when an iteration improves the objective
+                by less than 10 % and can end far from the minimum.
+            - 'pscale' : {'log', 'lin'}, optional
+                Internal variables of the optimiser (default 'log'): log|theta/theta0|
+                for parameters whose bounds exclude 0 (equal steps = equal relative
+                changes, however far the optimum is from the start), theta/theta0 for
+                the others. 'lin': theta/theta0 for all (behaviour before 2026-11).
+                Results, Hessian and covariances are not affected, only the path.
+            - 'grad' : {'2-point', '3-point', 'legacy'}, optional
+                Finite-difference gradient of SLSQP, LMBFGS, TC and BFGS (default
+                '2-point': forward differences with a relative step; '3-point':
+                central, twice the cost). 'legacy': SciPy's default forward
+                differences with an absolute step of 1e-8, which is mostly noise for
+                weakly sensitive parameters.
+            - 'grad_step' : float, optional
+                Relative step of the '2-point'/'3-point' gradient (default 1e-6).
+            - 'fnorm' : bool, optional
+                Normalise the objective for the optimiser (default True): MLE is
+                minimised without its constant 0.5*sum(log 2 pi sigma^2) (same
+                minimiser), and the objective is scaled so that every method's stopping
+                test is relative to the objective's size: SLSQP/NMS/TC/BFGS divide by
+                the starting value, LMBFGS (already relative above 1) only scales
+                objectives below 1 up; the optimiser is restarted from its result while
+                the objective keeps falling by more than 10x (at most 5 passes). The
+                reported 'fun' is the full objective.
 
     case : str, optional
         Estimation mode:
-            - None: Standard estimation with all parameters active.
-            - 'freeze': Keep existing mutation masks (for sequential estimation).
+            - None: Standard estimation. Existing ``models['mutation']`` masks are
+              kept; a missing mask is created as all-True (all parameters free).
+            - 'freeze': Same mask handling as None (kept for backward compatibility).
             - 'strov': Use starting values from models['thetastart'].
+
+    data : dict, optional
+        Experimental data ``{sheet_name: DataFrame}``. If None (default) the data
+        are read from ``data.xlsx`` in the working directory.
 
     Returns
     -------
     results : dict[str, scipy.optimize.OptimizeResult]
         Estimation results for each model. Keys are model/solver names.
         Each OptimizeResult object contains:
+
             - 'x' : np.ndarray
                 Optimized normalized parameters (theta / thetac).
             - 'scpr' : np.ndarray
@@ -1099,17 +1217,18 @@ def parmest(system, models, iden_opt, case=None):
         5. Return both raw and truncated-normal statistics
 
     **Objective Functions** (from paper Table S2):
-        - **LS**: \( \sum_i (y_i - \hat{y}_i)^2 / N \)
+        - **LS**: \( \sum_i (y_i - \hat{y}_i)^2 \)
           Suitable for deterministic models with no error information.
 
-        - **WLS**: \( \sum_i [(y_i - \hat{y}_i) / \sigma_i]^2 / N \)
-          Accounts for heteroscedastic measurement errors.
+        - **WLS**: \( \sum_i [(y_i - \hat{y}_i) / \sigma_i]^2 \), per-point
+          \( \sigma_i \) from 'MES_E' (fallback: system 'unc'), paper eq. S7.
 
-        - **MLE**: \( \sum_i [\log(2\pi\sigma_i^2) + (y_i - \hat{y}_i)^2 / \sigma_i^2] / (2N) \)
-          Full probabilistic framework incorporating measurement uncertainty.
+        - **MLE**: \( \frac{1}{2}\sum_i [\log(2\pi\sigma_i^2) + (y_i - \hat{y}_i)^2 / \sigma_i^2] \)
+          (paper eq. S6), per-point \( \sigma_i \).
 
-        - **CS**: \( \sum_i [(y_i - \hat{y}_i) / y_i]^2 / N \)
-          Normalized residuals for relative error minimization.
+        - **Chi** (alias 'CS'): :math:`\sum_i [(y_i - \hat{y}_i) / \max(|y_i|, \sigma_i)]^2`
+          Relative least squares. ``|y|`` is floored at the point's \( \sigma_i \), so values
+          measured near zero (below the noise) do not get an unbounded weight.
 
     **Fixed Parameters**:
     Parameters with mutation[i]=False are held constant during optimization. Their
@@ -1117,6 +1236,7 @@ def parmest(system, models, iden_opt, case=None):
 
     **Experimental Data Format**:
     Data is loaded via read_excel() and should contain columns:
+
         - 'X:all': All simulation time points
         - '{var}t', '{var}l': Switching times and levels for time-variant inputs
         - '{var}': Time-invariant input values
@@ -1125,16 +1245,16 @@ def parmest(system, models, iden_opt, case=None):
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Bard, Y. (1974).
+    2. Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
 
-    .. [3] Franceschini, G., & Macchietto, S. (2008).
+    3. Franceschini, G., & Macchietto, S. (2008).
        Model-based design of experiments for parameter precision: State of the art.
        *Chemical Engineering Science*, 63(19), 4846–4872.
        https://doi.org/10.1016/j.ces.2007.11.034
@@ -1177,10 +1297,15 @@ def parmest(system, models, iden_opt, case=None):
     >>> print(f"Bootstrap samples shape: {results['M1'].X.shape}")
     """
 
-    data = read_excel()
-    if case != 'freeze' and 'mutation' not in models:
-        for solver in models['mutation']:
-            models['mutation'][solver] = [True] * len(models['mutation'][solver])
+    _normalize_iden_opt(iden_opt)
+    if not isinstance(models.get('krt'), dict):
+        raise ValueError("models['krt'] must be a dict {model_name: kind}, got "
+                         f"{type(models.get('krt')).__name__}")
+    data = data if data is not None else read_excel()
+    _check_data(data, system)
+    # case=None / 'freeze': keep existing masks; only create missing ones (all free)
+    if 'mutation' not in models or models['mutation'] is None:
+        models['mutation'] = {sv: [True] * len(models['theta'][sv]) for sv in models['can_m']}
     _initialize_dictionaries(models, iden_opt)
 
     active_models = models['can_m']
@@ -1191,8 +1316,8 @@ def parmest(system, models, iden_opt, case=None):
     objf = iden_opt['ob']
     multi = iden_opt.get('ms', False)
 
-    bootstrap = (iden_opt.get('var-cov') == 'B')
-    varcov= iden_opt.get('var-cov','H')
+    varcov = iden_opt['var-cov']
+    bootstrap = (varcov == 'B')
     nboot = iden_opt.get('nboot', 100)
     logging = iden_opt.get('log', False)
     maxit = iden_opt.get('maxit', 1000)
@@ -1205,20 +1330,31 @@ def parmest(system, models, iden_opt, case=None):
         theta_params_r = _initialise_theta_parameters(bound_min, bound_max, active_models, mutation=mutation, theta_fixed=models['theta'])
         theta_params_f = models['theta']
 
-    x0_dict = {sv: [1.0] * len(theta_params_r[sv]) for sv in active_models}
+    # thetac = |theta|, x0 = sign(theta): negative nominal values keep their sign
+    x0_dict, thc = {}, {}
+    for sv in active_models:
+        thc[sv], x0 = _signed_scaling(theta_params_f[sv], mutation[sv], sv)
+        x0_dict[sv] = x0.tolist()
+    # signed values of the fixed parameters (multi-start keeps them; same source as the
+    # single start: models['thetastart'] for case='strov', else models['theta'])
+    theta_fixed = {sv: (np.asarray(x0_dict[sv]) * thc[sv]).tolist() for sv in active_models}
+    theta_params_f = {**theta_params_f, **{sv: thc[sv].tolist() for sv in active_models}}
+    opts = _optim_opts({k: iden_opt.get(k) for k in ('pscale', 'grad', 'grad_step', 'fnorm')})
+    opts['theta_fixed'] = theta_fixed
 
     if bootstrap:
         return _bootstrap_runner(active_models, theta_params_f, bound_max, bound_min, mutation,
                                  objf, x0_dict, method, data, system, models,
-                                 logging, nboot, multi, varcov, maxit, tol)
+                                 logging, nboot, multi, varcov, maxit, tol, opts)
 
     if multi:
         nstarts = max(1, int(0.7 * mp.cpu_count()))
         return _multi_start_runner(active_models, theta_params_r, bound_max, bound_min, mutation,
-                                   objf, method, data, system, models, logging, varcov, maxit, tol, nstarts)
+                                   objf, method, data, system, models, logging, varcov, maxit, tol,
+                                   nstarts, opts)
 
     return _runner(active_models, theta_params_f, bound_max, bound_min, mutation,
-                   objf, x0_dict, method, data, system, models, logging, varcov, maxit, tol)
+                   objf, x0_dict, method, data, system, models, logging, varcov, maxit, tol, opts)
 
 
 
@@ -1226,8 +1362,15 @@ def parmest(system, models, iden_opt, case=None):
 # Multi-start machinery
 # ============================================================
 
+def _fixed_values(opts, models):
+    """Signed values of the fixed parameters for multi-start: opts['theta_fixed'] (set by
+    parmest from the same source as the single start) or, if absent, models['theta']."""
+    tf = (opts or {}).get('theta_fixed')
+    return tf if tf is not None else models['theta']
+
+
 def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
-                      method, data, system, models, logging, varcov, maxit, tol):
+                      method, data, system, models, logging, varcov, maxit, tol, opts=None):
     r"""
     Execute a single optimization start for one model (multi-start worker function).
 
@@ -1291,10 +1434,12 @@ def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
     ... )
     """
     try:
+        thc, x0 = _signed_scaling(thetac, thetas, sv)
         if logging:
-            print(f"[{sv}] Sampled x0: {[1.0] * len(thetac)}")
-        res = _runner([sv], {sv: thetac}, {sv: thetamax}, {sv: thetamin}, {sv: thetas},
-                      objf, {sv: [1.0] * len(thetac)}, method, data, system, models, logging, varcov, maxit, tol)
+            print(f"[{sv}] Sampled theta: {list(thetac)}")
+        res = _runner([sv], {sv: thc.tolist()}, {sv: thetamax}, {sv: thetamin}, {sv: thetas},
+                      objf, {sv: x0.tolist()}, method, data, system, models, logging, varcov, maxit, tol,
+                      opts)
         if logging:
             print(f"[{sv}] Finished with result: {res}")
         return (sv, res)
@@ -1304,8 +1449,23 @@ def _run_single_start(sv, thetac, thetamin, thetamax, thetas, objf,
         return (sv, e, tb)
 
 
+def _raise_if_all_starts_failed(active_models, allr, errs, nstarts):
+    """Raise RuntimeError when no start of any model succeeded."""
+    if any(getattr(r, 'success', False) for sv in active_models for r in allr[sv]):
+        failed = [sv for sv in active_models if not any(getattr(r, 'success', False) for r in allr[sv])]
+        if failed:
+            warnings.warn(f"parmest (multi-start): no successful start for model(s) {failed}; "
+                          f"they are returned as None. First errors: "
+                          + "; ".join(f"{sv}: {errs[sv][:1]}" for sv in failed))
+        return
+    msg = "; ".join(f"{sv}: {errs[sv][0] if errs[sv] else 'no start converged (success=False)'}"
+                    for sv in active_models)
+    raise RuntimeError(f"parmest (multi-start): every model failed in all {nstarts} starts. {msg}")
+
+
 def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
-                        method, data, system, models, logging, varcov, maxit, tol, nstarts=None):
+                        method, data, system, models, logging, varcov, maxit, tol, nstarts=None,
+                        opts=None):
     r"""
     Perform multi-start parameter estimation with parallel execution.
 
@@ -1390,12 +1550,14 @@ def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
     nstarts = nstarts or max(2 * nwork, 10)
 
     allr = {sv: [] for sv in active_models}
+    errs = {sv: [] for sv in active_models}
     tasks = []
+    fixed = _fixed_values(opts, models)
     for sv in active_models:
         for _ in range(nstarts):
-            thetac = _initialise_theta_parameters(bmin, bmax, [sv], mutation=mutation, theta_fixed=models['theta'])[sv]
+            thetac = _initialise_theta_parameters(bmin, bmax, [sv], mutation=mutation, theta_fixed=fixed)[sv]
             tasks.append((sv, thetac, bmin[sv], bmax[sv], mutation[sv], objf, method,
-                          data, system, models, logging, varcov, maxit, tol))
+                          data, system, models, logging, varcov, maxit, tol, opts))
 
     with ProcessPoolExecutor(max_workers=nwork, mp_context=CTX) as exe:
         for fut in as_completed([exe.submit(_run_single_start, *t) for t in tasks]):
@@ -1403,12 +1565,15 @@ def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
             # Crash in worker?
             if len(out) == 3 and isinstance(out[1], Exception):
                 sv, e, tb = out
-                print(f"[{sv}] worker crashed:\n{tb}")
+                errs[sv].append(f"{type(e).__name__}: {e}")
+                if logging:
+                    print(f"[{sv}] worker crashed:\n{tb}")
                 continue
             sv, res = out
             if res and res.get(sv):
                 allr[sv].append(res[sv])
 
+    _raise_if_all_starts_failed(active_models, allr, errs, nstarts)
     return {
         sv: (min([r for r in allr[sv] if r.success], key=attrgetter("fun"))
              if any(r.success for r in allr[sv]) else None)
@@ -1418,7 +1583,7 @@ def _multi_start_runner(active_models, _unused, bmax, bmin, mutation, objf,
 
 def _multi_start_runner_serial(active_models, _unused, bmax, bmin,
                                mutation, objf, method, data, system, models,
-                               logging, varcov, maxit, tol, nstarts=None):
+                               logging, varcov, maxit, tol, nstarts=None, opts=None):
     r"""
     Perform multi-start parameter estimation with serial execution.
 
@@ -1489,18 +1654,27 @@ def _multi_start_runner_serial(active_models, _unused, bmax, bmin,
     del _unused
     nstarts = nstarts or 20
     allr = {sv: [] for sv in active_models}
+    errs = {sv: [] for sv in active_models}
 
+    fixed = _fixed_values(opts, models)
     for sv in active_models:
         for _ in range(nstarts):
-            thetac = _initialise_theta_parameters(bmin, bmax, [sv], mutation=mutation, theta_fixed=models['theta'])[sv]
+            thetac = _initialise_theta_parameters(bmin, bmax, [sv], mutation=mutation, theta_fixed=fixed)[sv]
 
             if logging:
                 print(f"[{sv}][SERIAL] Trying theta: {thetac}")
-            res = _runner([sv], {sv: thetac}, {sv: bmax[sv]}, {sv: bmin[sv]}, {sv: mutation[sv]},
-                          objf, {sv: [1.0] * len(thetac)}, method, data, system, models, logging, varcov, maxit, tol)
+            try:
+                thc, x0 = _signed_scaling(thetac, mutation[sv], sv)
+                res = _runner([sv], {sv: thc.tolist()}, {sv: bmax[sv]}, {sv: bmin[sv]}, {sv: mutation[sv]},
+                              objf, {sv: x0.tolist()}, method, data, system, models, logging, varcov, maxit, tol,
+                              opts)
+            except Exception as e:
+                errs[sv].append(f"{type(e).__name__}: {e}")
+                continue
             if res and res.get(sv):
                 allr[sv].append(res[sv])
 
+    _raise_if_all_starts_failed(active_models, allr, errs, nstarts)
     return {
         sv: (min([r for r in allr[sv] if r.success], key=attrgetter("fun"))
              if any(r.success for r in allr[sv]) else None)
@@ -1514,7 +1688,7 @@ def _multi_start_runner_serial(active_models, _unused, bmax, bmin,
 
 def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
                       objf, x0, method, data, system, models, logging, multi, varcov, maxit, tol,
-                      boot_idx):
+                      boot_idx, opts=None):
     r"""
     Execute a single bootstrap replicate estimation (worker function).
 
@@ -1602,17 +1776,16 @@ def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
                    '__boot_idx__': boot_idx}
 
     if multi:
-        theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models, mutation=mutation, theta_fixed=models['theta'])
-        ref = _multi_start_runner_serial(active_models, theta_params_r, bmax, bmin,
+        ref = _multi_start_runner_serial(active_models, None, bmax, bmin,
                                          mutation, objf, method, data, system,
-                                         models_boot, logging, varcov, maxit, tol)
+                                         models_boot, logging, varcov, maxit, tol, opts=opts)
     else:
         ref = _runner(active_models, theta_params, bmax, bmin, mutation, objf,
-                      x0, method, data, system, models_boot, logging, varcov, maxit, tol)
+                      x0, method, data, system, models_boot, logging, varcov, maxit, tol, opts)
     return ref
 
 
-def truncated_moments_from_data(X, eps=1e-10):
+def truncated_moments_from_data(X, eps=1e-10, lo=None, hi=None, rtol=1e-6):
     r"""
     Compute mean and covariance from parameter samples assuming truncated normal distribution.
 
@@ -1628,6 +1801,13 @@ def truncated_moments_from_data(X, eps=1e-10):
     eps : float, optional
         Small constant for numerical stability (default: 1e-10). Used to handle
         near-zero standard deviations.
+    lo, hi : array-like, optional
+        Lower/upper parameter bounds (one per column of X). A dimension is
+        truncated at a bound only if the samples actually reach that bound
+        (within ``rtol``); otherwise that side is left untruncated. With
+        ``lo``/``hi`` None no truncation is applied on that side.
+    rtol : float, optional
+        Relative tolerance for deciding that a bound was hit (default 1e-6).
 
     Returns
     -------
@@ -1645,7 +1825,7 @@ def truncated_moments_from_data(X, eps=1e-10):
 
     **Algorithm**:
         1. Compute empirical mean (\( \mu_{emp} \)) and std (\( \sigma_{emp} \)) per dimension.
-        2. Determine truncation bounds from sample range: [min(X), max(X)].
+        2. Truncate only at the parameter bounds (lo/hi) that the samples actually hit.
         3. Fit scipy.stats.truncnorm for each dimension.
         4. Extract analytical mean (\( \mu_{trunc} \)) and variance (\( \sigma_{trunc}^2 \)).
         5. Compute correlation matrix from empirical samples (assumes truncation doesn't affect correlation).
@@ -1661,10 +1841,10 @@ def truncated_moments_from_data(X, eps=1e-10):
 
     References
     ----------
-    .. [1] Burkardt, J. (2014). The Truncated Normal Distribution.
+    1. Burkardt, J. (2014). The Truncated Normal Distribution.
        Department of Scientific Computing, Florida State University.
 
-    .. [2] scipy.stats.truncnorm documentation:
+    2. scipy.stats.truncnorm documentation:
        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.truncnorm.html
 
     See Also
@@ -1692,8 +1872,12 @@ def truncated_moments_from_data(X, eps=1e-10):
     for i in range(ndim):
         loc = mu_emp[i]
         scale = max(sigma_emp[i], eps)
-        a = (bmin[i] - loc) / scale
-        b = (bmax[i] - loc) / scale
+        # truncate only at parameter bounds that are actually hit
+        a, b = -np.inf, np.inf
+        if lo is not None and np.isfinite(lo[i]) and bmin[i] <= lo[i] + rtol * max(abs(lo[i]), 1e-300):
+            a = (lo[i] - loc) / scale
+        if hi is not None and np.isfinite(hi[i]) and bmax[i] >= hi[i] - rtol * max(abs(hi[i]), 1e-300):
+            b = (hi[i] - loc) / scale
         dist = truncnorm(a, b, loc=loc, scale=scale)
         mu_trunc[i] = dist.mean()
         var_trunc[i] = dist.var()
@@ -1781,7 +1965,7 @@ def compute_trunc_mean_cov_from_empirical(resultpr, solver='M', scpr_key='scpr',
 
 def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
                       objf, x0, method, data, system, models, logging,
-                      nboot, multi, varcov, maxit, tol):
+                      nboot, multi, varcov, maxit, tol, opts=None):
     r"""
     Perform bootstrap-based parameter estimation with truncated normal uncertainty.
 
@@ -1854,8 +2038,8 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
            with replacement, where N = total number of measurements.
         3. **Parallel Estimation**: Submit bootstrap replicates to ProcessPoolExecutor,
            each fitting on resampled data defined by boot_idx.
-        4. **Quality Filtering**: Keep only replicates with objective ≤ 2 * reference objective
-           (prevents divergent fits from biasing covariance).
+        4. **Quality Filtering**: Keep only successful replicates with a finite objective.
+           If every replicate is rejected a RuntimeError is raised.
         5. **Statistical Analysis**:
             - Compute raw empirical mean and covariance.
             - Fit truncated normal to account for parameter bounds.
@@ -1874,10 +2058,10 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     Bootstrap replicates are executed in parallel using min(nboot, n_cpus) workers.
     Each replicate is independent, making this embarrassingly parallel.
 
-    **Objective Threshold**:
-    The 2× threshold for accepting bootstrap fits prevents poor local minima or
-    numerical failures from contaminating the covariance estimate. This is conservative
-    but improves robustness.
+    **Replicate filter**:
+    Replicates that failed (exception or success=False) or have a non-finite
+    objective are rejected. (A 2x-reference threshold is not used because the MLE
+    objective can be negative.)
 
     References
     ----------
@@ -1905,16 +2089,14 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     >>> print(results['M1'].X.shape)  # (n_successful, n_params)
     """
     if multi:
-        trunc_mc_samps = nboot
         nstarts = max(1, int(0.7 * mp.cpu_count()))
-        theta_params_r = _initialise_theta_parameters(bmin, bmax, active_models, mutation=mutation, theta_fixed=models['theta'])
-        ref = _multi_start_runner(active_models, theta_params_r, bmax, bmin,
+        ref = _multi_start_runner(active_models, None, bmax, bmin,
                                   mutation, objf, method, data, system, models,
-                                  logging, varcov, maxit, tol, nstarts)
+                                  logging, varcov, maxit, tol, nstarts, opts)
     else:
         ref = _runner(active_models, theta_params, bmax, bmin, mutation,
                       objf, x0, method, data, system, models, logging,
-                      varcov, maxit, tol)
+                      varcov, maxit, tol, opts)
 
     # Bootstrap sampling
     N = _count_observations(data, system)
@@ -1928,18 +2110,51 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
                    objf, x0, method, data, system, models, logging,
                    multi, varcov, maxit, tol)
 
+    # Acceptance test of a replicate: its own optimum on the resampled data must be no worse
+    # than twice the reference optimum, compared on the constant-free objective (fun_fit;
+    # for MLE the constant 0.5*sum(log 2 pi sigma^2) is negative and would break a ratio).
+    # A resample of the same N points has an optimum of the same size as the reference
+    # (WLS ~ chi2: ~N +- sqrt(2N)), so this rejects optimisations that stopped far from the
+    # minimum, not unlucky resamples; without it, stalled fits inflate the bootstrap spread.
+    def _fit_value(r):
+        v = getattr(r, 'fun_fit', None)
+        return float(r.fun if v is None else v)
+
+    n_failed = 0
+    n_unsucc = {sv: 0 for sv in active_models}
+    n_reject = {sv: 0 for sv in active_models}
     with ProcessPoolExecutor(max_workers=min(nboot, mp.cpu_count()), mp_context=CTX) as exe:
-        futures = [exe.submit(_bootstrap_worker, *args_common, bidx) for bidx in boot_indices]
+        futures = [exe.submit(_bootstrap_worker, *args_common, bidx, opts) for bidx in boot_indices]
         for fut in as_completed(futures):
-            res = fut.result()
+            try:
+                res = fut.result()
+            except Exception as e:
+                n_failed += 1
+                if logging:
+                    print(f"bootstrap replicate failed: {type(e).__name__}: {e}")
+                continue
             for sv in active_models:
                 r = res.get(sv)
-                if r and getattr(r, 'success', True):
-                    if ref[sv] is not None and r.fun <= 2 * ref[sv].fun:
-                        if logging:
-                            print(f'bootstrap WLS is {r.fun:.1f} and real one is {ref[sv].fun:.1f} for {sv}')
-                        bootR[sv].append(r)
-                        allP[sv].append(r.scpr)
+                if ref.get(sv) is None:
+                    continue
+                if not (r and getattr(r, 'success', True) and np.isfinite(r.fun)):
+                    n_unsucc[sv] += 1
+                    continue
+                f_ref = _fit_value(ref[sv])
+                limit = 2.0 * f_ref + 1e-12 * max(abs(f_ref), 1.0)
+                if _fit_value(r) > limit:
+                    n_reject[sv] += 1
+                    continue
+                if logging:
+                    print(f'bootstrap objective {_fit_value(r):.4g} (reference {f_ref:.4g}) for {sv}')
+                bootR[sv].append(r)
+                allP[sv].append(r.scpr)
+    for sv in active_models:
+        if ref.get(sv) is None:
+            continue
+        print(f"[parmest] bootstrap '{sv}': {len(bootR[sv])}/{nboot} replicates kept "
+              f"({n_reject[sv]} rejected: objective > 2x the reference fit; "
+              f"{n_unsucc[sv]} not converged; {n_failed} raised an error)")
 
     # Create full resultpr with both raw and trunc-normal stats
     resultpr = {}
@@ -1959,7 +2174,8 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
             X_masked = X_full[:, mask]  # shape: (nboot, n_active_params)
 
             # Compute truncated stats only for unmasked parameters
-            mu_trunc_masked, cov_trunc_masked = truncated_moments_from_data(X_masked)
+            mu_trunc_masked, cov_trunc_masked = truncated_moments_from_data(
+                X_masked, lo=np.asarray(bmin[sv], float)[mask], hi=np.asarray(bmax[sv], float)[mask])
 
             # Build full-length covariance matrix with zeros in masked rows/cols
             v_full = np.zeros((X_full.shape[1], X_full.shape[1]), dtype=np.float64)
@@ -1970,9 +2186,15 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
             ref_sv.scpr = mu_raw  # full mean, including fixed params
             ref_sv.v = v_full  # full matrix, only active filled
             ref_sv.v_raw = np.cov(X_full, rowvar=False, ddof=1)
-
+            ref_sv.boot_counts = {'requested': nboot, 'kept': len(bootR[sv]),
+                                  'rejected_2x': n_reject[sv], 'not_converged': n_unsucc[sv],
+                                  'errors': n_failed}
 
         else:
+            raise RuntimeError(
+                f"Bootstrap for model '{sv}': all {nboot} replicates were rejected "
+                f"({n_reject[sv]} with an objective > 2x the reference fit, {n_unsucc[sv]} not "
+                f"converged, {n_failed} raised an error); no bootstrap covariance can be computed.")
             ref_sv.X = None
             ref_sv.scpr = None
             ref_sv.v = None
@@ -1986,8 +2208,191 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
 # Core optimizer runner
 # ============================================================
 
+# Numerical options of the optimiser (iden_opt keys of the same name; see parmest docstring)
+_OPT_DEFAULTS = {
+    'pscale': 'log',       # 'log': optimise log|x| for parameters whose bounds exclude 0; 'lin': x
+    'grad': '2-point',     # finite-difference gradient: '2-point', '3-point', or 'legacy'
+                           # (SciPy default: forward differences with absolute step 1e-8)
+    'grad_step': 1e-6,     # relative step of the '2-point'/'3-point' gradient
+    'fnorm': True,         # minimise the constant-free objective divided by its own size
+    'theta_fixed': None,   # {model: signed values} for fixed parameters in multi-start
+}
+
+
+def _optim_opts(opts=None):
+    """Complete and validate the optimiser options (defaults: _OPT_DEFAULTS)."""
+    o = dict(_OPT_DEFAULTS)
+    if opts:
+        o.update({k: v for k, v in opts.items() if k in o and (v is not None or k == 'theta_fixed')})
+    if o['pscale'] not in ('log', 'lin'):
+        raise ValueError(f"iden_opt['pscale'] must be 'log' or 'lin', got {o['pscale']!r}")
+    if o['grad'] not in ('3-point', '2-point', 'legacy'):
+        raise ValueError(f"iden_opt['grad'] must be '3-point', '2-point' or 'legacy', got {o['grad']!r}")
+    gs = o['grad_step']
+    if not (isinstance(gs, (int, float)) and np.isfinite(gs) and 0 < gs < 0.1):
+        raise ValueError(f"iden_opt['grad_step'] must be a number in (0, 0.1), got {gs!r}")
+    o['fnorm'] = bool(o['fnorm'])
+    return o
+
+
+def _optimise(method, x0, free, lo, hi, args, opts, maxit, tol):
+    r"""
+    Minimise the objective over the free normalised parameters ``x[free]``.
+
+    Parameters
+    ----------
+    method : str
+        'SLSQP', 'LMBFGS', 'TC', 'NMS', 'BFGS' or 'DE'.
+    x0 : np.ndarray
+        Full normalised start vector (+-1 for every parameter); fixed entries are kept.
+    free : np.ndarray[int]
+        Indices of the free parameters.
+    lo, hi : np.ndarray
+        Bounds of ``x[free]`` (normalised).
+    args : tuple
+        ``_objective_function`` arguments after ``x``.
+    opts : dict
+        Output of :func:`_optim_opts`.
+    maxit, tol : int, float
+        Iteration limit (per pass) and tolerance (meaning per method, see parmest).
+
+    Returns
+    -------
+    OptimizeResult
+        ``x`` is the optimal ``x[free]`` (normalised, not the internal variables).
+
+    Notes
+    -----
+    * Internal variables: see :class:`_OptProblem` (``pscale='log'``: log|x| where the
+      bounds exclude 0).
+    * Gradient (SLSQP, LMBFGS, TC, BFGS): SciPy finite differences with a *relative*
+      step ``grad_step * max(1, |z|)``, kept inside the bounds. SciPy's default
+      (forward differences, absolute step 1e-8) is mostly noise for parameters to which
+      the objective is weakly sensitive.
+    * ``fnorm``: the objective is divided by a scale s and, if it fell below 0.1 s, the
+      optimiser is restarted from its result with s = the new objective (at most 5 passes).
+      SLSQP, NMS, TC, BFGS (absolute stopping tests): s = f(start), so the tests act
+      relative to the objective at the optimum. LMBFGS (relative 'ftol', absolute only
+      for |f| < 1): s = min(f(start), 1), i.e. only objectives below 1 are scaled up.
+      Either way the tests do not depend on units or on the size of sigma. Without it
+      (legacy) only SLSQP is scaled, by max(|f(x0)|, 1).
+    """
+    lo = np.asarray(lo, float)
+    hi = np.asarray(hi, float)
+    if opts['pscale'] == 'log':
+        log_dims = ((lo > 0) & (hi > 0)) | ((lo < 0) & (hi < 0))
+    else:
+        log_dims = np.zeros(lo.size, bool)
+    sign = np.where(hi < 0, -1.0, 1.0)
+    prob = _OptProblem(x0, free, log_dims, sign, args)
+
+    xs = np.asarray(x0, float)[free].copy()
+    xs[log_dims] = np.clip(xs[log_dims], lo[log_dims], hi[log_dims])   # a log variable needs x inside
+    z0 = prob.z_of(xs)
+    zlo, zhi = lo.copy(), hi.copy()
+    pos = log_dims & (sign > 0)
+    neg = log_dims & (sign < 0)
+    with np.errstate(divide='ignore'):
+        zlo[pos], zhi[pos] = np.log(lo[pos]), np.log(hi[pos])
+        zlo[neg], zhi[neg] = np.log(-hi[neg]), np.log(-lo[neg])
+    bounds = list(zip(zlo, zhi))
+
+    if opts['grad'] == 'legacy':
+        jac, fd = None, {}
+    else:
+        jac, fd = opts['grad'], {'finite_diff_rel_step': opts['grad_step']}
+
+    def run(z_start, scale):
+        prob.scale = scale
+        if method == 'SLSQP':
+            return minimize(prob, z_start, method='SLSQP', jac=jac, bounds=bounds,
+                            options={'maxiter': maxit, 'ftol': tol, 'disp': False, **fd})
+        if method == 'LMBFGS':
+            return minimize(prob, z_start, method='L-BFGS-B', jac=jac, bounds=bounds,
+                            options={'maxiter': maxit, 'ftol': tol, 'disp': False, **fd})
+        if method == 'TC':
+            return minimize(prob, z_start, method='trust-constr', jac=jac or '2-point', bounds=bounds,
+                            options={'maxiter': maxit, 'xtol': 1e-10, 'gtol': tol, **fd})
+        if method == 'NMS':
+            nm = {'maxiter': maxit, 'fatol': tol, 'disp': False}
+            if log_dims.any():
+                # SciPy's default simplex: +5 % of each non-zero coordinate (0.00025 if 0).
+                # For a log variable the same +5 % of theta is a step log(1.05) in z.
+                step = np.where(z_start != 0, 0.05 * z_start, 0.00025)
+                step[log_dims] = np.log(1.05)
+                nm['initial_simplex'] = np.vstack([z_start, z_start + np.diag(step)])
+            return minimize(prob, z_start, method='Nelder-Mead', bounds=bounds, options=nm)
+        if method == 'BFGS':
+            # SciPy's BFGS takes no bounds; fixed parameters are respected via _OptProblem
+            return minimize(prob, z_start, method='BFGS', jac=jac,
+                            options={'maxiter': maxit, 'disp': False, **fd})
+        if method == 'DE':
+            # Avoid nested pools: DE in a worker process uses 1 worker
+            n_workers = 1 if _in_child() else -1
+            return differential_evolution(prob, bounds, maxiter=maxit, popsize=18, tol=1e-8,
+                                          strategy='best1bin', mutation=(0.5, 1.5),
+                                          recombination=0.7, polish=False,
+                                          updating='deferred', workers=n_workers)
+        raise ValueError(f"Unknown method '{method}'; valid: {list(_VALID_METH)}")
+
+    f0 = float(prob(z0))           # prob.scale is 1 here
+    if opts['fnorm']:
+        f0_ok = f0 if (np.isfinite(f0) and f0 > 0) else 1.0
+        # L-BFGS-B's 'ftol' test is relative, (f_k - f_k+1) / max(|f_k|, |f_k+1|, 1), but becomes
+        # absolute once |f| < 1: scale only small objectives UP (scale <= 1) so it stays relative.
+        # SLSQP 'ftol', NMS 'fatol', TC 'gtol' (and BFGS' gtol) are absolute: scale to the
+        # objective's own size so they become relative.
+        scale = min(f0_ok, 1.0) if method == 'LMBFGS' else f0_ok
+    else:
+        scale = max(abs(f0), 1.0) if method == 'SLSQP' else 1.0
+    res = run(z0, scale)
+    f_res = float(res.fun) * scale
+    nit = int(res.get('nit', 0) or 0)
+    nfev = int(res.get('nfev', 0) or 0)
+    if opts['fnorm'] and method != 'DE':
+        for _ in range(4):         # restart passes
+            if not (np.isfinite(f_res) and 0 < f_res < 0.1 * scale):
+                break
+            scale = f_res
+            res2 = run(np.asarray(res.x, float), scale)
+            nit += int(res2.get('nit', 0) or 0)
+            nfev += int(res2.get('nfev', 0) or 0)
+            f2 = float(res2.fun) * scale
+            if np.isfinite(f2) and f2 <= f_res:
+                res2.success = bool(res2.success or res.success)
+                res, f_res = res2, f2
+            else:
+                break
+        # A gradient method that ends in a failed line search (e.g. L-BFGS-B
+        # 'ABNORMAL_TERMINATION_IN_LNSRCH') has usually reached the precision of the
+        # finite-difference gradient. Restart once from the result with a fresh memory: keep
+        # the restart if it converges; if it cannot lower the objective at all, the point is
+        # a minimum to numerical precision and is reported as converged. An iteration limit
+        # is not touched (that is a real "not converged").
+        msg = str(res.get('message', ''))
+        hit_limit = any(k in msg.upper() for k in ('ITERATIONS REACHED LIMIT', 'ITERATION LIMIT',
+                                                   'MAXIMUM NUMBER OF ITERATIONS'))
+        if (method in ('LMBFGS', 'SLSQP', 'BFGS') and not res.success and not hit_limit
+                and np.isfinite(f_res) and f_res > 0):
+            scale = f_res if method != 'LMBFGS' else min(f_res, 1.0)
+            res2 = run(np.asarray(res.x, float), scale)
+            nit += int(res2.get('nit', 0) or 0)
+            nfev += int(res2.get('nfev', 0) or 0)
+            f2 = float(res2.fun) * scale
+            if np.isfinite(f2) and f2 <= f_res:
+                if not res2.success and f2 >= f_res * (1 - 1e-12):
+                    res2.success = True
+                    res2.message = (f"converged to numerical precision (a restart from the result "
+                                    f"could not lower the objective; first stop: {msg})")
+                res, f_res = res2, f2
+    res.nit, res.nfev = nit, nfev
+    res.fun = f_res
+    res.x = prob.x_free(res.x)
+    return res
+
+
 def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
-            x0_dict, method, data, system, models, logging, varcov, maxit, tol):
+            x0_dict, method, data, system, models, logging, varcov, maxit, tol, opts=None):
     r"""
     Execute parameter estimation for one or more models using specified optimization method.
 
@@ -2039,7 +2444,8 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
     Returns
     -------
     results : dict[str, scipy.optimize.OptimizeResult]
-        Estimation results for each model. Empty dict if all models fail.
+        Estimation results for each model (models that failed are omitted;
+        RuntimeError if all models fail).
         Each OptimizeResult is augmented with:
             - 'scpr' : np.ndarray
                 Optimized parameters in original scale (theta_opt = x_opt * thetac).
@@ -2062,25 +2468,26 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
         - \( x_{max} = \theta_{max} / \theta_c \)
 
     **Fixed Parameters**:
-    Parameters with mutation[i] = False are constrained to narrow bounds around x0[i],
-    effectively fixing them. The narrow window (1e-40 relative) prevents optimizer issues.
+    Only the free sub-vector (mutation[i] = True) is passed to the optimiser, for
+    every method, so fixed parameters stay exactly at x0[i]. Bounds are passed to
+    SLSQP, L-BFGS-B, trust-constr, Nelder-Mead and DE; SciPy's BFGS takes no bounds.
 
-    **Hessian Computation** (only when varcov='H' and not bootstrap):
-    For gradient-based methods (SLSQP, SQP, NM, DE after polishing), the Hessian
-    is computed numerically using numdifftools.Hessian with central differences:
-        1. Compute raw Hessian \( \mathbf{H} \) in normalized space.
-        2. Scale to original space: \( \mathbf{H}_s = \mathbf{S} \mathbf{H} \mathbf{S} \),
-           where \( \mathbf{S} = \text{diag}(1 / \theta_c) \).
-        3. Invert to get covariance: \( \mathbf{V} = \mathbf{D} \mathbf{H}_s^{-1} \mathbf{D} \),
-           where \( \mathbf{D} = \text{diag}(\theta_c) \).
+    **Hessian Computation** (only when varcov='H' and not bootstrap, all methods):
+    The Hessian of the objective with respect to the free scaled parameters,
+    \( \mathbf{H}_x \), is computed by central differences in self-whitened coordinates
+    (see ``_whitened_hessian``; robust for strongly correlated parameters) and
+    converted to physical units: \( \mathbf{D}_c \mathbf{H}_x^{-1} \mathbf{D}_c \),
+    \( \mathbf{D}_c = \text{diag}(\theta_c) \) (free block; fixed rows/columns are 0).
+    It is stored as ``hess_inv``; ``uncert`` applies the objective-specific factor.
 
     **Differential Evolution (DE)**:
     To avoid nested parallelization, DE uses workers=1 inside child processes
     (_in_child() check) and workers=-1 (all cores) in main process.
 
     **Error Handling**:
-    If optimization fails (exception raised), the model is skipped and not included
-    in the results dictionary. This allows other models to proceed in multi-model estimation.
+    If estimation of a model fails (exception raised), the model is skipped with a
+    warning so that rival models can proceed. If every model fails, a RuntimeError
+    listing the per-model errors is raised.
 
     References
     ----------
@@ -2105,98 +2512,324 @@ def _runner(active_models, theta_params, bmax, bmin, mutation, objf,
     >>> print(results['M1'].scpr)  # Optimized parameters
     >>> print(results['M1'].fun)  # Final objective value
     """
+    opts = _optim_opts(opts)
     results = {}
+    errors = {}
     for sv in active_models:
         thetac = np.array(theta_params[sv], float)
         x0 = np.array(x0_dict[sv], float)
-
-        thetamax = np.array(bmax[sv]) / thetac
-        thetamin = np.array(bmin[sv]) / thetac
-
         mask = np.array(mutation[sv], bool)
-        narrow = 1e-40
-
-        bounds = [((x * (1 - narrow), x * (1 + narrow)) if not m else (tmin, tmax))
-                  for x, m, tmin, tmax in zip(x0, mask, thetamin, thetamax)]
+        free = np.where(mask)[0]
 
         bootstrap_flag = models.get('__bootstrap__', False)
         boot_idx = models.get('__boot_idx__', None)
 
         args = (data, [sv], thetac, system, models, logging, objf,
                 bootstrap_flag, boot_idx)
+        # constant-free version of the objective (MLE -> WLS/2): what the optimiser minimises
+        # (unless opts['fnorm'] is False: legacy) and what the bootstrap filter compares
+        args_fit = args[:6] + (_FIT_OBJ[objf],) + args[7:]
+        args_opt = args_fit if opts['fnorm'] else args
 
         try:
-            if method == 'SLSQP':
-                res = minimize(_objective_function, x0, args=args, method='SLSQP',
-                               bounds=bounds,
-                               options={'maxiter': maxit, 'ftol': tol, 'disp': False})
-            elif method == 'LMBFGS':
-                res = minimize(_objective_function, x0, args=args, method='L-BFGS-B',
-                               bounds=bounds,
-                               options={'maxiter': maxit, 'ftol': tol, 'disp': False})
-            elif method == 'TC':
-                res = minimize(_objective_function, x0, args=args, method='trust-constr',
-                               bounds=bounds,
-                               options={'maxiter': maxit, 'xtol': tol, 'gtol': 1e-2})
-            elif method == 'NMS':
-                res = minimize(_objective_function, x0, args=args, method='Nelder-Mead',
-                               options={'maxiter': maxit, 'fatol': tol, 'disp': False})
-            elif method == 'BFGS':
-                res = minimize(_objective_function, x0, args=args, method='BFGS',
-                               options={'maxiter': maxit, 'disp': False})
-            elif method == 'DE':
-                # Avoid nested pools: DE in worker uses 1 worker
-                n_workers = 1 if _in_child() else -1
-                res = differential_evolution(_objective_function, bounds, args=args,
-                                             maxiter=maxit, popsize=18, tol=1e-8,
-                                             strategy='best1bin', mutation=(0.5, 1.5),
-                                             recombination=0.7, polish=False,
-                                             updating='deferred', workers=n_workers)
+            if np.any(thetac[free] <= 0) or not np.all(np.isfinite(thetac)):
+                raise ValueError(f"scaling values thetac must be finite and > 0 for free parameters, "
+                                 f"got {thetac.tolist()} (use thetac=|theta|, x0=sign(theta))")
+            # Bounds in scaled space, only for the free sub-vector (fixed parameters
+            # are not optimisation variables, so no optimiser can move them).
+            thetamax = np.array(bmax[sv], float)[free] / thetac[free]
+            thetamin = np.array(bmin[sv], float)[free] / thetac[free]
+            if np.any(thetamin > thetamax):
+                raise ValueError(f"lower bound above upper bound for free parameter(s) "
+                                 f"{free[thetamin > thetamax].tolist()} of model '{sv}'")
+
+            if free.size == 0:
+                res = OptimizeResult(x=np.array([]),
+                                     fun=_objective_free(np.array([]), x0, free, *args),
+                                     success=True, status=0, nit=0,
+                                     message='no free parameters: objective evaluated at the fixed values')
+                res.fun_fit = _objective_free(np.array([]), x0, free, *args_fit)
             else:
-                raise ValueError(f"Unknown method '{method}'")
+                res = _optimise(method, x0, free, thetamin, thetamax, args_opt, opts, maxit, tol)
+                xf = np.asarray(res.x, float).ravel()
+                # fun: the user's objective (MLE including its constant); fun_fit: constant-free
+                res.fun_fit = float(_objective_free(xf, x0, free, *args_fit))
+                res.fun = (res.fun_fit if _FIT_OBJ[objf] == objf
+                           else float(_objective_free(xf, x0, free, *args)))
+
+            # Expand the free sub-vector back to the full scaled vector
+            x_full = x0.copy()
+            x_full[free] = np.asarray(res.x, float).ravel()
+            res.x = x_full
+            # Optimiser-internal inverse Hessians live in the free, scaled space;
+            # they are not a parameter covariance, so drop them.
+            if 'hess_inv' in res:
+                del res['hess_inv']
+
+            # Scale back to original theta
+            res.scpr = res.x * thetac
+            res.activeparams = mask
+
+            # Covariance from the numerical Hessian of the objective (var-cov='H'),
+            # only on reference fits (not bootstrap replicates). Taken over the free
+            # parameters only; Dc converts from scaled x to physical theta.
+            # V = Dc Hx^-1 Dc is the physical inverse Hessian; uncert applies the
+            # objective-specific factor (WLS: 2, MLE: 1, LS/Chi: 2*fun/dof).
+            if not bootstrap_flag and varcov == 'H':
+                cov = np.zeros((len(thetac), len(thetac)))
+                if free.size:
+                    def loss_free(xf, _xr=res.x, _free=free):
+                        x = _xr.copy()
+                        x[_free] = xf
+                        return _objective_function(x, data, [sv], thetac, system, models,
+                                                   logging, objf, False, None)
+                    Hx = _whitened_hessian(loss_free, res.x[free])
+                    Dc = np.diag(thetac[free])
+                    res.hessian = Hx
+                    cov[np.ix_(free, free)] = Dc @ np.linalg.pinv(Hx) @ Dc
+                res.hess_inv = cov
         except Exception as e:
+            errors[sv] = f"{type(e).__name__}: {e}"
             if logging:
                 print(f"[{sv}] optimize error: {e}")
             continue
 
-        # Scale back to original theta
-        res.scpr = res.x * thetac
-        res.activeparams = mask
-
-        # Hessian & inverse (only on the reference fits, not bootstrap replicates)
-
-        if not bootstrap_flag and method in ['SLSQP', 'SQP', 'NM', 'DE'] and varcov == 'H':
-            try:
-                loss = lambda t: _objective_function(t, data, [sv], thetac, system, models,
-                                                     logging, objf, False, None)
-                H = Hessian(loss, step=1e-4, method='central', order=2)(res.x)
-                S = np.diag(1.0 / thetac.astype(float))
-                Hs = S @ H @ S
-                res.hessian = Hs
-            except Exception as e:
-                if logging:
-                    print(f"[{sv}] Hessian computation failed: {e}")
-                res.hessian = None
-                Hs = np.eye(len(thetac)) * 1e6
-
-            D = np.diag(thetac.astype(float))
-            try:
-                inv = D @ (res.hess_inv if hasattr(res, 'hess_inv') else np.linalg.pinv(Hs)) @ D
-                res.hess_inv = inv
-            except Exception as e:
-                if logging:
-                    print(f"[{sv}] Hessian inversion failed: {e}")
-                res.hess_inv = np.eye(len(thetac)) * 1e6
-
         results[sv] = res
 
-
+    if errors:
+        if not results:
+            raise RuntimeError("parmest: every model failed. " +
+                               "; ".join(f"{k}: {v}" for k, v in errors.items()))
+        warnings.warn("parmest: model(s) skipped because estimation failed: " +
+                      "; ".join(f"{k}: {v}" for k, v in errors.items()))
     return results
+
+
+def _match_times(t_all, times, var=''):
+    """
+    Index of the X:all node matching each measurement time (nearest node,
+    tolerance 1e-9*max(1, t_end)). Works for unsorted and duplicated MES_X;
+    raises ValueError for times not on the simulation grid.
+    """
+    t_all = np.asarray(t_all, float)
+    times = np.asarray(times, float)
+    if t_all.size == 0:
+        raise ValueError(f"MES_X:{var}: the X:all column is empty")
+    atol = 1e-9 * max(1.0, abs(t_all[-1]))
+    pos = np.clip(np.searchsorted(t_all, times), 0, len(t_all) - 1)
+    prev = np.maximum(pos - 1, 0)
+    pos = np.where(np.abs(t_all[prev] - times) < np.abs(t_all[pos] - times), prev, pos)
+    ok = np.isclose(t_all[pos], times, rtol=0, atol=atol)
+    if not np.all(ok):
+        raise ValueError(f"MES_X:{var} contains times not in X:all: {times[~ok][:5].tolist()}")
+    return pos
+
+
+def _check_data(data, system, rtol=1e-9):
+    """
+    Data-file checks:
+      (a) a tii column must be constant (only row 0 is used)          -> ValueError
+      (b) with CVP = no_CVP a tvi column should be constant            -> warning
+      (c) the CPF/LPF profile rebuilt from <tvi>t/<tvi>l must match
+          the <tvi> column (detects switch times in normalised units)   -> ValueError
+      (d) rows with MES_Y but no MES_X are dropped                     -> warning
+      (e) a missing tii column                                        -> ValueError
+    """
+    import pandas as _pd
+    for name, sh in data.items():
+        # (a)/(e) time-invariant inputs
+        for v in system.get('tii', {}):
+            if v not in sh:
+                raise ValueError(f"Sheet '{name}': time-invariant input column '{v}' is missing")
+            col = _pd.to_numeric(sh[v], errors='coerce').dropna().values.astype(float)
+            if col.size == 0 or _pd.isna(sh[v].iloc[0]):
+                raise ValueError(f"Sheet '{name}': time-invariant input '{v}' has no value in row 0")
+            if np.ptp(col) > rtol * max(1.0, abs(col[0])):
+                raise ValueError(f"Sheet '{name}': time-invariant input column '{v}' is not constant; "
+                                 f"only its first value would be used")
+        X = (_pd.to_numeric(sh['X:all'], errors='coerce').dropna().values.astype(float)
+             if 'X:all' in sh else np.array([]))
+        # (b)/(c) time-variant inputs
+        for v in system.get('tvi', {}):
+            ckey = f"CVP:{v}"
+            if ckey not in sh or v not in sh:
+                continue
+            cvp = sh[ckey].iloc[0]
+            col = _pd.to_numeric(sh[v], errors='coerce').dropna().values.astype(float)
+            if col.size == 0:
+                continue
+            if cvp == 'no_CVP':
+                if np.ptp(col) > rtol * max(1.0, abs(col[0])):
+                    warnings.warn(f"Sheet '{name}': input '{v}' varies but CVP=no_CVP; only its "
+                                  f"first value ({col[0]}) is used")
+                continue
+            if cvp not in ('CPF', 'LPF') or X.size == 0 or col.size != X.size:
+                continue
+            tk, lk = f"{v}t", f"{v}l"
+            if tk not in sh or lk not in sh:
+                continue
+            ts = _pd.to_numeric(sh[tk], errors='coerce').dropna().values.astype(float)
+            ls = _pd.to_numeric(sh[lk], errors='coerce').dropna().values.astype(float)
+            if ts.size == 0 or ts.size != ls.size:
+                continue
+            order = np.argsort(ts, kind='stable')
+            ts, ls = ts[order], ls[order]
+            if cvp == 'CPF':
+                k = np.clip(np.searchsorted(ts, X, side='right') - 1, 0, ls.size - 1)
+                rebuilt = ls[k]
+                # a node lying on a switch time is ambiguous (old or new level): skip it
+                tol_t = 1e-9 * max(1.0, abs(X[-1]))
+                near = np.min(np.abs(X[:, None] - ts[None, :]), axis=1) <= tol_t
+            else:
+                rebuilt = np.interp(X, ts, ls)
+                near = np.zeros(X.size, bool)
+            scale = max(1.0, float(np.max(np.abs(ls))), float(np.max(np.abs(col))))
+            diff = np.abs(rebuilt - col)
+            bad = (diff > 1e-6 * scale) & ~near
+            if np.any(bad):
+                raise ValueError(
+                    f"Sheet '{name}': the {cvp} profile rebuilt from '{tk}'/'{lk}' does not match the "
+                    f"'{v}' column at {int(bad.sum())} of {X.size} time points (max |diff| = "
+                    f"{np.max(diff[bad]):.3g}). Switch times must be given in the same (physical) "
+                    f"time units as X:all.")
+        # (d) measurements without a time
+        for v in system.get('tvo', {}):
+            xc, yc = f"MES_X:{v}", f"MES_Y:{v}"
+            if xc in sh and yc in sh:
+                n = int((sh[xc].isna() & sh[yc].notna()).sum())
+                if n:
+                    warnings.warn(f"Sheet '{name}': {n} row(s) with MES_Y:{v} but no MES_X:{v} are ignored")
+    # (f) sigma of measurements without an MES_E value
+    _check_sigma_fallback(data, system)
+
+
+def _unc_value(cfg):
+    """system['tvo'|'tio'][var]['unc'] as a float (NaN if missing, None or not a number)."""
+    try:
+        u = float(cfg.get('unc', np.nan))
+    except (TypeError, ValueError):
+        return np.nan
+    return u
+
+
+def _check_sigma_fallback(data, system):
+    r"""
+    Check the measurements whose sigma must come from ``system[...]['unc']``.
+
+    The weights of WLS/MLE (and the 'M' covariance) use the per-point sigma of the
+    'MES_E:{var}' column. Where that column is missing (or empty for a measured row), the
+    variable's ``'unc'`` is used **as an absolute standard deviation**. That is right for
+    absolute errors, but for relative errors 'unc' is a fraction of the value (e.g. 0.08)
+    and the weights would be wrong. So: raise if the fallback is needed and 'unc' is not a
+    finite number > 0, and warn (once per call) which variables use it.
+    """
+    import pandas as _pd
+    used = {}
+    groups = (('tvo', True), ('tio', False))
+    for name, sh in data.items():
+        for grp, timed in groups:
+            for v, cfg in system.get(grp, {}).items():
+                if not cfg.get('meas', True):
+                    continue
+                yc, ec = f"MES_Y:{v}", f"MES_E:{v}"
+                if yc not in sh:
+                    continue
+                if timed:
+                    xc = f"MES_X:{v}"
+                    if xc not in sh:
+                        continue
+                    rows = sh[xc].notna() & sh[yc].notna()
+                else:
+                    rows = _pd.Series([_pd.notna(sh[yc].iloc[0])])
+                    if ec in sh:
+                        rows = rows & _pd.Series([_pd.isna(sh[ec].iloc[0])])
+                    if bool(rows.iloc[0]):
+                        used.setdefault(v, []).append(name)
+                    continue
+                if ec not in sh:
+                    if bool(rows.any()):
+                        used.setdefault(v, []).append(name)
+    if not used:
+        return
+    bad = []
+    for v in used:
+        cfg = system.get('tvo', {}).get(v) or system.get('tio', {}).get(v) or {}
+        u = _unc_value(cfg)
+        if not (np.isfinite(u) and u > 0):
+            bad.append(v)
+    if bad:
+        raise ValueError(f"No 'MES_E' sigma for {bad} (sheets {[used[v] for v in bad]}) and their "
+                         f"system 'unc' is missing or not a finite number > 0: give the measurement "
+                         f"standard deviation in an 'MES_E:<var>' column (or 'unc').")
+    warnings.warn(f"No 'MES_E' column for {sorted(used)}: their system 'unc' is used as the ABSOLUTE "
+                  f"standard deviation of every point (sheets: {used}). For relative errors give the "
+                  f"per-point sigma in 'MES_E:<var>' instead.")
 
 
 # ============================================================
 # Objective wrappers
 # ============================================================
+
+def _fd_hessian(fun, n, h):
+    """Central-difference Hessian of ``fun`` at the origin of an n-dimensional space, step h."""
+    H = np.zeros((n, n))
+    f0 = fun(np.zeros(n))
+    E = np.eye(n) * h
+    fp = [fun(E[i]) for i in range(n)]
+    fm = [fun(-E[i]) for i in range(n)]
+    for i in range(n):
+        H[i, i] = (fp[i] - 2.0 * f0 + fm[i]) / h ** 2
+        for j in range(i + 1, n):
+            H[i, j] = H[j, i] = (fun(E[i] + E[j]) - fun(E[i] - E[j])
+                                 - fun(-E[i] + E[j]) + fun(-E[i] - E[j])) / (4.0 * h * h)
+    return H
+
+
+def _whitened_hessian(fun, x, h0=1e-3, h_white=0.5, max_dx=0.2, n_iter=4, tol=0.05):
+    """
+    Hessian of ``fun`` at ``x`` that stays accurate for strongly correlated parameters.
+
+    A plain finite-difference Hessian in the scaled parameters cannot resolve the
+    smallest curvature when the parameters are strongly correlated (condition numbers
+    of 1e3-1e4 are common), so it comes out indefinite and the covariance is NaN.
+    Here the differences are taken in whitened coordinates z, with x = x* + A z and
+    A = H^(-1/2) from the current Hessian estimate. In these coordinates every
+    curvature is about 1, so one step size (``h_white``) suits all directions.
+
+    1. Rough Hessian H0 by central differences in x with step ``h0``.
+    2. Whiten with |eigenvalues| of the current estimate, difference in z with step
+       ``h_white`` (each step changes x by at most ``max_dx``), map back:
+       H = A^-T H_z A^-1.
+    3. Repeat until H_z is within ``tol`` of the identity or ``n_iter`` is reached.
+    """
+    x = np.asarray(x, dtype=float)
+    n = x.size
+    H = _fd_hessian(lambda d: fun(x + d), n, h0)
+    for _ in range(n_iter):
+        Hs = 0.5 * (H + H.T)
+        w, Q = np.linalg.eigh(Hs)
+        w = np.abs(w)
+        floor = max(w.max(), 1e-300) * 1e-12
+        w = np.maximum(w, floor)
+        A = Q @ np.diag(w ** -0.5) @ Q.T
+        # cap the step: the largest change of any x for a step h_white along one z axis
+        reach = h_white * np.max(np.abs(A))
+        h = h_white if reach <= max_dx else h_white * max_dx / reach
+        Hz = _fd_hessian(lambda z: fun(x + A @ z), n, h)
+        Ainv = np.linalg.inv(A)
+        H = Ainv.T @ Hz @ Ainv
+        if np.linalg.norm(0.5 * (Hz + Hz.T) - np.eye(n), 2) < tol:
+            break
+    return 0.5 * (H + H.T)
+
+
+def _objective_free(xf, x_base, free, *args):
+    """Objective of the free sub-vector: fixed entries are taken from x_base
+    (module level so that it can be pickled for parallel DE)."""
+    x = np.array(x_base, dtype=float)
+    x[free] = xf
+    return _objective_function(x, *args)
+
 
 def _objective_function(theta, data, active, thetac, system, models,
                         logging, objf, bootstrap, boot_idx):
@@ -2224,7 +2857,11 @@ def _objective_function(theta, data, active, thetac, system, models,
     logging : bool
         Enable verbose logging (unused here, passed to _objective).
     objf : str
-        Objective function to return: 'LS', 'WLS', 'MLE', or 'Chi'.
+        Objective function to return: 'LS', 'WLS', 'MLE', or 'Chi'. Internally
+        also 'MLE_fit' = WLS / 2, i.e. MLE without its parameter-independent
+        constant 0.5*sum(log(2*pi*sigma^2)); same minimiser and same Hessian as
+        'MLE', used by the optimiser so that relative stopping tests are not
+        distorted by the constant (which can be large and negative).
     bootstrap : bool
         If True, use bootstrap resampling.
     boot_idx : np.ndarray or None
@@ -2249,7 +2886,63 @@ def _objective_function(theta, data, active, thetac, system, models,
     """
     _, m = _objective(theta, data, active, thetac, system, models,
                       bootstrap=bootstrap, boot_idx=boot_idx)
-    return {'LS': m['LS'], 'WLS': m['WLS'], 'MLE': m['MLE'], 'Chi': m['Chi']}[objf]
+    return {'LS': m['LS'], 'WLS': m['WLS'], 'MLE': m['MLE'], 'Chi': m['Chi'],
+            'MLE_fit': 0.5 * m['WLS']}[objf]
+
+
+# Objective actually minimised for each user objective: identical minimiser, no constant offset
+_FIT_OBJ = {'LS': 'LS', 'WLS': 'WLS', 'MLE': 'MLE_fit', 'Chi': 'Chi'}
+
+
+class _OptProblem:
+    r"""
+    Objective in the optimiser's internal variables ``z`` (free parameters only).
+
+    MIDDoE's normalised parameters are ``x = theta / thetac`` (``thetac = |theta_start|``),
+    so ``x`` starts at +-1. ``x`` is kept everywhere outside the optimiser (results,
+    Hessian, bootstrap). Inside the optimiser a second, purely internal change of
+    variables is used:
+
+    * ``z = log(|x|)`` for free parameters whose bounds do not include 0 (both bounds
+      > 0, or both < 0): equal steps in ``z`` are equal *relative* changes of theta,
+      whatever the distance between the start and the optimum (e.g. a start of 100
+      and an optimum of 9905 gives x ~ 99 but z ~ 4.6);
+    * ``z = x`` for the other free parameters (bounds containing 0).
+
+    The returned value is the fit objective divided by ``scale`` (set by the caller so
+    that the optimiser's stopping tests act relative to the objective's size).
+    Module level with plain attributes so that it pickles (parallel DE workers).
+    """
+
+    def __init__(self, x_base, free, log_dims, sign, args, scale=1.0):
+        self.x_base = np.asarray(x_base, float)
+        self.free = np.asarray(free, int)
+        self.log_dims = np.asarray(log_dims, bool)
+        self.sign = np.asarray(sign, float)
+        self.args = args            # _objective_function arguments after x
+        self.scale = float(scale)
+
+    def x_free(self, z):
+        z = np.asarray(z, float)
+        xf = z.copy()
+        ld = self.log_dims
+        xf[ld] = self.sign[ld] * np.exp(z[ld])
+        return xf
+
+    def x_full(self, z):
+        x = self.x_base.copy()
+        x[self.free] = self.x_free(z)
+        return x
+
+    def z_of(self, xf):
+        xf = np.asarray(xf, float)
+        z = xf.copy()
+        ld = self.log_dims
+        z[ld] = np.log(np.abs(xf[ld]))
+        return z
+
+    def __call__(self, z):
+        return _objective_function(self.x_full(z), *self.args) / self.scale
 
 
 def _objective(theta, data, active, thetac, system, models,
@@ -2297,11 +2990,12 @@ def _objective(theta, data, active, thetac, system, models,
             - 'WLS' : float
                 Weighted Least Squares: \( \sum_i [(y_i - \hat{y}_i) / \sigma_i]^2 \).
             - 'MLE' : float
-                Negative log-likelihood (relative errors):
+                Negative log-likelihood (paper eq. S6):
                 \( \sum_i [\log(2\pi\sigma_i^2) + (r_i / \sigma_i)^2] / 2 \),
-                where \( r_i = (y_i - \hat{y}_i) / y_i \).
+                where \( r_i = y_i - \hat{y}_i \) and \( \sigma_i \) is the per-point sigma.
             - 'Chi' : float
-                Chi-squared (relative errors): \( \sum_i [(y_i - \hat{y}_i) / y_i]^2 \).
+                Relative least squares: \( \sum_i [(y_i - \hat{y}_i) / |y_i|]^2 \)
+                (|y| floored at 1e-8).
             - 'R2_responses' : dict[str, float]
                 Coefficient of determination for each response variable.
 
@@ -2333,20 +3027,22 @@ def _objective(theta, data, active, thetac, system, models,
           Best for homoscedastic noise (constant variance).
 
         - **WLS (Weighted Least Squares)**: Minimizes sum of squared weighted errors.
-          Weights are \( w_i = 1 / \sigma_i^2 \), where \( \sigma_i \) is from
-          system['tvo'][var]['unc'] or system['tio'][var]['unc'].
-          Best for heteroscedastic noise (variance depends on response).
+          Weights are \( w_i = 1 / \sigma_i^2 \) with the per-point \( \sigma_i \)
+          from 'MES_E:{var}' (fallback: system['tvo'|'tio'][var]['unc']).
 
-        - **MLE (Maximum Likelihood Estimation)**: Assumes relative errors
-          \( (y - \hat{y}) / y \) follow normal distribution.
-          Equivalent to minimizing negative log-likelihood.
-          Best for multiplicative noise (percentage errors).
+        - **MLE (Maximum Likelihood Estimation)**: Gaussian negative log-likelihood
+          with per-point \( \sigma_i \) (paper eq. S6).
 
-        - **Chi (Chi-squared)**: Similar to MLE but without log term.
-          Minimizes sum of squared relative errors.
+        - **Chi**: relative least squares, sum of squared relative errors, with ``|y|``
+          floored at the point's sigma.
+
+    All objectives are plain sums over all measurements (no per-response mean).
 
     **Missing Data Handling**:
-        - NaN values in measurement times/values are automatically skipped.
+        - Rows with NaN in MES_X or MES_Y are skipped.
+        - Non-finite model output raises ValueError.
+        - Measurement times are matched to the nearest node of 'X:all'; a time
+          that is not on the grid raises ValueError.
         - If no valid measurements exist for a variable in a sheet, that variable
           is skipped for that sheet.
 
@@ -2378,13 +3074,16 @@ def _objective(theta, data, active, thetac, system, models,
     >>> print(metrics['R2_responses'])  # R² for each variable
     """
     import pandas as _pd
-    theta = theta.tolist()
+    if not np.all(np.isfinite(np.asarray(theta, float))):
+        raise ValueError(f"non-finite parameter vector passed to the objective: {np.asarray(theta).tolist()}")
+    theta = np.asarray(theta, float).tolist()
     tv_i, ti_i = list(system['tvi']), list(system['tii'])
     tv_o = [v for v, c in system['tvo'].items() if c.get('meas', True)]
     ti_o = [v for v, c in system['tio'].items() if c.get('meas', True)]
 
+    # fallback sigma where there is no MES_E value (checked and warned in _check_data)
     std_dev = {
-        v: (cfg.get('unc', 1.0) if not np.isnan(cfg.get('unc', 1.0)) else 1.0)
+        v: (_unc_value(cfg) if np.isfinite(_unc_value(cfg)) else 1.0)
         for v, cfg in {**system['tvo'], **system['tio']}.items()
         if cfg.get('meas', True)
     }
@@ -2422,16 +3121,18 @@ def _objective(theta, data, active, thetac, system, models,
             xc, yc = f"MES_X:{v}", f"MES_Y:{v}"
             if xc not in sh or yc not in sh:
                 continue
-            mask = ~sh[xc].isna().values
-            times = sh[xc][mask].values
-            y_t = sh[yc][mask].values
+            mask = ~sh[xc].isna().values & ~sh[yc].isna().values
+            times = sh[xc][mask].values.astype(float)
+            y_t = sh[yc][mask].values.astype(float)
+            if times.size == 0:
+                continue
 
-            idx = np.isin(t_all, times)
-            y_p = np.array(tvs[v])[idx]
+            pos = _match_times(t_all, times, v)
+            y_p = np.asarray(tvs[v], dtype=float)[pos]
 
             ye_col = f"MES_E:{v}"
-            y_e = (sh[ye_col][mask].values if ye_col in sh
-                   else np.full_like(y_t, std_dev[v]))
+            y_e = (sh[ye_col][mask].values.astype(float) if ye_col in sh
+                   else np.full_like(y_t, std_dev[v], dtype=float))
 
             global_y_true.setdefault(v, []).extend(y_t.tolist())
             global_y_pred.setdefault(v, []).extend(y_p.tolist())
@@ -2445,11 +3146,13 @@ def _objective(theta, data, active, thetac, system, models,
             yc = f"MES_Y:{v}"
             if yc not in sh:
                 continue
-            y_t = sh[yc].iloc[0]
-            y_p = tis.get(v, np.nan)
-            if np.isnan(y_t) or np.isnan(y_p):
+            y_t = float(sh[yc].iloc[0])
+            if np.isnan(y_t):
                 continue
-            sigma = std_dev[v]
+            y_p = float(np.ravel(tis.get(v, np.nan))[0])
+            ecol = f"MES_E:{v}"
+            sigma = (float(sh[ecol].iloc[0]) if ecol in sh and not _pd.isna(sh[ecol].iloc[0])
+                     else float(std_dev[v]))
             global_y_true.setdefault(v, []).append(y_t)
             global_y_pred.setdefault(v, []).append(y_p)
             global_y_err.setdefault(v, []).append(sigma)
@@ -2462,17 +3165,21 @@ def _objective(theta, data, active, thetac, system, models,
     for v, ytl in global_y_true.items():
         ypl = global_y_pred[v]
         yel = global_y_err[v]
-        n = min(len(ytl), len(ypl), len(yel))
-        all_y_true += ytl[:n]
-        all_y_pred += ypl[:n]
-        all_y_err += yel[:n]
-        all_vars += [v] * n
+        all_y_true += ytl
+        all_y_pred += ypl
+        all_y_err += yel
+        all_vars += [v] * len(ytl)
 
     all_y_true = np.array(all_y_true)
     all_y_pred = np.array(all_y_pred)
     all_y_err = np.array(all_y_err)
     all_vars = np.array(all_vars)
     N = len(all_y_true)
+    if not (np.all(np.isfinite(all_y_true)) and np.all(np.isfinite(all_y_pred))):
+        raise ValueError("non-finite residual in the objective (NaN/inf in the model output "
+                         f"for model '{solver}', or in MES_Y)")
+    if not (np.all(np.isfinite(all_y_err)) and np.all(all_y_err > 0)):
+        raise ValueError("measurement sigma (MES_E column or system 'unc') must be finite and > 0")
 
     # --------------------------------------------------
     # Bootstrap resampling (fixed index)
@@ -2499,20 +3206,18 @@ def _objective(theta, data, active, thetac, system, models,
         yt, yp, ye = y_t[sel], y_p[sel], y_e[sel]
         n = len(sel)
 
-        per_var['LS'][v] = np.sum((yt - yp) ** 2) / n
-        per_var['WLS'][v] = np.sum(((yt - yp) / std_dev[v]) ** 2) / n
+        # True sums with per-point sigma (paper eqs. S5-S7); identical to uncert.
+        r = yt - yp
+        per_var['LS'][v] = np.sum(r ** 2)
+        per_var['WLS'][v] = np.sum((r / ye) ** 2)
+        per_var['MLE'][v] = 0.5 * np.sum(np.log(2 * np.pi * ye ** 2) + (r / ye) ** 2)
+        # 'Chi': relative least squares sum(((y - y_hat)/max(|y|, sigma))^2). The floor at the
+        # point's sigma stops a measured value near 0 (below the noise, e.g. a clipped negative
+        # draw) from getting a weight ~1/eps^2 that overrides every other point.
+        floor = np.maximum(np.nan_to_num(ye, nan=0.0), eps)
+        per_var['Chi'][v] = np.sum((r / np.maximum(np.abs(yt), floor)) ** 2)
 
-        rel_err = (yt - yp) / np.maximum(np.abs(yt), eps)
-        rel_unc = np.clip(ye / np.maximum(np.abs(yt), eps), 1e-3, 1e2)
-        per_var['MLE'][v] = np.mean(
-            0.5 * (np.log(2 * np.pi * rel_unc ** 2) + (rel_err ** 2) / (rel_unc ** 2))
-        )
-        per_var['Chi'][v] = np.sum(rel_err ** 2) / n
-
-    LS = sum(per_var['LS'].values()) * N
-    WLS = sum(per_var['WLS'].values()) * N
-    MLE = sum(per_var['MLE'].values()) * N
-    Chi = sum(per_var['Chi'].values()) * N
+    LS, WLS, MLE, Chi = (float(sum(per_var[k].values())) for k in ('LS', 'WLS', 'MLE', 'Chi'))
 
     # R^2 per response (for reporting)
     r2 = {}

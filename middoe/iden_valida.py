@@ -220,6 +220,7 @@ def validation(system, models, iden_opt, round_data):
     -----
     **Leave-One-Out Cross-Validation (LOOCV)**:
     For n experimental sheets:
+
         1. **Fold i**: Hold out sheet i, train on remaining n-1 sheets
         2. **Estimate parameters** on training data using parmest()
         3. **Evaluate** on both training set (R²_pred, MSE_pred) and validation set (R²_val, MSE_val)
@@ -241,6 +242,7 @@ def validation(system, models, iden_opt, round_data):
         \[
         R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}
         \]
+
     where \( y_i \) are observations, \( \hat{y}_i \) are predictions, and \( \bar{y} \)
     is the mean of observations.
 
@@ -268,18 +270,18 @@ def validation(system, models, iden_opt, round_data):
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Stone, M. (1974).
+    2. Stone, M. (1974).
        Cross-validatory choice and assessment of statistical predictions.
        *Journal of the Royal Statistical Society: Series B (Methodological)*, 36(2), 111–133.
        https://doi.org/10.1111/j.2517-6161.1974.tb00994.x
 
-    .. [3] Bard, Y. (1974).
+    3. Bard, Y. (1974).
        *Nonlinear Parameter Estimation*. Academic Press, New York.
 
     See Also
@@ -362,10 +364,12 @@ def validation(system, models, iden_opt, round_data):
         print(f"Validation sheet: {validation_sheet}")
 
         # Estimate parameters on training data
-        resultpr = parmest(system, models, iden_opt, training_data, case='strov')
+        resultpr = parmest(system, models, iden_opt, case='strov', data=training_data)
 
-        # Compute metrics on training set (prediction)
-        uncert_results_pred = uncert(training_data, resultpr, system, models, iden_optc)
+        # Compute metrics on training set (prediction); case='freeze' keeps the
+        # per-fold estimates out of models['theta'] / models['V_matrix']
+        uncert_results_pred = uncert(resultpr, system, models, iden_optc, case='freeze',
+                                     data=training_data)
         resultun_pred = uncert_results_pred['results']
         scaled_params_pred = {
             solver: resultun_pred[solver]['optimization_result']['scpr']
@@ -373,7 +377,8 @@ def validation(system, models, iden_opt, round_data):
         }
 
         # Compute metrics on validation set
-        uncert_results_vals = uncert(validation_data, resultpr, system, models, iden_optc)
+        uncert_results_vals = uncert(resultpr, system, models, iden_optc, case='freeze',
+                                     data=validation_data)
         resultun_val = uncert_results_vals['results']
 
         # Extract R2 and MSE for this fold
@@ -434,6 +439,7 @@ def compute_validation_error(resultun_pred, resultun_val, scaled_params, round_d
     resultun_pred : dict[str, dict]
         Uncertainty analysis results for predictions (training set).
         Each solver dict contains:
+
             - 'R2_total' : float
                 Overall R² across all response variables.
             - 'MSE' : float

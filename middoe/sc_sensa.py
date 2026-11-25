@@ -698,6 +698,7 @@ def sensa(gsa, models, system):
             - 'analysis' : dict[str, dict[str, list[dict]]]
                 Nested structure: {solver: {response: [time_step_results]}}
                 Each time_step_results contains:
+
                     * 'S1' : np.ndarray — First-order indices (main effects)
                     * 'ST' : np.ndarray — Total indices (main + interactions)
                     * 'S1_conf' : np.ndarray — S1 confidence intervals
@@ -713,16 +714,20 @@ def sensa(gsa, models, system):
 
     **First-Order Index (S1)**:
     Main effect of input i, excluding interactions:
+
         \[
         S_i = \frac{V_{X_i}[E_{X_{\sim i}}(Y|X_i)]}{V(Y)}
         \]
+
     Interpretation: Fraction of output variance due to varying input i alone.
 
     **Total Index (ST)**:
     Total effect including all interactions:
+
         \[
         ST_i = \frac{E_{X_{\sim i}}[V_{X_i}(Y|X_{\sim i})]}{V(Y)}
         \]
+
     Interpretation: Fraction of variance that would remain if all inputs except i were fixed.
 
     **Computational Cost**:
@@ -730,18 +735,18 @@ def sensa(gsa, models, system):
 
     References
     ----------
-    .. [1] Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
+    1. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025).
        MIDDoE: An MBDoE Python package for model identification, discrimination,
        and calibration.
        *Digital Chemical Engineering*, 17, 100276.
        https://doi.org/10.1016/j.dche.2025.100276
 
-    .. [2] Jansen, M.J.W. (1999).
+    2. Jansen, M.J.W. (1999).
        Analysis of variance designs for model output.
        *Computer Physics Communications*, 117(1-3), 35–43.
        https://doi.org/10.1016/S0010-4655(98)00154-4
 
-    .. [3] Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., & Tarantola, S. (2010).
+    3. Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., & Tarantola, S. (2010).
        Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index.
        *Computer Physics Communications*, 181(2), 259–270.
        https://doi.org/10.1016/j.cpc.2009.09.018
@@ -782,7 +787,7 @@ def sensa(gsa, models, system):
 
     time_field = system['t_s'][1]
     t = list(np.linspace(0, 1, 305))
-    tsc = int(time_field)
+    tsc = float(time_field)
 
     sobol_problem = {}
     sa = {}
@@ -806,11 +811,11 @@ def sensa(gsa, models, system):
 
                 if isinstance(gsa.get('var_d'), float):
                     phi_bounds = [
-                        (gsa['tii_n'][i] / gsa['var_d'], gsa['tvi_n'][i] * gsa['var_d'])
+                        (gsa['tii_n'][i] / gsa['var_d'], gsa['tii_n'][i] * gsa['var_d'])
                         for i in range(len(gsa['tii_n']))
                     ]
                     phit_bounds = [
-                        (gsa['tii_n'][i] / gsa['var_d'], gsa['tvi_n'][i] * gsa['var_d'])
+                        (gsa['tvi_n'][i] / gsa['var_d'], gsa['tvi_n'][i] * gsa['var_d'])
                         for i in range(len(gsa['tvi_n']))
                     ]
                 else:
@@ -912,7 +917,7 @@ def _sobol_analysis(settings, model_outputs, calc_2nd_order=True, resamples=100,
 
     This is the core computational routine that estimates first-order (S1) and total-order (ST)
     Sobol indices from the structured model output matrix. It implements the efficient
-    estimators from Saltelli et al. with optional bootstrap confidence intervals.
+    estimators of Jansen (1999) for S1 and ST (Saltelli et al. 2010 sampling scheme) with optional bootstrap confidence intervals.
 
     Parameters
     ----------
@@ -1161,11 +1166,11 @@ def _initialize_sensitivity_storage(num_params, resample_count, keep_resamples, 
 
 def _compute_first_order_sensitivity(A, AB, B):
     r"""
-    Compute first-order Sobol sensitivity index using Saltelli estimator.
+    Compute first-order Sobol sensitivity index using the Jansen estimator.
 
     The first-order index S1_j measures the main effect contribution of parameter j
     to output variance, excluding all interaction terms. This implementation uses
-    the efficient covariance-based estimator from Saltelli et al. (2010).
+    the Jansen (1999) estimator, as described in the MIDDoE paper (eq. S3).
 
     Parameters
     ----------
@@ -1183,17 +1188,14 @@ def _compute_first_order_sensitivity(A, AB, B):
 
     Notes
     -----
-    **Estimator Formula**:
+    **Estimator Formula** (Jansen):
         \[
-        \hat{S}_j = \frac{\text{Cov}(Y_B, Y_{AB_j})}{\text{Var}(Y)}
+        \hat{S}_j = 1 - \frac{\sum_{i=1}^{N} \left(Y_B^{(i)} - Y_{AB_j}^{(i)}\right)^2}{2N\,\text{Var}(Y)}
         \]
-    where the covariance and variance are estimated from samples.
-
-    **Implementation**:
-    Uses the numerically stable form:
-        \[
-        \hat{S}_j = \frac{\frac{1}{N}\sum_i Y_B^{(i)} (Y_{AB_j}^{(i)} - Y_A^{(i)})}{\text{Var}([Y_A, Y_B])}
-        \]
+    where \(Y_{AB_j}\) is the output for matrix A with column j taken from B, and
+    Var(Y) is estimated from the pooled outputs [Y_A, Y_B]. (Versions between
+    Aug 2025 and this fix used the Saltelli 2010 estimator
+    \(\frac{1}{N}\sum Y_B (Y_{AB_j} - Y_A) / \text{Var}(Y)\) instead.)
 
     **Interpretation**:
         - S1_j = 0: Parameter j has no main effect
@@ -1208,7 +1210,10 @@ def _compute_first_order_sensitivity(A, AB, B):
 
     References
     ----------
-    .. [1] Saltelli, A., et al. (2010).
+    .. [1] Jansen, M. J. W. (1999).
+       Analysis of variance designs for model output.
+       *Computer Physics Communications*, 117(1-2), 35-43.
+    .. [2] Saltelli, A., et al. (2010).
        Variance based sensitivity analysis of model output.
        *Computer Physics Communications*, 181(2), 259-270.
 
@@ -1223,9 +1228,8 @@ def _compute_first_order_sensitivity(A, AB, B):
     >>> B = np.random.randn(1000)
     >>> AB = 0.8 * A + 0.2 * np.random.randn(1000)
     >>> S1 = _compute_first_order_sensitivity(A, AB, B)
-    >>> print(f"S1 ≈ 0.64: {S1:.3f}")  # Expected ~0.64
     """
-    return np.mean(B * (AB - A), axis=0) / np.var(np.r_[A, B], axis=0)
+    return 1.0 - 0.5 * np.mean((B - AB) ** 2, axis=0) / np.var(np.r_[A, B], axis=0)
 
 
 def _compute_total_order_sensitivity(A, AB, B):
@@ -1704,11 +1708,14 @@ def sample(settings, N, calc_second_order=True, scramble=True, skip_values=0, se
     -----
     **Sample Matrix Structure**:
     For each base sample i, generates:
+
         [A_i, AB_i1, ..., AB_iD, (BA_i1, ..., BA_iD), B_i]
+
     where AB_ij is A with column j replaced by B.
 
     **Sobol Sequences**:
     Low-discrepancy quasi-random sequences with superior space-filling vs random:
+
         - Uniform coverage of parameter space
         - Faster convergence of Monte Carlo estimates
         - Deterministic (given seed)

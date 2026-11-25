@@ -1756,6 +1756,19 @@ from matplotlib.patches import Ellipse, Patch
 from matplotlib.ticker import MaxNLocator
 from scipy.stats import norm, chi2
 from scipy.special import gamma
+
+# Whether plotting helpers open figure windows (plt.show) or only save and close them.
+# run_postprocessing(..., show=False) switches it off for its own duration.
+_SHOW_PLOTS = True
+
+
+def _show():
+    """Show the current figure, or close it when plot display is switched off."""
+    if _SHOW_PLOTS:
+        plt.show()
+    else:
+        plt.close()
+
 from scipy.interpolate import interp1d
 from pathlib import Path
 
@@ -1768,12 +1781,17 @@ def Plot_estimability(round_data, path, solver):
     r"""
     Plot the estimability of parameters across different rounds for a given model. Estimability plotter post analysis.
 
-    Parameters:
-    round_data (dict): Data related to each round of experiments.
-    path (str): Base path where the plot will be saved.
-    model (str): The name of the model for which the estimability is being plotted.
+    Parameters
+    ----------
+    round_data : dict
+        Data related to each round of experiments.
+    path : str
+        Base path where the plot will be saved.
+    solver : str
+        The name of the model for which the estimability is being plotted.
 
-    Returns:
+    Returns
+    -------
     None
     """
 
@@ -1873,7 +1891,7 @@ def Plot_estimability(round_data, path, solver):
     plt.savefig(filename, dpi=300)
 
     # Optionally show the plot
-    plt.show()
+    _show()
 
     print(f"Plot saved in {full_path}")
 
@@ -1882,14 +1900,19 @@ def plot_rCC_vs_k(x_values, rCC_values, round, solver):
     r"""
     Plot rCC values against k for a specific round and model. Estimability plotter while analysis.
 
-    Parameters:
-    x_values (list): List of x values (k values).
-    rCC_values (list): List of rCC values corresponding to x values.
-    round (int): The round number.
-    framework_settings (dict): Settings related to the framework, including paths and case information.
-    model (str): The name of the model for which the plot is being generated.
+    Parameters
+    ----------
+    x_values : list
+        List of x values (k values).
+    rCC_values : list
+        List of rCC values corresponding to x values.
+    round : int
+        The round number.
+    solver : str
+        The name of the model for which the plot is being generated.
 
-    Returns:
+    Returns
+    -------
     None
     """
     # # Create the folder path once
@@ -1927,22 +1950,28 @@ def plot_rCC_vs_k(x_values, rCC_values, round, solver):
     plt.savefig(filename, dpi=300)
 
     # Optionally show the plot
-    plt.show()
+    _show()
 
 
 def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solver, response_key):
     r"""
     Plot Sobol sensitivity analysis results for a given model
 
-    Parameters:
-    time_samples (list): List of time for samples (time span)
-    sobol_analysis_results (dict): Results of the Sobol sensitivity analysis.
-    sobol_problem (dict): Problem definition for the Sobol analysis.
-    model (str): The name of the model for which the plot is being generated.
-    response_key (str): The response key for which the sensitivities are plotted.
-    framework_settings (dict): User provided - Settings related to the framework, including paths and case information.
+    Parameters
+    ----------
+    time_samples : list
+        List of time for samples (time span)
+    sobol_analysis_results : dict
+        Results of the Sobol sensitivity analysis.
+    sobol_problem : dict
+        Problem definition for the Sobol analysis.
+    solver : str
+        The name of the model for which the plot is being generated.
+    response_key : str
+        The response key for which the sensitivities are plotted.
 
-    Returns:
+    Returns
+    -------
     None
     """
     num_samples = len(time_samples)
@@ -2002,7 +2031,7 @@ def plot_sobol_results(time_samples, sobol_analysis_results, sobol_problem, solv
 
     # Save the figure to the constructed filename
     plt.savefig(filename, dpi=300, bbox_inches='tight', pad_inches=0.1)
-    plt.show()
+    _show()
     plt.close()
 
 
@@ -2010,19 +2039,27 @@ class Plotting_Results1:
     r"""
     A class to handle plotting of results while analysis.
 
-    Attributes:
-    path (str): Base path for saving plots.
-    case (str): Case identifier for the experiment.
-    mutation_settings (dict): Settings related to mutation in the modelling process.
-    modelling_folder (str): Folder name for storing modelling results.
+    Attributes
+    ----------
+    path : str
+        Base path for saving plots.
+    case : str
+        Case identifier for the experiment.
+    mutation_settings : dict
+        Settings related to mutation in the modelling process.
+    modelling_folder : str
+        Folder name for storing modelling results.
     """
     def __init__(self, models,  pltshow, round=None):
         """
         Initialize the Plotting_Results class with modelling settings.
 
-        Parameters:
-        models (dict): Settings related to the modelling process.
-        round (int, optional): Round number, if you want to tag subfolders.
+        Parameters
+        ----------
+        models : dict
+            Settings related to the modelling process.
+        round : int, optional
+            Round number, if you want to tag subfolders.
         """
         self.base_path = Path.cwd()
         self.round = str(round)
@@ -2038,11 +2075,16 @@ class Plotting_Results1:
         """
         Generate and save the model fitting to experimental data plot for the given data and results.
 
-        Parameters:
-        data (dict): Experimental data.
-        result (dict): Modelling results.
-        round (int): The round number.
-        case (str): The case type (e.g., 'doe' or 'classic').
+        Parameters
+        ----------
+        data : dict
+            Experimental data.
+        result : dict
+            Modelling results.
+        round : int
+            The round number.
+        case : str
+            The case type (e.g., 'doe' or 'classic').
         """
         color_map = ['k', 'b', 'r', 'c', 'm', 'y', 'g']
         line_styles = ['-', '--', '-.', ':', (0, (1, 1)), (0, (5, 10)), (0, (3, 5, 1, 5)), (0, (3, 1, 1, 1)), (0, (5, 1)), (0, (5, 5)), (0, (1, 10))]  # Different line styles for solvers
@@ -2184,7 +2226,7 @@ class Plotting_Results1:
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300, facecolor='white')
             if self.pltshowing == True:
-                plt.show()
+                _show()
 
             # Close the plot
             plt.close()
@@ -2193,11 +2235,16 @@ class Plotting_Results1:
         """
         Generate and save a confidence ellipsoid plot for estimated parameters, across different rounds of identification for different models.
 
-        Parameters:
-        parameters (dict): Model parameters.
-        cov_matrices (dict): Covariance matrices for the estimated parameters
-        confidence_intervals (dict): Confidence intervals for the parameters.
-        round (int): The round number.
+        Parameters
+        ----------
+        parameters : dict
+            Model parameters.
+        cov_matrices : dict
+            Covariance matrices for the estimated parameters
+        confidence_intervals : dict
+            Confidence intervals for the parameters.
+        round : int
+            The round number.
         """
         for solver, theta in parameters.items():
             cov_matrix = cov_matrices[solver]
@@ -2263,7 +2310,7 @@ class Plotting_Results1:
             # Save the figure to the constructed filename
             plt.savefig(filename, dpi=300)
             if self.pltshowing == True:
-                plt.show()
+                _show()
 
             # Close the plot
             plt.close()
@@ -2273,20 +2320,28 @@ class Plotting_Results:
     r"""
     A class to handle plotting of results while analysis.
 
-    Attributes:
-    path (str): Base path for saving plots.
-    case (str): Case identifier for the experiment.
-    mutation_settings (dict): Settings related to mutation in the modelling process.
-    modelling_folder (str): Folder name for storing modelling results.
+    Attributes
+    ----------
+    path : str
+        Base path for saving plots.
+    case : str
+        Case identifier for the experiment.
+    mutation_settings : dict
+        Settings related to mutation in the modelling process.
+    modelling_folder : str
+        Folder name for storing modelling results.
     """
 
     def __init__(self, models, pltshow, round=None):
         """
         Initialize the Plotting_Results class with modelling settings.
 
-        Parameters:
-        models (dict): Settings related to the modelling process.
-        round (int, optional): Round number, if you want to tag subfolders.
+        Parameters
+        ----------
+        models : dict
+            Settings related to the modelling process.
+        round : int, optional
+            Round number, if you want to tag subfolders.
         """
         self.base_path = Path.cwd()
         self.round = str(round)
@@ -2309,11 +2364,16 @@ class Plotting_Results:
         """
         Generate and save the model fitting to experimental data plot for the given data and results.
 
-        Parameters:
-        data (dict): Experimental data.
-        result (dict): Modelling results.
-        round (int): The round number.
-        case (str): The case type (e.g., 'doe' or 'classic').
+        Parameters
+        ----------
+        data : dict
+            Experimental data.
+        result : dict
+            Modelling results.
+        round : int
+            The round number.
+        case : str
+            The case type (e.g., 'doe' or 'classic').
         """
         color_map = ['k', 'b', 'r', 'c', 'm', 'y', 'g']
         line_styles = ['-', '--', '-.', ':', (0, (1, 1)), (0, (5, 10)), (0, (3, 5, 1, 5)), (0, (3, 1, 1, 1)),
@@ -2442,7 +2502,7 @@ class Plotting_Results:
             plt.savefig(filename, dpi=300, facecolor='white')
 
             if self.pltshowing == True:
-                plt.show()
+                _show()
 
             plt.close()
 
@@ -2450,17 +2510,30 @@ class Plotting_Results:
         """
         Generate and save a confidence ellipsoid plot for estimated parameters, across different rounds of identification for different models.
 
-        Parameters:
-        parameters (dict): Model parameters.
-        cov_matrices (dict): Covariance matrices for the estimated parameters
-        confidence_intervals (dict): Confidence intervals for the parameters.
-        round (int): The round number.
+        Parameters
+        ----------
+        parameters : dict
+            Model parameters.
+        cov_matrices : dict
+            Covariance matrices for the estimated parameters
+        confidence_intervals : dict
+            Confidence intervals for the parameters.
+        round : int
+            The round number.
         """
         for solver, theta in parameters.items():
-            cov_matrix = cov_matrices[solver]
+            cov_full = np.asarray(cov_matrices[solver], dtype=float)
             param_indices = np.where(self.mutation_settings[solver])[0]
             m = len(param_indices)
-            fig, axs = plt.subplots(m, m, figsize=(12, 12))
+            if m == 0:
+                continue
+            # The covariance may cover all parameters or only the active ones (uncert returns the
+            # active block). Build the active block so that position k <-> param_indices[k].
+            if cov_full.shape == (m, m):
+                cov_matrix = cov_full
+            else:
+                cov_matrix = cov_full[np.ix_(param_indices, param_indices)]
+            fig, axs = plt.subplots(m, m, figsize=(12, 12), squeeze=False)
             fig.patch.set_facecolor('white')
             fig.suptitle(f'Confidence for {solver} in round {self.round}', fontsize=16, color='black')
 
@@ -2472,9 +2545,19 @@ class Plotting_Results:
                     # Set tick colors to black
                     axs[i, j].tick_params(axis='both', colors='black', labelcolor='black')
 
+                    var_i, var_j = cov_matrix[i, i], cov_matrix[j, j]
+                    if not (np.isfinite(var_i) and var_i > 0 and np.isfinite(var_j) and var_j > 0):
+                        # No valid variance (e.g. an indefinite Hessian): annotate instead of crashing.
+                        if i <= j:
+                            axs[i, j].text(0.5, 0.5, 'variance not available (non-positive or NaN)',
+                                           ha='center', va='center', transform=axs[i, j].transAxes)
+                        else:
+                            axs[i, j].axis('off')
+                        continue
+
                     if i == j:
                         idx = param_indices[i]
-                        std_dev = np.sqrt(cov_matrix[idx, idx])
+                        std_dev = np.sqrt(cov_matrix[i, i])
                         ci_low = theta[idx] - confidence_intervals[solver][i]
                         ci_high = theta[idx] + confidence_intervals[solver][i]
                         x = np.linspace(theta[idx] - 3 * std_dev, theta[idx] + 3 * std_dev, 100)
@@ -2494,8 +2577,8 @@ class Plotting_Results:
                         idx_i = param_indices[i]
                         idx_j = param_indices[j]
                         mean = [theta[idx_i], theta[idx_j]]
-                        cov = [[cov_matrix[idx_i, idx_i], cov_matrix[idx_i, idx_j]],
-                               [cov_matrix[idx_j, idx_j], cov_matrix[idx_j, idx_j]]]
+                        cov = [[cov_matrix[i, i], cov_matrix[i, j]],
+                               [cov_matrix[j, i], cov_matrix[j, j]]]
 
                         vals, vecs = np.linalg.eigh(cov)
                         order = vals.argsort()[::-1]
@@ -2523,7 +2606,7 @@ class Plotting_Results:
             plt.savefig(filename, dpi=300, facecolor='white')
 
             if self.pltshowing == True:
-                plt.show()
+                _show()
 
             plt.close()
 
@@ -2850,7 +2933,7 @@ class Plotting_FinalResults1:
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(filename, dpi=300, bbox_inches='tight')
-        plt.show()
+        _show()
 
         # Generate auxiliary plots
         self.conf_plot_metrics(ellipsoid_volume_filename, std_devs_filename)
@@ -2861,6 +2944,7 @@ class Plotting_FinalResults1:
         Compute and plot:
           1) The volume of the 95% confidence ellipsoid.
           2) The parameter standard deviations across selected rounds,
+
         excluding rounds whose covariance matrix is broad/non-positive-definite.
 
         Parameters
@@ -2934,7 +3018,7 @@ class Plotting_FinalResults1:
         plt.yscale('log')
         plt.grid(True, which="both", ls="--")
         plt.savefig(ellipsoid_volume_filename, dpi=300)
-        plt.show()
+        _show()
 
         # Plot standard deviations
         plt.figure(figsize=(10, 6))
@@ -2948,7 +3032,7 @@ class Plotting_FinalResults1:
         plt.grid(True, which="both", ls="--")
         plt.legend()
         plt.savefig(std_devs_filename, dpi=300)
-        plt.show()
+        _show()
 
     def accvsprec_plot(self, filename):
         """
@@ -3047,7 +3131,7 @@ class Plotting_FinalResults1:
         axs[-1].set_xlabel('Round')
         plt.tight_layout()
         plt.savefig(filename, dpi=300)
-        plt.show()
+        _show()
 
     def pt_plot(self, filename, roundc):
         """
@@ -3173,7 +3257,7 @@ class Plotting_FinalResults1:
 
         plt.tight_layout()
         plt.savefig(filename, dpi=300)
-        plt.show()
+        _show()
 
     def reporter(self, filename):
         """
@@ -3292,7 +3376,7 @@ class Plotting_FinalResults1:
         # Write summary for the last round
         if last_round_label in self.round_data:
             last_round_data = self.round_data[last_round_label]
-            with open(summary_filename, "w") as summary_file:
+            with open(summary_filename, "w", encoding="utf-8") as summary_file:
                 for model_name, model_data in last_round_data.get('scaled_params', {}).items():
                     summary_file.write(f"Model: {model_name}\n")
                     summary_file.write(f"Scaled Parameters: {model_data}\n")
@@ -3303,13 +3387,13 @@ class Plotting_FinalResults1:
                     CI95 = last_round_data['result'].get(model_name, {}).get('CI', [])
                     summary_file.write(f"CI 95% confidence: {CI95}\n")
 
-                    R2_overall = last_round_data['result'].get(model_name, {}).get('LS', "N/A")
+                    R2_overall = last_round_data['result'].get(model_name, {}).get('R2_total', "N/A")
                     summary_file.write(f"Overall R²: {R2_overall}\n")
 
                     Chi_overall = last_round_data['result'].get(model_name, {}).get('Chi', "N/A")
                     summary_file.write(f"Overall Chi-square: {Chi_overall}\n")
 
-                    R2_responses = last_round_data['result'].get(model_name, {}).get('R2_responses_summary', {})
+                    R2_responses = last_round_data['result'].get(model_name, {}).get('R2_responses', {}) or {}
                     summary_file.write("R² by Response:\n")
                     for response, r2_value in R2_responses.items():
                         summary_file.write(f"  {response}: {r2_value}\n")
@@ -3380,7 +3464,7 @@ class Plotting_FinalResults1:
             # Save the plot with the round number in the filename
             save_file_path = os.path.join(save_path, f'p_values_{round_label.replace(" ", "_").lower()}.png')
             plt.savefig(save_file_path)
-            plt.show()
+            _show()
 
             logger.info(f"P values plot for {round_label} saved to {save_file_path}.")
 
@@ -3459,7 +3543,7 @@ class Plotting_FinalResults1:
             # Save the plot with the round number in the filename
             save_file_path = os.path.join(save_path, f't_values_{round_label.replace(" ", "_").lower()}.png')
             plt.savefig(save_file_path)
-            plt.show()
+            _show()
 
             logger.info(f"T values plot for {round_label} saved to {save_file_path}.")
 
@@ -3804,7 +3888,7 @@ class Plotting_FinalResults:
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.show()
+        _show()
 
         # Generate auxiliary plots
         self.conf_plot_metrics(ellipsoid_volume_filename, std_devs_filename)
@@ -3815,6 +3899,7 @@ class Plotting_FinalResults:
         Compute and plot:
           1) The volume of the 95% confidence ellipsoid.
           2) The parameter standard deviations across selected rounds,
+
         excluding rounds whose covariance matrix is broad/non-positive-definite.
 
         Parameters
@@ -3892,7 +3977,7 @@ class Plotting_FinalResults:
         ax1.grid(True, which="both", ls="--")
         ax1.tick_params(axis='both', colors='black', labelcolor='black')
         plt.savefig(ellipsoid_volume_filename, dpi=300, facecolor='white')
-        plt.show()
+        _show()
 
         # Plot standard deviations
         fig2 = plt.figure(figsize=(10, 6))
@@ -3911,7 +3996,7 @@ class Plotting_FinalResults:
         legend = ax2.legend(facecolor='white', edgecolor='black', framealpha=1)
         plt.setp(legend.get_texts(), color='black')
         plt.savefig(std_devs_filename, dpi=300, facecolor='white')
-        plt.show()
+        _show()
 
     def accvsprec_plot(self, filename):
         """
@@ -4013,7 +4098,7 @@ class Plotting_FinalResults:
         axs[-1].set_xlabel('Round', color='black')
         plt.tight_layout()
         plt.savefig(filename, dpi=300, facecolor='white')
-        plt.show()
+        _show()
 
     def pt_plot(self, filename, roundc):
         """
@@ -4146,7 +4231,7 @@ class Plotting_FinalResults:
 
         plt.tight_layout()
         plt.savefig(filename, dpi=300, facecolor='white')
-        plt.show()
+        _show()
 
     def reporter(self, filename):
         """
@@ -4265,7 +4350,7 @@ class Plotting_FinalResults:
         # Write summary for the last round
         if last_round_label in self.round_data:
             last_round_data = self.round_data[last_round_label]
-            with open(summary_filename, "w") as summary_file:
+            with open(summary_filename, "w", encoding="utf-8") as summary_file:
                 for model_name, model_data in last_round_data.get('scaled_params', {}).items():
                     summary_file.write(f"Model: {model_name}\n")
                     summary_file.write(f"Scaled Parameters: {model_data}\n")
@@ -4276,13 +4361,13 @@ class Plotting_FinalResults:
                     CI95 = last_round_data['result'].get(model_name, {}).get('CI', [])
                     summary_file.write(f"CI 95% confidence: {CI95}\n")
 
-                    R2_overall = last_round_data['result'].get(model_name, {}).get('LS', "N/A")
+                    R2_overall = last_round_data['result'].get(model_name, {}).get('R2_total', "N/A")
                     summary_file.write(f"Overall R²: {R2_overall}\n")
 
                     Chi_overall = last_round_data['result'].get(model_name, {}).get('Chi', "N/A")
                     summary_file.write(f"Overall Chi-square: {Chi_overall}\n")
 
-                    R2_responses = last_round_data['result'].get(model_name, {}).get('R2_responses_summary', {})
+                    R2_responses = last_round_data['result'].get(model_name, {}).get('R2_responses', {}) or {}
                     summary_file.write("R² by Response:\n")
                     for response, r2_value in R2_responses.items():
                         summary_file.write(f"  {response}: {r2_value}\n")
@@ -4357,7 +4442,7 @@ class Plotting_FinalResults:
             # Save the plot with the round number in the filename
             save_file_path = os.path.join(save_path, f'p_values_{round_label.replace(" ", "_").lower()}.png')
             plt.savefig(save_file_path, facecolor='white')
-            plt.show()
+            _show()
 
             logger.info(f"P values plot for {round_label} saved to {save_file_path}.")
 
@@ -4445,7 +4530,7 @@ class Plotting_FinalResults:
             # Save the plot with the round number in the filename
             save_file_path = os.path.join(save_path, f't_values_{round_label.replace(" ", "_").lower()}.png')
             plt.savefig(save_file_path, facecolor='white')
-            plt.show()
+            _show()
 
             logger.info(f"T values plot for {round_label} saved to {save_file_path}.")
 
@@ -4514,15 +4599,14 @@ def _initialize_dictionaries(models, iden_opt):
     for key, theta_values in models['theta'].items():
         length = len(theta_values)
 
-        # Create V_matrix if not available
-        if key not in v_matrix_dict:
-            v_matrix_dict[key] = [[1e-50 if i == j else 0 for j in range(length)] for i in range(length)]
+        # No placeholder V_matrix: a missing V means "no prior information"
+        # (a fake 1e-50*I would dominate the PP prior term).
 
         # Create mutation list if not available
         if key not in mutation_dict:
             mutation_dict[key] = [True] * length
 
-    # Update models with the new V_matrix and mutation dictionaries
+    # Update models with the (possibly empty) V_matrix and mutation dictionaries
     models['V_matrix'] = v_matrix_dict
     models['mutation'] = mutation_dict
 
@@ -4532,12 +4616,17 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, case):
     Plot R² prediction, R² validation, and R² reference for each model as an envelope plot.
     Also, create a bar plot with average R² values for prediction, validation, and all the data for each model.
 
-    Parameters:
-    prediction_R2 (dict): Dictionary containing R² prediction values for each fold and model.
-    validation_R2 (dict): Dictionary containing R² validation values for each fold and model.
-    R2_ref (dict): Dictionary containing R² reference values for each model.
+    Parameters
+    ----------
+    prediction_R2 : dict
+        Dictionary containing R² prediction values for each fold and model.
+    validation_R2 : dict
+        Dictionary containing R² validation values for each fold and model.
+    R2_ref : dict
+        Dictionary containing R² reference values for each model.
 
-    Returns:
+    Returns
+    -------
     None
     """
     solvers = next(iter(prediction_metric.values())).keys()
@@ -4571,7 +4660,7 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, case):
         full_path = validation_dir
         plot_filename = os.path.join(full_path, f'{label} of validation for {solver}.png')
         plt.savefig(plot_filename, dpi=300)
-        plt.show()
+        _show()
 
         # Calculate average and standard deviation for prediction and validation R² values
         pred_r2_mean = np.mean(pred_r2_values)
@@ -4609,18 +4698,22 @@ def validation_R2(prediction_metric, validation_metric, reference_metric, case):
         plt.tight_layout()
         bar_plot_filename = os.path.join(full_path, f'Average {label} Values for {solver}.png')
         plt.savefig(bar_plot_filename, dpi=300)
-        plt.show()
+        _show()
 
 
 def validation_params(parameters, ref_params):
     r"""
     Plot normalized parameters for each model in each fold, divided by the corresponding member in ref_params.
 
-    Parameters:
-    parameters (dict): Dictionary containing parameter values for each fold and model. (one data out at a time based cross-validation)
-    ref_params (dict): Dictionary containing reference parameter values for each model. (all data used estimation)
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing parameter values for each fold and model. (one data out at a time based cross-validation)
+    ref_params : dict
+        Dictionary containing reference parameter values for each model. (all data used estimation)
 
-    Returns:
+    Returns
+    -------
     None
     """
     solvers = next(iter(parameters.values())).keys()
@@ -4661,7 +4754,7 @@ def validation_params(parameters, ref_params):
         full_path = validation_dir
         plot_filename = os.path.join(full_path, f'Normalized Parameter Trends for {solver}.png')
         plt.savefig(plot_filename, dpi=300)
-        plt.show()
+        _show()
 
 
 def run_postprocessing(round_data, solvers, selected_rounds,
@@ -4669,7 +4762,8 @@ def run_postprocessing(round_data, solvers, selected_rounds,
                        plot_confidence_spaces=True,
                        plot_p_and_t_tests=True,
                        export_excel_reports=True,
-                       plot_estimability=True):
+                       plot_estimability=True,
+                       show=True):
     r"""
     Run post-processing analysis for specified solvers and rounds with plot/excel export options.
 
@@ -4691,7 +4785,23 @@ def run_postprocessing(round_data, solvers, selected_rounds,
         If True, generates Excel files with experimental, simulation, and input data + summary.
     plot_estimability : bool
         If True, generates rCC vs k estimability plots per model.
+    show : bool
+        If True (default), each figure is also displayed (``plt.show()``). Set it to False in
+        scripts so the run does not stop at every figure; the figures are still saved.
     """
+    global _SHOW_PLOTS
+    show_orig, _SHOW_PLOTS = _SHOW_PLOTS, bool(show)
+    try:
+        _run_postprocessing(round_data, solvers, selected_rounds, plot_global_p_and_t,
+                            plot_confidence_spaces, plot_p_and_t_tests, export_excel_reports,
+                            plot_estimability)
+    finally:
+        _SHOW_PLOTS = show_orig
+
+
+def _run_postprocessing(round_data, solvers, selected_rounds, plot_global_p_and_t,
+                        plot_confidence_spaces, plot_p_and_t_tests, export_excel_reports,
+                        plot_estimability):
     import os
 
     postprocessing_dir = os.path.join(os.getcwd(), "post_processing")

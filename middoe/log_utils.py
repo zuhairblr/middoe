@@ -289,6 +289,7 @@
 
 import pickle
 import os
+import numpy as np
 import pandas as pd
 from scipy import stats
 from middoe.iden_utils import Plotting_Results
@@ -324,6 +325,7 @@ def fun_globalizer(func_name):
 
     **Registration Mechanism**:
     Uses setattr() to add a lambda wrapper that calls the local function:
+
         \[
         \text{kernel_simulator.func_name} = \lambda(*args, **kwargs) \rightarrow \text{globals()[func_name]}(*args, **kwargs)
         \]
@@ -395,6 +397,7 @@ def read_excel():
     **Data Format**:
     The Excel file should contain multiple sheets, each representing one experiment.
     Within each sheet:
+
         - **Measurement columns**: 'MES_X:{var}', 'MES_Y:{var}', 'MES_E:{var}'
         - **Time column**: 'X:all' (full simulation time vector)
         - **Input columns**: Time-invariant (e.g., 'P', 'T0') and time-variant (e.g., 'T')
@@ -403,6 +406,7 @@ def read_excel():
 
     **Usage Context**:
     Called by:
+
         - parmest(): To load data for parameter estimation
         - uncert(): To load data for uncertainty analysis
         - validation(): To split data for cross-validation
@@ -455,7 +459,7 @@ def read_excel():
 
 def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, system,
                 ranking=None, k_optimal_value=None, rCC_values=None, J_k_values=None,
-                best_uncert_result=None):
+                best_uncert_result=None, data=None):
     r"""
     Save and organize results from a single experimental round for post-processing.
 
@@ -502,6 +506,10 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     best_uncert_result : dict, optional
         If estimability analysis was performed, the uncertainty results for the
         optimal parameter subset. Overrides 'result' if provided.
+    data : dict, optional
+        Experimental data as returned by ``read_excel()``, used for the fit plots. Pass the same
+        ``data`` given to ``parmest``/``uncert`` when they were run on a subset of the experiments.
+        Default None reads ``data.xlsx`` from the working directory.
 
     Returns
     -------
@@ -510,19 +518,21 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
             \[
             t_{ref} = t_{0.975, \nu} \quad \text{where } \nu = n_{obs} - n_{params}
             \]
+
         Keys: solver names. Used to assess parameter significance.
 
-    Side Effects
-    ------------
+    Notes
+    -----
+    **Side Effects**:
+
     - Updates round_data dict with complete round information
     - Generates confidence plots (if iden_opt['c_plt']=True)
     - Generates fit plots (if iden_opt['f_plt']=True)
     - Prints summary statistics (t-values, P-values) to console
 
-    Notes
-    -----
     **Round Data Structure**:
     round_data['Round i'] contains:
+
         - 'ranking': Parameter estimability ranking
         - 'k_optimal_value': Optimal number of parameters
         - 'rCC_values': Corrected Critical Ratios
@@ -540,15 +550,18 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
 
     **Reference t-Values**:
     Computed from Student's t-distribution:
+
         \[
         t_{ref} = t_{1 - \alpha/2, \nu} \quad \text{with } \alpha = 0.05, \nu = n_{obs} - n_{params}
         \]
+
     Used to assess parameter significance:
-        - If \( |t_{param}| > t_{ref} \): Parameter is significant
-        - If \( |t_{param}| < t_{ref} \): Parameter is non-significant (poorly determined)
+        - If :math:`|t_{param}| > t_{ref}`: Parameter is significant
+        - If :math:`|t_{param}| < t_{ref}`: Parameter is non-significant (poorly determined)
 
     **Plotting**:
     Two types of plots are generated (if enabled):
+
         1. **Confidence plots**: 2D ellipsoids showing parameter correlations
         2. **Fit plots**: Model predictions vs experimental data
 
@@ -593,13 +606,19 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     ...     significant = "✓" if abs(t_val) > trv['M1'] else "✗"
     ...     print(f"  θ{i+1}: t={t_val:.2f} {significant}")
     """
-    data = read_excel()
+    data = read_excel() if data is None else data
     model_update = iden_opt.get('model_update', True)
     if best_uncert_result and model_update:
         result = best_uncert_result['results']
 
     round_key = f'Round {round}'
-    dof = {solver: obs - len(result[solver]['estimations']) for solver in models['can_m']}
+    # dof = N - N_active (same as uncert); fixed parameters are not estimated
+    def _n_active(solver):
+        act = result[solver].get('optimization_result', {}).get('activeparams', None)
+        if act is None:
+            act = models.get('mutation', {}).get(solver)
+        return int(np.sum(np.asarray(act, bool))) if act is not None else len(result[solver]['estimations'])
+    dof = {solver: max(obs - _n_active(solver), 1) for solver in models['can_m']}
     trv = {solver: stats.t.ppf(1 - (1 - 0.95) / 2, dof[solver]) for solver in models['can_m']}
     scaled_params = {solver: result[solver]['estimations'] for solver in models['can_m']}
 
@@ -757,6 +776,7 @@ def load_from_jac():
         Dictionary with keys 'iden' and 'sensa':
             - loaded_data['iden']: Identification results (round_data) or None
             - loaded_data['sensa']: Sensitivity results (sobol_results) or None
+
         Returns None if neither file is found.
 
     Notes
@@ -859,6 +879,7 @@ def data_appender(df_combined, experiment_number, data_storage):
     -----
     **Usage Context**:
     Alternative to Excel-based workflow:
+
         - **Excel workflow**: expera() → data.xlsx → read_excel() → parmest()
         - **Memory workflow**: expera() → data_appender() → parmest(data=data_storage)
 
@@ -934,14 +955,17 @@ def add_norm_par(modelling_settings):
     -----
     **Normalization Convention**:
     Throughout the package, parameters are represented as:
+
         \[
         \theta_{physical} = \theta_{normalized} \cdot \theta_c
         \]
+
     where \( \theta_{normalized} = [1, 1, ..., 1] \) represents the baseline
     (true or initial) parameter values.
 
     **Why All Ones?**:
     Using ones as the baseline simplifies:
+
         - Parameter estimation: Optimize \( \theta_{normalized} \) around 1.0
         - Bounds specification: Bounds become multiplicative factors (e.g., [0.5, 2.0])
         - Interpretation: Values >1 indicate parameters larger than baseline
@@ -969,9 +993,16 @@ def add_norm_par(modelling_settings):
     # {'M1': [1, 1, 1], 'M2': [1, 1, 1]}
     """
     if 'theta' in modelling_settings:
-        modelling_settings['normalized_parameters'] = {
-            key: [1] * len(value) for key, value in modelling_settings['theta'].items()
-        }
+        # theta = |theta| * sign(theta): the normalised vector carries the sign
+        normalized = {}
+        for key, value in modelling_settings['theta'].items():
+            th = np.asarray(value, dtype=float)
+            if np.any(th == 0):
+                raise ValueError(f"Model '{key}': nominal parameter value(s) at index "
+                                 f"{np.where(th == 0)[0].tolist()} are 0; a non-zero value is required "
+                                 f"for scaling.")
+            normalized[key] = np.sign(th).tolist()
+        modelling_settings['normalized_parameters'] = normalized
     else:
         raise KeyError("The dictionary must contain 'theta_parameters' as a key.")
 
@@ -994,6 +1025,7 @@ def save_to_xlsx(sensa, sobol_problem):
                 {'ST': [s1, s2, ...], 'S1': [...], ...},  # time point 1
                 {'ST': [s1, s2, ...], 'S1': [...], ...},  # time point 2
                 ...
+
             ]
     sobol_problem : dict
         Sobol problem definition with parameter names:
@@ -1004,14 +1036,14 @@ def save_to_xlsx(sensa, sobol_problem):
     None
         Excel file is written to disk as a side effect.
 
-    Side Effects
-    ------------
-    Creates 'sobol_results.xlsx' in current working directory.
-
     Notes
     -----
+    **Side Effects**:
+    Creates 'sobol_results.xlsx' in current working directory.
+
     **Excel Structure**:
     Each sheet contains:
+
         - Column 1: Time (or time point index)
         - Columns 2+: Total Sobol indices (ST) for each parameter
 
@@ -1026,6 +1058,7 @@ def save_to_xlsx(sensa, sobol_problem):
     **Time-Varying Sensitivity**:
     Each row represents one time point. This captures how parameter importance
     evolves during a dynamic experiment:
+
         - Early times: Initial condition parameters dominate
         - Middle times: Kinetic parameters dominate
         - Late times: Equilibrium parameters dominate
@@ -1037,6 +1070,7 @@ def save_to_xlsx(sensa, sobol_problem):
 
     **Visualization**:
     The exported Excel file can be:
+
         - Plotted directly in Excel
         - Imported into plotting software
         - Used for publication-quality figures
