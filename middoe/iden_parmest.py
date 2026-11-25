@@ -1143,6 +1143,13 @@ def parmest(system, models, iden_opt, case=None, data=None):
                 objectives below 1 up; the optimiser is restarted from its result while
                 the objective keeps falling by more than 10x (at most 5 passes). The
                 reported 'fun' is the full objective.
+            - 'boot_start' : str, optional
+                Starting points of each bootstrap replicate (var-cov='B'). 'mixed'
+                (default): the reference estimate, plus 4 random starts when 'ms' is
+                True; the best fit is kept. 'ref': the reference estimate only (fastest,
+                but can miss a second minimum of a poorly identifiable parameter).
+                'multi': as the reference fit (20 random starts with 'ms', about 4x the
+                cost of 'mixed'; else the initial guess).
 
     case : str, optional
         Estimation mode:
@@ -1339,7 +1346,8 @@ def parmest(system, models, iden_opt, case=None, data=None):
     # single start: models['thetastart'] for case='strov', else models['theta'])
     theta_fixed = {sv: (np.asarray(x0_dict[sv]) * thc[sv]).tolist() for sv in active_models}
     theta_params_f = {**theta_params_f, **{sv: thc[sv].tolist() for sv in active_models}}
-    opts = _optim_opts({k: iden_opt.get(k) for k in ('pscale', 'grad', 'grad_step', 'fnorm')})
+    opts = _optim_opts({k: iden_opt.get(k) for k in ('pscale', 'grad', 'grad_step', 'fnorm',
+                                                     'boot_start')})
     opts['theta_fixed'] = theta_fixed
 
     if bootstrap:
@@ -1782,6 +1790,21 @@ def _bootstrap_worker(active_models, theta_params, bmax, bmin, mutation,
     else:
         ref = _runner(active_models, theta_params, bmax, bmin, mutation, objf,
                       x0, method, data, system, models_boot, logging, varcov, maxit, tol, opts)
+        n_extra = int((opts or {}).get('_boot_extra', 0) or 0)
+        if n_extra > 0:
+            # boot_start='mixed': also try a few random starts and keep the better fit per model
+            try:
+                extra = _multi_start_runner_serial(active_models, None, bmax, bmin,
+                                                   mutation, objf, method, data, system,
+                                                   models_boot, logging, varcov, maxit, tol,
+                                                   nstarts=n_extra, opts=opts)
+            except RuntimeError:
+                extra = {}
+            for sv in active_models:
+                r0, r1 = ref.get(sv), extra.get(sv)
+                ok0 = r0 is not None and getattr(r0, 'success', True) and np.isfinite(r0.fun)
+                if r1 is not None and (not ok0 or r1.fun < r0.fun):
+                    ref[sv] = r1
     return ref
 
 
@@ -2059,9 +2082,15 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     Each replicate is independent, making this embarrassingly parallel.
 
     **Replicate filter**:
-    Replicates that failed (exception or success=False) or have a non-finite
-    objective are rejected. (A 2x-reference threshold is not used because the MLE
-    objective can be negative.)
+    Replicates that failed (exception or success=False), have a non-finite
+    objective, or whose optimum is more than twice the reference optimum (compared
+    on the constant-free objective, so MLE works too) are rejected; the counts are
+    printed and stored in ``boot_counts``.
+
+    **Replicate start** (``opts['boot_start']``):
+    'mixed' (default) starts every replicate from the reference estimate and, when
+    ``multi``, also from _BOOT_EXTRA random points, keeping the best fit; 'ref' uses
+    the reference estimate only; 'multi' repeats the reference fit's starts.
 
     References
     ----------
@@ -2106,9 +2135,32 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     allP = {sv: [] for sv in active_models}
     bootR = {sv: [] for sv in active_models}
 
-    args_common = (active_models, theta_params, bmax, bmin, mutation,
-                   objf, x0, method, data, system, models, logging,
-                   multi, varcov, maxit, tol)
+    # Starting points of the replicates. 'ref': the reference optimum (a replicate is a refit
+    # of slightly different data, so its optimum is usually close); 'mixed': the reference
+    # optimum plus a few random starts, which also finds a second, distant minimum of a
+    # poorly identifiable parameter; 'multi': as the reference fit (multi-start / initial
+    # guess). A model whose reference fit failed, or that has a free estimate of exactly 0
+    # (cannot be scaled), falls back to 'multi'.
+    rep_theta, rep_x0, rep_multi = theta_params, x0, multi
+    boot_start = (opts or {}).get('boot_start', 'mixed')
+    rep_opts = opts
+    if boot_start in ('ref', 'mixed'):
+        try:
+            th, xs = {}, {}
+            for sv in active_models:
+                r0 = ref.get(sv)
+                if r0 is None or not np.all(np.isfinite(np.asarray(r0.scpr, float))):
+                    raise ValueError(sv)
+                thc_sv, x0_sv = _signed_scaling(np.asarray(r0.scpr, float), mutation[sv], sv)
+                th[sv], xs[sv] = thc_sv.tolist(), x0_sv.tolist()
+            rep_theta, rep_x0, rep_multi = th, xs, False
+            if boot_start == 'mixed' and multi:
+                rep_opts = {**(opts or {}), '_boot_extra': _BOOT_EXTRA}
+        except (ValueError, AttributeError):
+            pass
+    args_common = (active_models, rep_theta, bmax, bmin, mutation,
+                   objf, rep_x0, method, data, system, models, logging,
+                   rep_multi, varcov, maxit, tol)
 
     # Acceptance test of a replicate: its own optimum on the resampled data must be no worse
     # than twice the reference optimum, compared on the constant-free objective (fun_fit;
@@ -2124,7 +2176,7 @@ def _bootstrap_runner(active_models, theta_params, bmax, bmin, mutation,
     n_unsucc = {sv: 0 for sv in active_models}
     n_reject = {sv: 0 for sv in active_models}
     with ProcessPoolExecutor(max_workers=min(nboot, mp.cpu_count()), mp_context=CTX) as exe:
-        futures = [exe.submit(_bootstrap_worker, *args_common, bidx, opts) for bidx in boot_indices]
+        futures = [exe.submit(_bootstrap_worker, *args_common, bidx, rep_opts) for bidx in boot_indices]
         for fut in as_completed(futures):
             try:
                 res = fut.result()
@@ -2216,7 +2268,11 @@ _OPT_DEFAULTS = {
     'grad_step': 1e-6,     # relative step of the '2-point'/'3-point' gradient
     'fnorm': True,         # minimise the constant-free objective divided by its own size
     'theta_fixed': None,   # {model: signed values} for fixed parameters in multi-start
+    'boot_start': 'mixed', # start of each bootstrap replicate: 'mixed' = reference fit plus
+                           # _BOOT_EXTRA random starts (with multi-start), 'ref' = reference fit
+                           # only, 'multi' = as the reference fit (multi-start / initial guess)
 }
+_BOOT_EXTRA = 4            # random starts added to the reference start with boot_start='mixed'
 
 
 def _optim_opts(opts=None):
@@ -2232,6 +2288,9 @@ def _optim_opts(opts=None):
     if not (isinstance(gs, (int, float)) and np.isfinite(gs) and 0 < gs < 0.1):
         raise ValueError(f"iden_opt['grad_step'] must be a number in (0, 0.1), got {gs!r}")
     o['fnorm'] = bool(o['fnorm'])
+    if o['boot_start'] not in ('mixed', 'ref', 'multi'):
+        raise ValueError(f"iden_opt['boot_start'] must be 'mixed', 'ref' or 'multi', "
+                         f"got {o['boot_start']!r}")
     return o
 
 

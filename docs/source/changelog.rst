@@ -35,7 +35,10 @@ Estimation and uncertainty
   whitened coordinates, and scaled correctly for each objective.
 - Bootstrap (``var-cov='B'``): pairs resampling; truncated-normal correction only at bounds that are
   actually hit; replicates whose objective is more than twice the reference fit are rejected, and
-  the kept/rejected counts are printed and stored (``boot_counts``).
+  the kept/rejected counts are printed and stored (``boot_counts``). Each replicate starts from the
+  reference estimate plus 4 random starts and keeps the best fit (new option ``boot_start``,
+  default ``'mixed'``; ``'multi'`` restores a full multi-start per replicate). On case study 2
+  this finds the same replicate optima as the full multi-start about 4 times faster.
 - The optimiser works in log-scaled parameters (where the bounds allow it), uses a gradient step
   suited to the scaled problem and a normalised objective. New options ``pscale``, ``grad``,
   ``grad_step`` and ``fnorm`` (see the user guide) restore the previous behaviour if needed.
