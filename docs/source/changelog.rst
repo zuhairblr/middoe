@@ -26,7 +26,10 @@ Changes in behaviour
   measurement near zero no longer dominates the fit.
 - **``case=None`` keeps existing ``mutation`` masks** in ``parmest`` (``estima`` relies on this).
 - **Missing ``MES_E`` column:** ``uncert`` now uses the system ``'unc'`` value (as ``parmest``
-  does) instead of σ = 1, and both warn when this happens.
+  does) instead of σ = 1, and both warn when this happens. Empty ``MES_E`` cells are filled the
+  same way (before, they stopped the fit with an unclear error).
+- **Missing ``'unc'``:** ``expera`` stops with a clear message naming the output (before: a bare
+  ``KeyError``), and a design warns that it assumes σ = 1 for that output.
 
 Estimation and uncertainty
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

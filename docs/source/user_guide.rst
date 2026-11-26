@@ -550,6 +550,7 @@ Notes on ``system``:
 
 - ``t_d``, ``offt`` (in ``tvi`` and ``tvo``) and ``offl`` are **absolute** values in the units of ``t_s`` and of the input, respectively, not fractions.
 - A ``tii`` entry such as ``y10`` above is an ordinary design variable that the model file reads itself (``tii['y10']``) and uses as it likes, e.g. as an initial condition; the ``tvo`` ``init`` is then numeric. The ``<y>_0`` naming is required **only** with ``init: 'variable'``: then MIDDoE takes the initial value of output ``<y>`` from ``tii['<y>_0']``.
+- ``unc`` is needed for every measured output by ``expera`` (noise) and by the designs (a design without it assumes σ = 1 in the output's units, with a warning). Estimation reads σ from the ``MES_E`` columns and uses ``unc`` only where a column or cell is empty.
 - ``errt`` (system level, or per response in ``system['tvo'][y]['errt']``) tells MBDoE-PP/MD how to interpret ``unc``: ``'abs'`` (default) uses ``unc`` as an absolute standard deviation; ``'rel'`` uses :math:`\sigma = \max(\mathrm{unc}\cdot|\hat{y}|, \sigma_{\mathrm{floor}})` with ``system['sigma_floor']`` (default ``1e-6``). It is independent of ``insilicos['errt']``, which only controls the noise added to in-silico data.
 
 **Model Dictionary Definition**

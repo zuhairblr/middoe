@@ -592,7 +592,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from middoe.log_utils import  read_excel
-from middoe.iden_parmest import _normalize_iden_opt, _match_times, _check_sigma_fallback
+from middoe.iden_parmest import _normalize_iden_opt, _match_times, _check_sigma_fallback, _unc_value
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -1342,10 +1342,12 @@ def _uncert_metrics(
                 y_p   = np.asarray(tv_ref[var], dtype=float)[pos]
 
                 # absolute sigma from sheet; fallback: system 'unc' (same as parmest)
+                unc_v = _unc_value(system['tvo'][var])
                 if ecol in sheet:
                     y_e = pd.to_numeric(sheet[ecol][mask], errors='raise').values.astype(float)
+                    y_e = np.where(np.isnan(y_e), unc_v, y_e)       # empty MES_E cell -> 'unc'
                 else:
-                    y_e = np.full_like(y_t, float(system['tvo'][var].get('unc', 1.0)), dtype=float)
+                    y_e = np.full_like(y_t, unc_v, dtype=float)
                 if not np.all(np.isfinite(y_e)) or np.any(y_e <= 0):
                     raise ValueError(f"Sheet '{sheet_name}', {ecol}: sigma must be finite and > 0")
             else:
@@ -1359,7 +1361,7 @@ def _uncert_metrics(
                 if ecol in sheet and not pd.isna(sheet[ecol].iloc[0]):
                     y_e = np.array([float(pd.to_numeric(sheet[ecol].iloc[0], errors='raise'))], dtype=float)
                 else:
-                    y_e = np.array([float(system['tio'][var].get('unc', 1.0))], dtype=float)
+                    y_e = np.array([_unc_value(system['tio'][var])], dtype=float)
                 if not np.all(np.isfinite(y_e)) or np.any(y_e <= 0):
                     raise ValueError(f"Sheet '{sheet_name}', {ecol}: sigma must be finite and > 0")
 

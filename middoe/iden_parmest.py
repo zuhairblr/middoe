@@ -2805,9 +2805,10 @@ def _check_sigma_fallback(data, system):
                     if bool(rows.iloc[0]):
                         used.setdefault(v, []).append(name)
                     continue
-                if ec not in sh:
-                    if bool(rows.any()):
-                        used.setdefault(v, []).append(name)
+                if ec in sh:
+                    rows = rows & _pd.to_numeric(sh[ec], errors='coerce').isna()
+                if bool(rows.any()):
+                    used.setdefault(v, []).append(name)
     if not used:
         return
     bad = []
@@ -2820,8 +2821,9 @@ def _check_sigma_fallback(data, system):
         raise ValueError(f"No 'MES_E' sigma for {bad} (sheets {[used[v] for v in bad]}) and their "
                          f"system 'unc' is missing or not a finite number > 0: give the measurement "
                          f"standard deviation in an 'MES_E:<var>' column (or 'unc').")
-    warnings.warn(f"No 'MES_E' column for {sorted(used)}: their system 'unc' is used as the ABSOLUTE "
-                  f"standard deviation of every point (sheets: {used}). For relative errors give the "
+    warnings.warn(f"No 'MES_E' column (or empty MES_E cells) for {sorted(used)}: their system 'unc' is "
+                  f"used as the ABSOLUTE standard deviation of those points (sheets: {used}). For "
+                  f"relative errors give the "
                   f"per-point sigma in 'MES_E:<var>' instead.")
 
 
@@ -3192,6 +3194,7 @@ def _objective(theta, data, active, thetac, system, models,
             ye_col = f"MES_E:{v}"
             y_e = (sh[ye_col][mask].values.astype(float) if ye_col in sh
                    else np.full_like(y_t, std_dev[v], dtype=float))
+            y_e = np.where(np.isnan(y_e), std_dev[v], y_e)    # empty MES_E cell -> 'unc'
 
             global_y_true.setdefault(v, []).extend(y_t.tolist())
             global_y_pred.setdefault(v, []).extend(y_p.tolist())

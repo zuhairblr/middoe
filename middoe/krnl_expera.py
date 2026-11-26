@@ -658,12 +658,21 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         raise ValueError(f"insilicos['sigma_floor'] must be finite and >= 0, got {sigma_floor}")
 
     # Standard deviations for measured outputs (time-variant and time-invariant)
-    std_dev = {
-        var: cfg['unc']
-        for grp in ('tvo', 'tio')
-        for var, cfg in (system.get(grp) or {}).items()
-        if cfg.get('meas', True)
-    }
+    std_dev = {}
+    for grp in ('tvo', 'tio'):
+        for var, cfg in (system.get(grp) or {}).items():
+            if not cfg.get('meas', True):
+                continue
+            try:
+                unc = float(cfg.get('unc'))
+            except (TypeError, ValueError):
+                unc = np.nan
+            if not (np.isfinite(unc) and unc > 0):
+                raise ValueError(
+                    f"system['{grp}']['{var}']['unc'] = {cfg.get('unc', '<missing>')!r}: expera needs the "
+                    f"measurement standard deviation of every measured output to add noise "
+                    f"(a number > 0; absolute or relative according to insilicos['errt']).")
+            std_dev[var] = unc
 
     # If no design decisions are provided, run the "initial" case
     if not design_decisions:

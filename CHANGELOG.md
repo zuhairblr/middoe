@@ -14,7 +14,8 @@ Engineering* 17 (2025) 100276), with many bug fixes and more robust parameter es
 - Design priors are off by default (`des_opt['priors']`) and correctly scaled when on.
 - Sobol first-order indices use the Jansen estimator.
 - The `'Chi'` objective divides by `max(|y|, σ)`.
-- `uncert` uses the system `'unc'` when the `MES_E` column is missing.
+- `uncert` uses the system `'unc'` when the `MES_E` column is missing; empty `MES_E` cells are filled the same way.
+- A missing `'unc'` gives a clear error in `expera` and a warning in the designs (which assume σ = 1).
 - `var-cov='H'` and `'B'` are correct for every optimiser; bootstrap replicate filtering is reported.
 - Bootstrap replicates start from the reference estimate plus 4 random starts (`boot_start='mixed'`), about 4x faster than a full multi-start per replicate with the same optima.
 - New optimiser options `pscale`, `grad`, `grad_step`, `fnorm`.

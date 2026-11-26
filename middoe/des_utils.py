@@ -869,6 +869,24 @@ def _check_errt(system):
         floor_ok = False
     if not floor_ok:
         raise ValueError(f"system['sigma_floor'] = {floor!r} must be a positive float.")
+    missing = []
+    for grp in ('tvo', 'tio'):
+        for var, spec in (system.get(grp) or {}).items():
+            spec = spec or {}
+            if not spec.get('meas', True):
+                continue
+            try:
+                ok = np.isfinite(float(spec.get('unc'))) and float(spec.get('unc')) > 0
+            except (TypeError, ValueError):
+                ok = False
+            if not ok:
+                missing.append(var)
+    if missing:
+        import warnings
+        warnings.warn(f"No valid system 'unc' for the measured outputs {missing}: the design assumes "
+                      f"sigma = 1 (in each output's own units) for them, which weights the outputs "
+                      f"arbitrarily. Give each measured output its measurement standard deviation "
+                      f"in system['tvo'|'tio'][name]['unc'].")
 
 
 def _sigma_y(system, var, y_hat, grp='tvo'):
@@ -880,7 +898,8 @@ def _sigma_y(system, var, y_hat, grp='tvo'):
     - ``'abs'``: sigma = ``unc`` (absolute standard deviation);
     - ``'rel'``: sigma = ``unc * |y_hat|``, floored at ``system.get('sigma_floor', 1e-6)``.
 
-    A missing, None or NaN ``unc`` falls back to 1.0 (previous behaviour).
+    A missing, None or NaN ``unc`` falls back to 1.0 (previous behaviour; ``_check_errt``
+    warns about it).
 
     Returns
     -------
