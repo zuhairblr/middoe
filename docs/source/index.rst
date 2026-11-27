@@ -1,5 +1,9 @@
 :html_theme.sidebar_secondary.remove: true
 
+.. meta::
+   :description: MIDDoE is a Python package for model-based design of experiments (MBDoE), parameter estimation, uncertainty analysis and model discrimination for dynamic (ODE) models.
+   :keywords: design of experiments, MBDoE, optimal experimental design, parameter estimation, model discrimination, Fisher information, sensitivity analysis, estimability, kinetic modelling, Python
+
 MIDDoE
 ======
 

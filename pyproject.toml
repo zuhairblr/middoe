@@ -52,11 +52,30 @@
 
 [tool.poetry]
 name = "middoe"
-version = "0.2.0"
-description = "Model Identification, Discrimination, and Design of Experiments."
+version = "0.2.1"
+description = "Model-based design of experiments (MBDoE), parameter estimation, uncertainty and model discrimination for dynamic (ODE) models in Python."
 authors = ["Zuhair Tabrizi <zuhairtabrizi@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+homepage = "https://middoe.readthedocs.io/en/latest/"
+repository = "https://github.com/zuhairblr/middoe"
+documentation = "https://middoe.readthedocs.io/en/latest/"
+keywords = [
+    "design of experiments", "model-based design of experiments", "MBDoE", "optimal experimental design",
+    "parameter estimation", "model discrimination", "model identification", "uncertainty quantification",
+    "Fisher information", "sensitivity analysis", "estimability analysis", "kinetic modelling",
+    "chemical engineering", "process systems engineering",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
@@ -78,7 +97,10 @@ mypy = "^1.15.0"
 openpyxl = "^3.1.5"
 
 [tool.poetry.urls]
-"Repository" = "https://github.com/zuhairblr/middoe/"
+"Tutorials" = "https://middoe.readthedocs.io/en/latest/tutorials.html"
+"Changelog" = "https://middoe.readthedocs.io/en/latest/changelog.html"
+"Paper" = "https://doi.org/10.1016/j.dche.2025.100276"
+"Issues" = "https://github.com/zuhairblr/middoe/issues"
 
 [build-system]
 requires = ["poetry-core"]

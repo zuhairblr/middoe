@@ -3,6 +3,15 @@
 The full, formatted changelog is in the documentation:
 https://middoe.readthedocs.io/en/latest/changelog.html
 
+## 0.2.1
+
+Documentation and package information only; the code is the same as in 0.2.0.
+
+- New documentation front page and a hands-on tutorials page (five notebooks on two real systems, each with an animation; they open in Google Colab).
+- Clearer PyPI description, keywords, classifiers and links; the README starts with what MIDDoE does and when to use it.
+- `llms.txt`: a plain-text summary of MIDDoE at the root of the documentation site.
+- The logo is served from the documentation itself.
+
 ## 0.2.0
 
 The code now matches the methods of the MIDDoE paper (Tabrizi et al., *Digital Chemical

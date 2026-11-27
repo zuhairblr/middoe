@@ -52,6 +52,7 @@ napoleon_attr_annotations = True
 # HTML theme
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
+html_extra_path = ['_extra']                    # llms.txt at the site root
 templates_path = ['_templates']
 html_css_files = ['middoe.css', 'middoe-widgets.css']
 html_js_files = ['middoe.js', 'middoe-widgets.js']

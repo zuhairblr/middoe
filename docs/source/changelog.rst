@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.2.1
+-----
+
+Documentation and package information only; the code is the same as in 0.2.0.
+
+- New front page and a :doc:`tutorials` page: five notebooks on two real systems, each with an
+  animation of what it does; they open in Google Colab.
+- The package description, keywords, classifiers and links on PyPI now say what MIDDoE is for, and
+  the README starts with what it does and when to use it.
+- ``llms.txt``: a plain-text summary of MIDDoE at the root of the documentation site.
+- The MIDDoE logo is served from the documentation itself.
+
 0.2.0
 -----
 

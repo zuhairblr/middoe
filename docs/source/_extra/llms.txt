@@ -1,0 +1,30 @@
+# MIDDoE
+
+> MIDDoE (Model Identification, Discrimination and Design of Experiments) is an open-source Python package (`pip install middoe`, MIT licence) for model-based design of experiments (MBDoE), parameter estimation, uncertainty analysis and model discrimination for dynamic models, typically ODE kinetic models of chemical, biological, pharmaceutical and mineral processes. A study is described in a few plain Python dictionaries and run with one function per step.
+
+Use MIDDoE to:
+
+- estimate the parameters of a dynamic (ODE) model from experimental data, with confidence intervals, t-tests and correlations (weighted least squares or maximum likelihood; Fisher-information, Hessian or bootstrap covariance);
+- design optimal experiments for parameter precision: inputs (time-varying profiles and fixed settings) and sampling times, with D-, A-, E-, modified-E, ORB and SEM criteria;
+- discriminate between rival models and design the experiment that separates them (Hunter-Reiner and Buzzi-Ferraris-Forzatti criteria; P-test model probabilities);
+- rank parameters by global Sobol sensitivity and select the estimable subset (estimability analysis with the rCC criterion);
+- run the identification loop (design, experiment, fit, check) in silico before the lab, then with real data; cross-validate and report.
+
+Main functions, in workflow order: `middoe.sc_sensa.sensa`, `middoe.krnl_expera.expera`, `middoe.iden_parmest.parmest`, `middoe.iden_uncert.uncert`, `middoe.sc_estima.estima`, `middoe.des_pp.mbdoe_pp`, `middoe.des_md.mbdoe_md`, `middoe.iden_valida.validation`, `middoe.log_utils.save_rounds`, `middoe.log_utils.save_to_jac`, `middoe.iden_utils.run_postprocessing`. Configuration dictionaries: `system`, `models`, `insilicos`, `iden_opt`, `des_opt`, `gsa`. Models are Python functions `solve_model(t, y0, tii, tvi, theta)` or gPROMS models.
+
+## Docs
+
+- [Getting started](https://middoe.readthedocs.io/en/latest/getting_started.html): install and run a complete study in about a minute
+- [Onboarding guide](https://middoe.readthedocs.io/en/latest/user_guide.html): set up a study, choose the settings, read the results
+- [Configuration reference](https://middoe.readthedocs.io/en/latest/ug_reference.html): every key of every dictionary, the data file and the model file
+- [API reference](https://middoe.readthedocs.io/en/latest/api.html): every function and argument
+- [Key ideas](https://middoe.readthedocs.io/en/latest/concepts.html): the concepts, with interactive figures
+
+## Tutorials
+
+- [Hands-on tutorials](https://middoe.readthedocs.io/en/latest/tutorials.html): five notebooks that run in Google Colab, on a fed-batch yeast fermentation (estimation, uncertainty, model discrimination) and a pharmaceutical batch reaction (estimability, sequential design)
+
+## Source and citation
+
+- [Source code](https://github.com/zuhairblr/middoe) and [PyPI package](https://pypi.org/project/middoe/)
+- Paper: Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025). MIDDoE: An MBDoE Python package for model identification, discrimination, and calibration. Digital Chemical Engineering, 17, 100276. https://doi.org/10.1016/j.dche.2025.100276
