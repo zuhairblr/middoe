@@ -114,3 +114,5 @@ def _latex_to_rst(app, what, name, obj, options, lines):
 
 def setup(app):
     app.connect('autodoc-process-docstring', _latex_to_rst, priority=400)
+
+html_favicon = '_static/middoe-logo.png'

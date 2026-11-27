@@ -1,4 +1,4 @@
-.. image:: https://research.dii.unipd.it/capelab/wp-content/uploads/sites/36/2025/03/logo-Page-5.png
+.. image:: _static/middoe-logo.png
    :alt: CAPE-Lab / MIDDoE
    :align: center
    :width: 320

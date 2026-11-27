@@ -56,6 +56,8 @@ templates_path = ['_templates']
 html_css_files = ['middoe.css', 'middoe-widgets.css']
 html_js_files = ['middoe.js', 'middoe-widgets.js']
 html_title = 'MIDDoE'
+html_logo = '_static/middoe-logo.png'        # top bar, next to the name
+html_favicon = '_static/middoe-logo.png'
 html_sidebars = {'**': ['md-globalnav']}        # the full tree on every page, the front page included
 html_theme_options = {
     'icon_links': [{'name': 'GitHub', 'url': 'https://github.com/zuhairblr/middoe',
@@ -63,6 +65,8 @@ html_theme_options = {
                    {'name': 'PyPI', 'url': 'https://pypi.org/project/middoe/',
                     'icon': 'fa-solid fa-box'}],
     'navbar_align': 'left',
+    'logo': {'alt_text': 'MIDDoE'},
+    'navbar_persistent': ['search-button'],       # search as an icon (Ctrl+K): the top bar stays one row
     'show_toc_level': 2,
     'secondary_sidebar_items': ['page-toc', 'md-help'],
     'footer_start': ['copyright'],

@@ -132,3 +132,12 @@ dl.md-gloss dd > p { margin: 0; }
 .md-globalnav .bd-toc-item > ul > li > ul { margin-left: .2rem; border-left: 1px solid var(--pst-color-border); padding-left: .3rem; }
 .md-globalnav .bd-toc-item > ul > li > ul a { font-size: .88rem; }
 .md-globalnav li.current > a { color: var(--pst-color-primary); }
+
+/* ---------- top bar: one row ---------- */
+.navbar-brand.logo img { height: 2.1rem; width: auto; }
+.bd-header .navbar-header-items__center .nav-link { padding-left: .55rem; padding-right: .55rem; white-space: nowrap; }
+.bd-header .navbar-header-items { flex-wrap: nowrap; }
+.bd-header .navbar-nav, .bd-header .navbar-icon-links { flex-wrap: nowrap; }
+/* narrower windows: the left menu already lists every page, so the top bar drops its section links instead of wrapping */
+@media (max-width: 1320px) { .bd-header .navbar-header-items__center { display: none !important; } }
+@media (max-width: 1320px) { .bd-header .navbar-header-items__end { margin-left: auto; } }
