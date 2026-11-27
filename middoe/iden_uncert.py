@@ -585,6 +585,7 @@
 # iden_uncert.py
 
 import matplotlib.pyplot as plt
+from middoe.iden_utils import _styled, _color, _INK
 from pathlib import Path
 from middoe.krnl_simula import simula
 import logging
@@ -674,7 +675,9 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
 
             - 'eps' : float or dict[str, float], optional
                 Finite-difference step size. If None, automatically determined via
-                mesh-independency test for each model.
+                mesh-independency test for each model. uncert writes the steps used
+                back into ``iden_opt['eps']`` (a dict per model), so later calls with
+                the same ``iden_opt`` reuse them.
             - 'log' : bool, optional
                 Enable verbose logging (default: False).
 
@@ -714,8 +717,11 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
                         Local Sensitivity Analysis matrix (Jacobian).
                     * 'Z' : np.ndarray
                         Normalized sensitivities (Z-scores).
-                    * 'V_matrix' : np.ndarray, shape (n_active_params, n_active_params)
-                        Variance-covariance matrix.
+                    * 'V_matrix' : np.ndarray
+                        Variance-covariance matrix. For var-cov 'M'/'H' the block of
+                        the active parameters, shape (n_active_params, n_active_params);
+                        for var-cov 'B' full size (n_params, n_params) with zero
+                        rows/columns for fixed parameters.
                     * 'CI' : np.ndarray
                         95% confidence intervals (half-widths).
                     * 't_values' : np.ndarray
@@ -737,9 +743,14 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
                     * 'ti_output_m' : dict
                         Simulated time-invariant outputs for each sheet.
                     * 'estimations' : np.ndarray
-                        Final parameter estimates (same as 'scpr').
+                        Final parameter estimates (same as 'scpr'; with var-cov='B'
+                        the bootstrap mean).
                     * 'found_eps' : float
                         Finite-difference step size used.
+                    * 'tv_sens_m' : dict
+                        Per sheet, per time-varying output: an (n_t, n_active) array
+                        of dy/dtheta on the model time grid; used for the prediction
+                        band of the fit plots.
                     * 'P' : float
                         Relative probability (model weight) based on Chi-squared.
             - 'obs' : int
@@ -785,7 +796,8 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
         CI_i = t_{0.975, \nu} \cdot \sqrt{V_{ii}}
         \]
 
-    where \( \nu = n_{obs} - n_{params} \) is degrees of freedom.
+    where \( \nu = n_{obs} - n_{active} \) (number of estimated parameters) is the
+    degrees of freedom.
 
     **t-Statistics**:
     Parameter significance is tested via:
@@ -819,8 +831,13 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
 
     **Mesh-Independency Test**:
     If epsilon is not provided, it is automatically determined by varying \( h \) over
-    \( [10^{-12}, 10^{-1}] \) and selecting the value that minimizes sensitivity matrix
-    variance. Results are saved in './meshindep_plots/'.
+    \( [10^{-12}, 10^{-1}] \) (50 steps) and selecting the value that minimises the
+    spread of the log-eigenvalues of \( \mathbf{V} \) (computed with var-cov 'M') over a
+    window of 5 steps. Results are saved in './meshindep_plots/'.
+
+    **Side effects on resultpr**:
+    The per-row sigmas ('sigma_rows'), the sensitivities 'tv_sens_m' and the
+    conditioning report 'ill_report' are stored into the parmest result objects.
 
     **Ill-Conditioning Diagnostics**:
     The function automatically logs conditioning metrics:
@@ -995,7 +1012,9 @@ def uncert(resultpr, system, models, iden_opt, case=None, data=None):
             'estimations': thetac,
             'found_eps': epsf[solver],
             'M': M,
-            'sigma_rows': sigma_rows
+            'sigma_rows': sigma_rows,
+            'tv_sens_m': (resultpr[solver].get('tv_sens_m') if isinstance(resultpr[solver], dict)
+                          else None)
         }
 
     # Store back eps
@@ -1260,6 +1279,7 @@ def _uncert_metrics(
     t_m = {}
     tv_input_m, ti_input_m = {}, {}
     tv_output_m, ti_output_m = {}, {}
+    tv_sens_m = {}   # sheet -> output -> (n_t, n_active) dy/dtheta on the model time grid
 
     solver = active_solvers[0]
     h = eps[solver]
@@ -1323,6 +1343,28 @@ def _uncert_metrics(
                     thm, thetac_arr, cvp, tv_in, solver, system, models
                 )
                 perturbed[p] = ('central', (tvp, tip, tvm, tim))
+
+        # Sensitivities dy/dtheta (physical theta) of every time-varying output on the whole
+        # model time grid; used for the prediction band of the fit plots.
+        try:
+            sens_sheet = {}
+            with np.errstate(divide='ignore', invalid='ignore'):
+                for var in tv_ref:
+                    y0 = np.asarray(tv_ref[var], dtype=float).ravel()
+                    cols = []
+                    for p in active_idx:
+                        mode, sims = perturbed[p]
+                        if mode == 'forward':
+                            d = (np.asarray(sims[0][var], dtype=float).ravel() - y0) / (h * thetac_arr[p])
+                        else:
+                            d = (np.asarray(sims[0][var], dtype=float).ravel()
+                                 - np.asarray(sims[2][var], dtype=float).ravel()) / (2 * h * thetac_arr[p])
+                        cols.append(d)
+                    if cols:
+                        sens_sheet[var] = np.stack(cols, axis=1)
+            tv_sens_m[sheet_name] = sens_sheet
+        except Exception:   # only feeds a plot; never let it stop the analysis
+            tv_sens_m[sheet_name] = {}
 
         # Collect residuals and sensitivities
         for var in tv_ophi_vars + ti_ophi_vars:
@@ -1525,6 +1567,7 @@ def _uncert_metrics(
     try:
         if isinstance(resultpr.get(solver, None), dict):
             resultpr[solver]['sigma_rows'] = resp_sigs
+            resultpr[solver]['tv_sens_m'] = tv_sens_m
     except Exception:
         pass
 
@@ -1822,17 +1865,9 @@ def _fdm_mesh_independency(
             eigs.append([np.nan]*len(theta))
     eigs = np.array(eigs)
 
-    # Plot and save
     folder = Path.cwd() / "meshindep_plots"
     folder.mkdir(exist_ok=True)
     base = folder / f"{solver}_eps_test"
-    plt.figure(figsize=(8,5))
-    for i in range(eigs.shape[1]):
-        plt.plot(eps_values, eigs[:,i], marker='o', label=f'eig{i+1}')
-    plt.xscale('log'); plt.yscale('log')
-    plt.xlabel('Epsilon'); plt.ylabel('Eigenvalues')
-    plt.legend(); plt.tight_layout()
-    plt.savefig(f"{base}.png"); plt.close()
     pd.DataFrame(eigs, index=eps_values).to_excel(f"{base}.xlsx")
 
     # Choose epsilon minimising the variation of the eigenvalues over a window of 5 steps.
@@ -1858,4 +1893,26 @@ def _fdm_mesh_independency(
         if var < best_var:
             best_var, best = var, eps_values[i]
     logger.info(f"Selected epsilon={best:.1e} for {solver}")
+    try:
+        _plot_eps_test(eps_values, eigs, best, solver, f"{base}.png")
+    except Exception as exc:   # the figure must never stop the analysis
+        logger.warning(f"mesh-independency figure not drawn: {exc!r}")
     return best
+
+
+@_styled
+def _plot_eps_test(eps_values, eigs, best, solver, filename):
+    """Eigenvalues of the covariance against the finite-difference step, chosen step marked."""
+    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    for i in range(eigs.shape[1]):
+        ax.plot(eps_values, eigs[:, i], marker='o', ms=3, color=_color(i), label=f'eigenvalue {i + 1}')
+    ax.axvline(best, color=_INK, ls='--', lw=1.2, label=f'selected step = {best:.1e}')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('relative finite-difference step ε')
+    ax.set_ylabel('eigenvalues of the covariance V')
+    ax.set_title(f'Step-size independence of V, model {solver}\n(selected: the flattest window of 5 steps)')
+    ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    fig.tight_layout()
+    fig.savefig(filename, bbox_inches='tight')
+    plt.close(fig)

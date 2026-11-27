@@ -2,6 +2,7 @@
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+from middoe.iden_utils import _styled, _color, _LINESTYLES, _can_show
 import logging
 import sys
 import pandas as pd
@@ -385,136 +386,20 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
     ...     'D', round=1, core_number=0, pltshow=True
     ... )
     """
-    if design_criteria in ['HR', 'BFF']:
-        performance_metric_name = "T-optimality"
-    elif design_criteria in ['A', 'D', 'E', 'ME']:
-        performance_metric_name = "PP-optimality"
-    else:
-        performance_metric_name = "Unknown"
-
-    fig, axs = plt.subplots(2, 1, figsize=(12, 12))
-    phi_text = ', '.join([f'{var}: {val:.5e}' for var, val in phi.items()])
-    performance_metric_text = (
-        f'Round {round} - {performance_metric_name} of {design_criteria}: '
-        f'{performance_metric:.20e}'
-    )
-    fig.suptitle(f'{phi_text}\n{performance_metric_text}\n{performance_metric_name}')
-
-    colors = ['k', 'b', 'r', 'c', 'm', 'y', 'g']
-    linestyles = ['-', '--', '-.', ':']
-
-    # --- Subplot 1: Time-variant output variables ---
-    ax1 = axs[0]
-    ax1.set_title("Time-variant output variables")
-    ax1.set_xlabel('Time (s)')
-    ax_list_1 = [ax1]
-
-    for solver_idx, (solver_name, solver_tv_ophi) in enumerate(tv_ophi.items()):
-        for var_idx, (var_name, y_values) in enumerate(solver_tv_ophi.items()):
-            color = colors[var_idx % len(colors)]
-            linestyle = linestyles[solver_idx % len(linestyles)]
-            if var_idx == 0:
-                ax1.plot(t, y_values, color=color, linestyle=linestyle, label=f'{solver_name} - {var_name}')
-                ax1.set_ylabel(f'{var_name} [-]', color=color)
-                ax1.tick_params(axis='y', labelcolor=color)
-            else:
-                ax_new = ax1.twinx()
-                ax_new.spines['left'].set_position(('outward', 60 * (var_idx - 1)))
-                ax_new.plot(t, y_values, color=color, linestyle=linestyle, label=f'{solver_name} - {var_name}')
-                ax_new.set_ylabel(f'{var_name} [-]', color=color)
-                ax_new.tick_params(axis='y', labelcolor=color)
-                ax_list_1.append(ax_new)
-            if isinstance(swps, dict) and var_name in swps:
-                for s_time in swps[var_name]:
-                    ax1.axvline(x=s_time, color=color, linestyle='--', alpha=0.5)
-                    ax1.annotate(f'{s_time:.2f}', xy=(s_time, ax1.get_ylim()[0]),
-                                 xytext=(0, 5), textcoords='offset points',
-                                 ha='center', va='bottom', rotation=90, color=color)
-
-    # Sampling times
-    if isinstance(St, dict):
-        first_solver = next(iter(tv_ophi)) if tv_ophi else None
-        var_list = list(tv_ophi[first_solver].keys()) if first_solver else []
-        for var_name, sampling_times in St.items():
-            color = colors[var_list.index(var_name) % len(colors)] if var_name in var_list else 'k'
-            for s_time in sampling_times:
-                ax1.axvline(x=s_time, color=color, linestyle='--', alpha=0.7)
-                ax1.annotate(f'{s_time:.2f}', xy=(s_time, ax1.get_ylim()[1]),
-                             xytext=(0, -15), textcoords='offset points',
-                             ha='center', va='bottom', rotation=90, color=color)
-    else:
-        for s_time in St:
-            ax1.axvline(x=s_time, color='k', linestyle='-', alpha=0.7)
-
-    handles_1, labels_1 = ax1.get_legend_handles_labels()
-    for ax in ax_list_1[1:]:
-        h, l = ax.get_legend_handles_labels()
-        handles_1 += h
-        labels_1 += l
-    if handles_1:
-        ax1.legend(handles_1, labels_1, loc='upper right')
-
-    # --- Subplot 2: Time-variant input variables (tvi) ---
-    ax2 = axs[1]
-    ax2.set_title("Time-variant input variables (tvi)")
-    ax2.set_xlabel('Time (s)')
-    ax_list_2 = [ax2]
-
-    for var_idx, (var_name, numeric_value) in enumerate(phit.items()):
-        color = colors[var_idx % len(colors)]
-        linestyle = linestyles[var_idx % len(linestyles)]
-        if var_idx == 0:
-            ax2.plot(t, numeric_value, color=color, linestyle=linestyle, label=f'{var_name}', linewidth=2.5)
-            ax2.set_ylabel(f'{var_name} [-]', color=color)
-            ax2.tick_params(axis='y', labelcolor=color)
-        else:
-            ax_new = ax2.twinx()
-            ax_new.spines['right'].set_position(('outward', 60 * (var_idx - 1)))
-            ax_new.plot(t, numeric_value, color=color, linestyle=linestyle, label=f'{var_name}', linewidth=2.5)
-            ax_new.set_ylabel(f'{var_name} [-]', color=color)
-            ax_new.tick_params(axis='y', labelcolor=color)
-            ax_list_2.append(ax_new)
-
-    # Switching points for tvi
-    if isinstance(swps, dict):
-        for var_name, switching_times in swps.items():
-            if not var_name.endswith('t'):
-                continue
-            base_var_name = var_name[:-1]
-            color = 'k'
-            if isinstance(phit, dict) and base_var_name in phit:
-                idx = list(phit.keys()).index(base_var_name)
-                color = colors[idx % len(colors)]
-            for s_time in switching_times:
-                ax2.axvline(x=s_time, color=color, linestyle='--', alpha=0.2)
-                ax2.annotate(f'{s_time:.2f}', xy=(s_time, ax2.get_ylim()[0]),
-                             xytext=(0, 5), textcoords='offset points',
-                             ha='center', va='bottom', rotation=90, color=color)
-
-    handles_2, labels_2 = ax2.get_legend_handles_labels()
-    for ax in ax_list_2[1:]:
-        h, l = ax.get_legend_handles_labels()
-        handles_2 += h
-        labels_2 += l
-    if handles_2:
-        ax2.legend(handles_2, labels_2, loc='upper right')
-
-    plt.tight_layout()
-
-    # === Save plot and Excel data ===
+    # Figures are only saved here: this runs in the worker processes of a parallel design, where
+    # nothing can be displayed. mbdoe_md/mbdoe_pp display the chosen core's figure afterwards
+    # (des_opt['plt']=True), see _show_design_plot.
     design_folder = Path.cwd() / 'design'
     design_folder.mkdir(parents=True, exist_ok=True)
     filename_base = f"{round} (round) by {core_number} core"
     plot_filename = design_folder / f"{filename_base}.png"
     excel_filename = design_folder / f"{filename_base}.xlsx"
-
-    # Save the plot
-    plt.savefig(plot_filename, dpi=300)
-    if pltshow:
-        from IPython.display import Image, display
-        display(Image(plot_filename))
-        plt.show()
-    plt.close()
+    try:
+        _design_figure(phi, phit, swps, St, performance_metric, t, tv_ophi, ti_ophi,
+                       design_criteria, round, core_number, plot_filename)
+    except Exception as exc:   # a figure must never cost the design
+        logger.warning(f"Design figure of round {round}, core {core_number} not drawn: {exc!r}")
+        plt.close('all')
 
     # === Save data to Excel ===
     excel_data = {'time': t}
@@ -543,6 +428,93 @@ def _plot_designs(phi, phit, swps, St, performance_metric, t,
 
     df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in excel_data.items()]))
     df.to_excel(excel_filename, index=False)
+
+
+def _fmt_value(v):
+    a = np.asarray(v, dtype=float).ravel()
+    return ', '.join(f'{x:.4g}' for x in a) if a.size else str(v)
+
+
+@_styled
+def _design_figure(phi, phit, swps, St, performance_metric, t, tv_ophi, ti_ophi,
+                   design_criteria, round, core_number, filename):
+    """One panel per time-varying output (prediction of every model, sampling points on the
+    curve) and one per time-varying input (switching times dotted); saved to ``filename``."""
+    t = np.asarray(t, dtype=float).ravel()
+    solvers = list(tv_ophi or {})
+    out_vars = list(dict.fromkeys(v for sv in solvers for v in (tv_ophi[sv] or {})))
+    in_items = []
+    for var, val in (phit or {}).items():
+        if isinstance(val, dict):
+            in_items += [(var, f'{var} {sub}', v) for sub, v in val.items()]
+        else:
+            in_items.append((var, var, val))
+    St_d = St if isinstance(St, dict) else {None: St}
+    ratios = [2.6] * len(out_vars) + [1.3] * len(in_items)
+    if not ratios:
+        return
+    fig, axes = plt.subplots(len(ratios), 1, sharex=True, squeeze=False,
+                             figsize=(7.5, 1.7 + 0.6 * sum(ratios)), gridspec_kw={'height_ratios': ratios})
+    axes = axes[:, 0]
+    for k, var in enumerate(out_vars):
+        ax, c = axes[k], _color(k)
+        ts = np.asarray(St_d.get(var, St_d.get(None, [])) or [], dtype=float).ravel()
+        for js, sv in enumerate(solvers):
+            y = np.asarray((tv_ophi[sv] or {}).get(var, []), dtype=float).ravel()
+            if y.size != t.size or not y.size:
+                continue
+            ax.plot(t, y, color=c, ls=_LINESTYLES[js % len(_LINESTYLES)],
+                    label=f'model {sv}' if len(solvers) > 1 else 'model prediction')
+            if js == 0 and ts.size:
+                ax.plot(ts, np.interp(ts, t, y), 'o', ms=5, mfc='white', mec=c, mew=1.3, zorder=3,
+                        label=f'sampling points ({ts.size})')
+        ax.set_ylabel(var)
+        ax.legend(loc='best')
+    sw = swps if isinstance(swps, dict) else {}
+    for k, (var, label, vals) in enumerate(in_items):
+        ax, c = axes[len(out_vars) + k], _color(len(out_vars) + k)
+        v = np.asarray(vals, dtype=float).ravel()
+        if v.size == t.size:
+            ax.plot(t, v, color=c)
+        for s_time in np.asarray(sw.get(f'{var}t', []), dtype=float).ravel():
+            ax.axvline(s_time, color=c, ls=':', lw=0.9)
+        ax.set_ylabel(f'{label}\n(input)')
+        ax.margins(y=0.15)
+    axes[-1].set_xlabel('time  (dotted: switching times of the inputs)' if sw else 'time')
+    kind = ('MBDoE-MD' if design_criteria in ('HR', 'BFF') else
+            'MBDoE-PP' if design_criteria in ('A', 'D', 'E', 'ME') else 'design')
+    try:
+        obj = f'{float(np.ravel(performance_metric)[0]):.5g}'
+    except (TypeError, ValueError, IndexError):
+        obj = str(performance_metric)
+    title = f'Round {round}, core {core_number}: {kind}, {design_criteria}-criterion = {obj}'
+    if phi:
+        title += '\ntime-invariant inputs: ' + ', '.join(f'{k} = {_fmt_value(v)}' for k, v in phi.items())
+    ti_txt = [f'{var} ({sv}) = {_fmt_value(val)}' for sv, d in (ti_ophi or {}).items()
+              for var, val in (d or {}).items()]
+    if ti_txt:
+        title += '\npredicted time-invariant outputs: ' + ', '.join(ti_txt)
+    fig.suptitle(title)
+    fig.align_ylabels(axes)
+    fig.tight_layout()
+    fig.savefig(filename, bbox_inches='tight')
+    plt.close(fig)
+
+
+def _show_design_plot(round, core_number):
+    """Display the saved design figure of the chosen core (main process, des_opt['plt']=True)."""
+    path = Path.cwd() / 'design' / f"{round} (round) by {core_number} core.png"
+    print(f"Design figure: {path}")
+    if not path.exists() or not _can_show():
+        return
+    img = plt.imread(str(path))
+    h, w = img.shape[:2]
+    fig = plt.figure(figsize=(w / 200, h / 200), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.imshow(img)
+    ax.axis('off')
+    plt.show()
+    plt.close(fig)
 
 
 def _get_var_info(var, var_groups):
@@ -746,7 +718,7 @@ def _validate_des_inputs(des_opt, system, models, kind):
     dict
         Shallow copy of ``des_opt`` with ``meth`` mapped to 'PS'/'DE'/'DEPS'
         (default 'PS'; paper-era aliases 'L'->'PS', 'G'->'DE', 'GL'->'DEPS')
-        and, for PP, ``priors`` (default False) and ``conv_rep`` (default True).
+        and, for PP, ``priors`` (default False) and ``conv_rep`` (default False).
 
     Raises
     ------
@@ -791,7 +763,7 @@ def _validate_des_inputs(des_opt, system, models, kind):
 
     if kind == 'pp':
         opt.setdefault('priors', False)
-        opt.setdefault('conv_rep', True)
+        opt.setdefault('conv_rep', False)
 
     _check_errt(system)
     _dead_time(system)

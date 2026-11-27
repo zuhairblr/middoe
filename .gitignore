@@ -172,3 +172,22 @@ cython_debug/
 
 # Python interface stub files
 *.pyi
+
+# Old paper working folders (kept locally, not in the repository)
+tests/paper1/
+tests/paper3/
+
+# MIDDoE paper case studies: keep only the notebooks and model files; everything a run writes is ignored
+tests/middoe_paper/**
+!tests/middoe_paper/**/
+!tests/middoe_paper/**/*.py
+!tests/middoe_paper/**/*.ipynb
+
+# Tutorial 1, short versions: keep only the notebooks and model files; everything a run writes is ignored
+tests/tutorials/01_simple/**
+!tests/tutorials/01_simple/**/
+!tests/tutorials/01_simple/**/*.py
+!tests/tutorials/01_simple/**/*.ipynb
+
+# IDE settings (personal, not part of the project)
+.idea/

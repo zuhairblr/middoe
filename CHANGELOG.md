@@ -20,5 +20,11 @@ Engineering* 17 (2025) 100276), with many bug fixes and more robust parameter es
 - Bootstrap replicates start from the reference estimate plus 4 random starts (`boot_start='mixed'`), about 4x faster than a full multi-start per replicate with the same optima.
 - New optimiser options `pscale`, `grad`, `grad_step`, `fnorm`.
 - Paper option names (`'G'`, `'Ls'`, `'Ln'`, `'SQP'`, `'NM'`, `'LBFGSB'`, `'CS'`, `'J'`) are accepted.
-- `run_postprocessing(..., show=False)` for scripts.
-- Restructured documentation with a getting-started page and an API reference in workflow order.
+- `run_postprocessing(..., show=False)` for scripts; optional `true_theta=`.
+- `expera` shows a small figure of each new data set and its noise (`insilicos['plt']`, default on).
+- gPROMS models (`'gpr'`) work again: they are no longer loaded as a Python file first.
+- `des_opt['conv_rep']` now defaults to `False`, and the per-iteration design metrics (FIM metrics and a curvature probe, about as many extra model evaluations as the optimisation itself) are computed only when it is `True`. Designs are unchanged; MBDoE-PP runs about 2x faster by default.
+- Tutorial 1 has four short companion notebooks (`tests/tutorials/01_simple/`, variants A–D: relative or absolute noise, Fisher, Hessian or bootstrap uncertainty, fast or multi-start optimiser).
+- Plots corrected and extended: 95 % confidence ellipses (were 1σ), physical estimates ± CI per round, error bars, prediction bands, weighted residuals and parity plots, richer Excel reports, design figures displayed from the main process. `iden_opt['plt_s']` controls display for `save_rounds`, `estima` and `validation`; `models['theta_names']` labels parameters.
+- Restructured documentation: an onboarding guide, a getting-started page, interactive figures, the full page tree in the side menu and an API reference in workflow order.
+- The four case studies of the MIDDoE paper are notebooks in `tests/middoe_paper/` (one folder per case: the notebook and its model files). These and the tutorials open in Google Colab.

@@ -288,6 +288,15 @@ If you use MIDDoE in your research, please cite:
    In J.F.M. Van Impe et al. (Eds.), *Systems and Control Transactions*, 4, 1282-1287.  
    [https://doi.org/10.69997/sct.192104](https://doi.org/10.69997/sct.192104)
 
+### MBDoE in ill-conditioned systems
+
+For the design criteria for ill-conditioned systems (ORB and SEM), please also cite:
+
+1. Tabrizi, Z., Leal da Silva, W.R., & Bezzo, F. (2026).  
+   Two novel criteria for model-based design of experiments in ill-conditioned systems.  
+   *Computers & Chemical Engineering*, 214, 109806.  
+   [https://doi.org/10.1016/j.compchemeng.2026.109806](https://doi.org/10.1016/j.compchemeng.2026.109806)
+
 ---
 
 ## 🧪 Applied To

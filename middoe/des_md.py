@@ -678,7 +678,7 @@
 #     return ti, swps, St, md_obj, t_values, tv_ophi, ti_ophi, phit_interp
 
 
-from middoe.des_utils import _slicer, _reporter,  configure_logger
+from middoe.des_utils import _slicer, _reporter,  configure_logger, _show_design_plot
 from middoe.des_utils import (_validate_des_inputs, _theta_scaling, _sigma_y, _theta_cov_x,
                               _sampling_constraint_list, _sampling_constraint_value, _sampling_gaps,
                               _dead_time)
@@ -718,8 +718,9 @@ def mbdoe_md(
             - 'md_ob' : str
                 Discrimination criterion ('HR' or 'BFF'; any other value raises ValueError):
                     * 'HR': Hunter-Reiner T-optimality
-                        Maximises sum of squared differences between model predictions
-                        across all time points and measured outputs. Suitable for
+                        Maximises the sum, over model pairs and measured outputs, of the
+                        squared differences between model predictions at the designed
+                        sampling times of each output (not all time points). Suitable for
                         discriminating models with significant structural differences.
 
                     * 'BFF': Buzzi-Ferraris-Forzatti criterion
@@ -732,9 +733,11 @@ def mbdoe_md(
 
             - 'itr' : dict
                 Iteration controls:
-                    * 'maxmd': int — maximum iterations
-                    * 'tolmd': float — constraint tolerance passed to pymoo
-                    * 'pps': int — population size
+                    * 'maxmd': int — number of generations (DE) or iterations (PS);
+                      with 'DEPS', DE runs maxmd/2 generations, then PS maxmd iterations
+                    * 'tolmd': float — required; passed to pymoo as
+                      ``constraint_tolerance``, which pymoo 0.6.1 does not use (no effect)
+                    * 'pps': int — DE population size (not used by 'PS')
             - 'eps' : float
                 Perturbation step size for numerical derivatives (normalised parameter
                 units, > 0). Required; None raises ValueError.
@@ -754,8 +757,8 @@ def mbdoe_md(
                 Dead time (scalar, time units, default 0): switching and free sampling
                 times are restricted to [t_d, tf - t_d].
             - 't_r' : float
-                Time resolution for simulation. Two samples of a response are at least
-                max(offt, t_r) apart (also free vs forced samples), checked after
+                Required. Time resolution for simulation. Two samples of a response are
+                at least max(offt, t_r) apart (also free vs forced samples), checked after
                 snapping to the grid.
             - 'errt' : str, optional
                 Default measurement-error type: 'abs' (default; 'unc' is an absolute
@@ -778,20 +781,24 @@ def mbdoe_md(
             - 'tvo' : dict
                 Time-variant output definitions:
                     * 'meas': bool — include in measurement
-                    * 'sp': int — number of sampling points
-                    * 'offt': float — minimum time between samples
-                    * 'samp_s': str — sampling synchronisation group
-                    * 'samp_f': list[float] — forced sampling times
+                    * 'sp': int — number of sampling points (required)
+                    * 'offt': float — minimum time between samples (required)
+                    * 'samp_s': str, optional — sampling synchronisation group
+                      (default: one common group)
+                    * 'samp_f': list[float], optional — forced sampling times (default [])
                     * 'unc': float — measurement standard deviation (errt='abs') or
                       relative fraction (errt='rel')
                     * 'errt': str, optional — 'abs' or 'rel'
             - 'tio' : dict
-                Time-invariant output definitions.
+                Time-invariant output definitions (required; may be empty).
 
     models : dict
         Model definitions and settings:
             - 'can_m' : list[str]
                 Competing models to discriminate (active solver names).
+            - 'krt' : dict[str, str]
+                Required. Model kind per model name ('pym', 'pys', 'gpr' or a
+                callable), used by the simulator.
             - 'theta' : dict[str, list[float]]
                 Nominal parameter values for each model (non-zero; negative values keep
                 their sign).
@@ -812,17 +819,19 @@ def mbdoe_md(
     results : dict
         Best design found:
             - 'tii' : dict[str, float]
-                Optimal time-invariant input values.
+                Optimal time-invariant input values (physical units).
             - 'tvi' : dict[str, Any]
-                Optimal time-variant input profiles.
+                Optimal time-variant input profiles, normalised by the input's 'max'
+                (u / max, not physical units).
             - 'swps' : dict[str, list[float]]
-                Switching times for time-variant controls.
-            - 'St' : dict[str, np.ndarray]
-                Sampling times for each output variable.
+                Switching points of the time-variant controls in physical units:
+                '<var>t' switching times and '<var>l' levels.
+            - 'St' : dict[str, list[float]]
+                Sampling times for each output variable (physical time units).
             - 'md_obj' : float
                 Model discrimination objective value (maximised).
             - 't_values' : list[float]
-                Full simulation time vector.
+                Full simulation time vector, normalised to [0, 1] (multiply by tf).
 
     Raises
     ------
@@ -887,9 +896,12 @@ def mbdoe_md(
     >>> # Define system with 4 competing models
     >>> system = {
     ...     'tvo': {
-    ...         'X': {'init': 0.5, 'meas': True, 'unc': 0.05, 'sp': 17},
-    ...         'S': {'init': 15.0, 'meas': True, 'unc': 1.0, 'sp': 17},
-    ...         'P': {'init': 0.0, 'meas': True, 'unc': 0.05, 'sp': 17}
+    ...         'X': {'init': 0.5, 'meas': True, 'unc': 0.05, 'sp': 17,
+    ...               'offt': 0.5, 'samp_s': 'A', 'samp_f': [0, 20.0]},
+    ...         'S': {'init': 15.0, 'meas': True, 'unc': 1.0, 'sp': 17,
+    ...               'offt': 0.5, 'samp_s': 'A', 'samp_f': [0, 20.0]},
+    ...         'P': {'init': 0.0, 'meas': True, 'unc': 0.05, 'sp': 17,
+    ...               'offt': 0.5, 'samp_s': 'A', 'samp_f': [0, 20.0]}
     ...     },
     ...     'tvi': {
     ...         'T': {'min': 296.15, 'max': 306.15, 'stps': 5, 'cvp': 'CPF',
@@ -899,15 +911,18 @@ def mbdoe_md(
     ...         'S0': {'min': 0.366, 'max': 0.65},
     ...         'X0': {'min': 0.19, 'max': 0.595}
     ...     },
+    ...     'tio': {},
     ...     't_s': (0.0, 20.0),
-    ...     't_d': 1.0
+    ...     't_d': 1.0,
+    ...     't_r': 0.1
     ... }
     >>>
     >>> # Define 4 competing models (after calibration)
     >>> models = {
     ...     'can_m': ['M1', 'M2', 'M3', 'M4'],
-    ...     'krt': {'M1': 'fermentation_model_1', 'M2': 'fermentation_model_2',
-    ...             'M3': 'fermentation_model_3', 'M4': 'fermentation_model_4'},
+    ...     'krt': {'M1': 'pys', 'M2': 'pys', 'M3': 'pys', 'M4': 'pys'},
+    ...     'src': {'M1': 'fermentation_model_1.py', 'M2': 'fermentation_model_2.py',
+    ...             'M3': 'fermentation_model_3.py', 'M4': 'fermentation_model_4.py'},
     ...     'theta': {
     ...         'M1': [0.408, 0.22, 71.5, 0.28, 0.607, 0.1],
     ...         'M2': [0.450, 0.20, 65.0, 0.30, 0.550, 0.12],
@@ -958,13 +973,14 @@ def mbdoe_md(
                 "Try increasing 'maxmd', adjusting bounds, or relaxing constraints."
             )
 
-        best_design_decisions, best_md_obj, best_swps = max(successful, key=lambda x: x[1])
+        best_design_decisions, best_md_obj, best_swps, best_core = max(successful, key=lambda x: x[1])
 
     else:
         try:
             best_design_decisions, best_md_obj, best_swps = _run_single_md(
                 des_opt, system, models, core_number=0, round=round
             )
+            best_core = 0
         except Exception as e:
             raise RuntimeError(f"Single-core optimisation failed: {e}")
 
@@ -974,6 +990,8 @@ def mbdoe_md(
         print("  swps  :", best_design_decisions['swps'])
         print("  St    :", best_design_decisions['St'])
         print("  md_obj:", best_design_decisions['md_obj'])
+    if des_opt.get('plt'):
+        _show_design_plot(round, best_core)
     return best_design_decisions
 
 
@@ -1019,7 +1037,8 @@ def _safe_run_md(args):
     des_opt, system, models, core_num, round = args
 
     try:
-        return _run_single_md(des_opt, system, models, core_num, round)
+        res = _run_single_md(des_opt, system, models, core_num, round)
+        return None if res is None else (*res, core_num)
     except Exception as e:
         print(f"[Core {core_num}] FAILED: {e}")
         traceback.print_exc()

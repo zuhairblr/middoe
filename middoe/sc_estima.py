@@ -289,9 +289,10 @@ def estima(result, system, models, iden_opt, round):
     Parameters
     ----------
     result : dict[str, dict]
-        Baseline uncertainty analysis results from all parameters free:
+        The ``'results'`` entry of the uncert() output (``uncert(...)['results']``, not the whole uncert dict), from the current fit:
             - result[solver]['LSA']: Local sensitivity array (Jacobian matrix)
             - result[solver]['WLS']: Weighted least squares objective
+            - result[solver]['sigma_rows']: per-row sigma (KeyError if missing)
             - Plus all other metrics from uncert()
     system : dict
         System configuration with variable definitions.
@@ -301,13 +302,19 @@ def estima(result, system, models, iden_opt, round):
             - 'theta': dict[str, list[float]] — Parameter values
             - 'mutation': dict[str, list[bool]] — Parameter masks (updated in-place)
             - 'V_matrix': dict[str, np.ndarray] — Covariance matrices (updated)
-            - 'thetastart': dict[str, list[float]], optional — Initial values
+            - 'thetastart': dict[str, list[float]], optional — Initial values;
+              the subset fits start from them and newly fixed parameters take them
     iden_opt : dict
         Identification options:
             - 'meth': str — Optimization method
-            - 'var-cov': str — Covariance method (temporarily set to 'M')
-            - 'init': Initial values flag (temporarily set to None)
-            - 'log': Logging flag (temporarily disabled)
+            - 'var-cov': str — Covariance method (set to 'M' for the subset
+              fits, restored before return)
+            - 'init': set to None (not restored)
+            - 'log': Logging flag (disabled during the analysis, restored)
+            - 'plt_s': bool, optional — also show the rCC plot (default True;
+              the plot is always saved)
+            - 'model_update': bool, optional — write the selected subset into
+              ``models`` (default True; see Side Effects)
     round : int
         Current round number for tracking and plot labeling.
 
@@ -315,26 +322,32 @@ def estima(result, system, models, iden_opt, round):
     -------
     rankings : dict[str, list[int]]
         Parameter rankings for each solver, ordered from most to least estimable.
-        Indices correspond to positions in original parameter vector.
+        Indices refer to the active parameters (the columns of 'LSA'); they equal
+        positions in the original parameter vector only when all parameters are free.
     k_optimal_values : dict[str, int]
         Optimal number of parameters to estimate for each solver.
     rCC_values : dict[str, list[float]]
-        Revised Critical Ratio values for k=1,2,...,n_params for each solver.
+        Revised Critical Ratio values for k=1,2,...,n for each solver (n entries,
+        n = number of active parameters; the last one, for k=n, is 0).
     J_k_values : dict[str, list[float]]
-        Weighted least squares objective values for each k.
+        Weighted least squares objective values for k=1,...,n-1 (n-1 entries).
     best_uncert_result : dict
-        Uncertainty analysis results for optimal parameter subset:
+        uncert() output for the optimal subset of the last model in ``result``:
             - Same structure as uncert() output
             - Parameters ranked beyond k_optimal are fixed
+            - ``{'results': result, 'obs': None}`` when k_optimal == n
 
     Notes
     -----
     **Side Effects**:
 
-    - Updates models['mutation'][solver] with optimal parameter mask
-    - Updates models['theta'][solver] with re-estimated parameter values
-    - Updates models['V_matrix'][solver] with covariance for active parameters
-    - Temporarily modifies iden_opt settings (restored before return)
+    - Reads the data from ``data.xlsx`` in the working directory
+    - If ``iden_opt.get('model_update', True)``: updates models['mutation'][solver]
+      with the optimal parameter mask, models['theta'][solver] with the re-estimated
+      parameter values (newly fixed parameters at their 'thetastart' value, when
+      present) and
+      models['V_matrix'][solver] with the covariance of the subset fit
+    - Sets iden_opt['init'] to None; 'var-cov' and 'log' are restored before return
     - Generates rCC vs k plots via plot_rCC_vs_k()
 
     **Estimability Analysis Workflow**:
@@ -378,10 +391,11 @@ def estima(result, system, models, iden_opt, round):
     During subset evaluation:
 
         - var-cov='M' (measurement-based, fast)
-        - init=None (use previous round values)
+        - init=None (left at None after the call)
         - log=False (suppress verbose output)
 
-    Final estimation restores original settings for highest quality results.
+    The fit of the optimal subset uses the original 'var-cov' and 'meth'; on return
+    only 'log' and 'var-cov' are restored in iden_opt.
 
     **Integration with MBDoE**:
     Estimability analysis is typically run after preliminary experiments to:
@@ -421,9 +435,9 @@ def estima(result, system, models, iden_opt, round):
     >>> # After initial estimation with all parameters
     >>> result_full = uncert(parmest_result, system, models, iden_opt)
     >>>
-    >>> # Perform estimability analysis
+    >>> # Perform estimability analysis (pass the 'results' entry of uncert)
     >>> rankings, k_opt, rCC, J_k, best_result = estima(
-    ...     result_full, system, models, iden_opt, round=1
+    ...     result_full['results'], system, models, iden_opt, round=1
     ... )
     >>>
     >>> # Check results
@@ -658,9 +672,10 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
     Parameters
     ----------
     n_parameters : int
-        Total number of parameters in the model.
+        Number of active (free) parameters of the model.
     ranking_known : list[int]
-        Parameter indices ranked from most to least estimable (from parameter_ranking()).
+        Indices of the active parameters (positions among the free ones), ranked
+        from most to least estimable (from parameter_ranking()).
     system : dict
         System configuration.
     models : dict
@@ -690,7 +705,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
         Weighted least squares objective for k=1,2,...,n-1. Length n-1.
     best_uncert : dict
         Uncertainty analysis results for optimal k:
-            - If k=n: returns baseline result (all parameters)
+            - If k=n: ``{'results': result, 'obs': None}`` (baseline result)
             - If k<n: runs new estimation with optimal subset
 
     Notes
@@ -864,6 +879,7 @@ def parameter_selection(n_parameters, ranking_known, system, models, iden_opt, s
         best_uncert = uncert(best_results, system_best, models_best, iden_opt_best, case='freeze', data=data)
 
     # Visualize results
-    plot_rCC_vs_k(x_values, rCC_values, round, solvera)
+    # always saved; displayed when iden_opt['plt_s'] is True (default True)
+    plot_rCC_vs_k(x_values, rCC_values, round, solvera, show=bool(iden_opt.get('plt_s', True)))
 
     return k_optimal, rCC_values, J_k_values, best_uncert

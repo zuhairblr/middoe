@@ -176,7 +176,11 @@ def validation(system, models, iden_opt, round_data):
             - 'theta' : dict[str, list[float]]
                 Nominal parameter values.
             - 'mutation' : dict[str, list[bool]]
-                Parameter activity masks (updated from round_data).
+                Parameter activity masks; overwritten in place with the last
+                round's masks ('activeparams' of its results).
+            - 'thetastart' : dict[str, list[float]], optional
+                Starting values of every fold (case='strov'): the initial guesses,
+                set once by the first uncert() call. If absent, 'theta' is used.
             - 't_u', 't_l' : dict
                 Parameter bounds.
 
@@ -189,9 +193,13 @@ def validation(system, models, iden_opt, round_data):
                 Objective function (from paper Table S2):
                     * 'LS', 'WLS', 'MLE', 'CS'
             - 'var-cov' : str
-                Covariance method (internally overridden to 'J' for validation).
+                Covariance method. parmest uses ``iden_opt`` as given (so 'B'
+                bootstraps every fold); only the uncert() calls use a copy with
+                var-cov 'M'.
             - 'log' : bool
                 Logging flag.
+            - 'plt_s' : bool, optional
+                Also show the validation plots (default True; always saved).
 
     round_data : dict
         Results from previous estimation rounds. Used to:
@@ -231,7 +239,8 @@ def validation(system, models, iden_opt, round_data):
         1. Extract final mutation masks from last estimation round
         2. For each fold:
             - Split data into training/validation
-            - Run parameter estimation on training data (case='strov' uses previous round's parameters)
+            - Run parameter estimation on training data (case='strov': starts from
+              models['thetastart'], the initial guesses)
             - Compute uncertainty on training data
             - Compute uncertainty on validation data (using parameters from training)
             - Calculate R² and MSE for both sets
@@ -258,9 +267,9 @@ def validation(system, models, iden_opt, round_data):
         - Both saved via validation_R2() function
 
     **Case Parameter**:
-    'strov' (start from previous round optimal values) ensures parameter estimation
-    starts from the best estimates obtained in previous rounds, improving convergence
-    and reducing computational cost for each fold.
+    parmest is called with case='strov', so every fold starts from
+    ``models['thetastart']``: the initial guesses, stored once by the first uncert()
+    call (not the previous round's optimum). Fixed parameters keep those values.
 
     **Best Practices**:
         - Use LOOCV after completing sequential MBDoE rounds
@@ -387,8 +396,10 @@ def validation(system, models, iden_opt, round_data):
         )
 
     # Generate validation plots
-    validation_R2(R2_prd, R2_val, R2_ref, case='R2')
-    validation_R2(MSE_pred, MSE_val, MSE_ref, case='MSE')
+    # always saved; displayed when iden_opt['plt_s'] is True (default True)
+    show = bool(iden_opt.get('plt_s', True))
+    validation_R2(R2_prd, R2_val, R2_ref, case='R2', show=show)
+    validation_R2(MSE_pred, MSE_val, MSE_ref, case='MSE', show=show)
 
     # Compute summary statistics across folds
     R2_stats, MSE_stats = {}, {}

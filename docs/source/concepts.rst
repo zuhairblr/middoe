@@ -1,124 +1,113 @@
-Key ideas
-=========
+Key ideas & package structure
+=============================
 
-A five-minute introduction to the ideas behind MIDDoE. The formulas are in the :doc:`user_guide`.
+.. rst-class:: md-lead
+
+The ideas behind MIDDoE in five minutes. Play with them in :doc:`interactive figures
+<ug_interactive>`; see how the package fits together in :doc:`package_structure`.
 
 The identification loop
 -----------------------
 
-A model is only useful if its parameters are known well enough. MIDDoE improves the model in
-**rounds**:
+A model is useful only when its parameters are known well enough. MIDDoE gets there in **rounds**;
+the first experiments are ordinary ("preliminary") ones, every later one is **designed by the model
+itself** to be as informative as possible:
 
-.. code-block:: text
+.. raw:: html
 
-   1. Plan an experiment     (MBDoE: mbdoe_pp / mbdoe_md)
-   2. Run it                 (in the lab, or in the virtual lab: expera)
-   3. Fit the model          (parmest, then uncert)
-   4. Check precision        good enough?  no  -> back to 1 (next round)
-                                           yes -> 5. Validate (validation) and report
+   <nav class="md-ribbon md-loop" aria-label="The identification loop">
+     <a href="ug_setup.html#setup-data"><span class="md-num">1</span>Run an experiment: <code>expera</code> or the lab</a><span class="md-sep"></span>
+     <a href="ug_setup.html#setup-rounds"><span class="md-num">2</span>Fit: <code>parmest</code></a><span class="md-sep"></span>
+     <a href="ug_results.html"><span class="md-num">3</span>Precise enough? <code>uncert</code></a><span class="md-sep"></span>
+     <a href="ug_setup.html#setup-design"><span class="md-num">4</span>Plan the next: <code>mbdoe_pp</code> / <code>mbdoe_md</code></a>
+   </nav>
 
-Before the first round, a few ordinary ("preliminary") experiments give a first estimate of the
-parameters. Each later experiment is **designed by the model itself** to be as informative as
-possible.
+When step 3 says yes, validate (``validation``) and report. The animated version of this loop is in
+the :doc:`onboarding guide <user_guide>`.
 
 Glossary
 --------
 
-.. list-table::
-   :widths: 25 75
-   :header-rows: 1
+.. tab-set::
 
-   * - Term
-     - Meaning
-   * - Model
-     - Equations that predict how your process behaves. In MIDDoE: a Python function
-       ``solve_model`` (usually differential equations).
-   * - Parameters (θ)
-     - Unknown constants in the model (rate constants, activation energies, …). They are the
-       quantities you want to determine.
-   * - Inputs (controls)
-     - What you choose in an experiment. **Time-variant** inputs ``u(t)`` change during the run
-       (e.g. a temperature profile); **time-invariant** inputs ``w`` are fixed per run (e.g. the
-       initial concentration).
-   * - Outputs (responses, y)
-     - What you measure, at chosen **sampling times**. Each measurement has an error (σ, ``unc``).
-   * - Virtual lab (in-silico experiment)
-     - A simulation of an experiment with known "true" parameters plus random noise. Use it to test a
-       study before doing real experiments (``expera``).
-   * - Parameter estimation
-     - Finding the parameter values that make the model match the measured data best
-       (``parmest``).
-   * - Confidence interval
-     - The range in which the true parameter value lies with 95 % probability (``uncert``).
-   * - t-test
-     - A precision check. A parameter **passes** if its t-value (estimate divided by its standard
-       error) is larger than a reference value (about 2). A parameter that fails is not determined
-       well by the data.
-   * - Sensitivity analysis (GSA)
-     - Which parameters actually influence the outputs? Parameters with no influence cannot be
-       estimated and can be fixed (``sensa``, Sobol method).
-   * - Estimability analysis
-     - With the data you have now, which parameters can be estimated reliably, and how many? The
-       rest are kept fixed for now (``estima``).
-   * - MBDoE-PP (parameter precision)
-     - Plans the experiment that shrinks the parameter uncertainty most (``mbdoe_pp``). The
-       criteria D, A, E and ME are different ways of measuring "uncertainty"; **D** is the usual
-       choice.
-   * - MBDoE-MD (model discrimination)
-     - With several rival models, plans the experiment where their predictions differ most, so the
-       data can tell which one is right (``mbdoe_md``). **HR** looks at the difference alone;
-       **BFF** also accounts for measurement and parameter uncertainty.
-   * - P-test
-     - After fitting rival models, gives each one a probability (in %) of being the best. Models with
-       a low P are discarded.
-   * - Cross-validation
-     - Refit the model leaving one experiment out each time and predict that experiment. A high
-       validation R² means the model also predicts data it has not seen (``validation``).
-   * - Round
-     - One pass through plan → run → fit → check. ``save_rounds`` stores each round for the final
-       reports.
+   .. tab-item:: :octicon:`beaker` Model & data
 
-Which function for which step
------------------------------
+      .. rst-class:: md-gloss
 
-.. list-table::
-   :widths: 30 30 40
-   :header-rows: 1
+      Model
+         Equations that predict your process: a Python function ``solve_model``, usually ODEs.
+      Parameters θ
+         Unknown constants in the model (rate constants, activation energies…): what you want to
+         determine.
+      Inputs
+         What you choose per experiment: **time-variant** ``u(t)`` (a temperature profile) or
+         **time-invariant** ``w`` (an initial concentration).
+      Outputs y
+         What you measure, at chosen **sampling times**, each with an error σ (``unc``).
+      Virtual lab
+         A simulated experiment with known "true" parameters plus noise (``expera``): test a study
+         before the lab.
 
-   * - Step
-     - Function
-     - Module
-   * - Sensitivity analysis
-     - ``sensa``
-     - ``middoe.sc_sensa``
-   * - Virtual-lab experiment
-     - ``expera``
-     - ``middoe.krnl_expera``
-   * - Plan an experiment (precision)
-     - ``mbdoe_pp``
-     - ``middoe.des_pp``
-   * - Plan an experiment (discrimination)
-     - ``mbdoe_md``
-     - ``middoe.des_md``
-   * - Fit parameters
-     - ``parmest``
-     - ``middoe.iden_parmest``
-   * - Precision, t-test, P-test
-     - ``uncert``
-     - ``middoe.iden_uncert``
-   * - Estimability analysis
-     - ``estima``
-     - ``middoe.sc_estima``
-   * - Cross-validation
-     - ``validation``
-     - ``middoe.iden_valida``
-   * - Store rounds, save and load results
-     - ``save_rounds``, ``save_to_jac``, ``load_from_jac``
-     - ``middoe.log_utils``
-   * - Final plots and Excel reports
-     - ``run_postprocessing``
-     - ``middoe.iden_utils``
+   .. tab-item:: :octicon:`graph` Fitting & checking
 
-The settings for all steps are given in six dictionaries: ``system`` (the experiment), ``models``
+      .. rst-class:: md-gloss
+
+      Parameter estimation
+         The parameter values that make the model match the data best (``parmest``).
+      Confidence interval
+         The range that holds the true value with 95 % probability (``uncert``).
+      t-test
+         Passes when t = estimate / standard error is above a reference (about 2).
+      Sensitivity analysis
+         Which parameters influence the outputs at all; the rest can be fixed (``sensa``, Sobol).
+      Estimability analysis
+         How many, and which, parameters the data you have can support (``estima``).
+      P-test
+         With rival models: each model's probability of being the right one, in %.
+      Cross-validation
+         Refit leaving one experiment out and predict it; a high validation R² means the model
+         predicts unseen data (``validation``).
+
+   .. tab-item:: :octicon:`goal` Design
+
+      .. rst-class:: md-gloss
+
+      MBDoE-PP
+         Plans the experiment that shrinks the parameter uncertainty most (``mbdoe_pp``); criteria
+         D (usual), A, E, ME.
+      MBDoE-MD
+         Plans the experiment where rival models disagree most (``mbdoe_md``); HR on the difference
+         alone, BFF also weighing the uncertainty.
+      Round
+         One pass of run → fit → check → plan; ``save_rounds`` stores it for the reports.
+
+The settings of every step are given in six dictionaries: ``system`` (the experiment), ``models``
 (the model and its parameters), ``insilicos`` (the virtual lab), ``iden_opt`` (fitting), ``des_opt``
-(design) and ``gsa`` (sensitivity). All their options are listed in :ref:`config-dicts`.
+(design) and ``gsa`` (sensitivity). Which function belongs to which step, and what it reads and writes:
+:doc:`package_structure`. Every key: :ref:`config-dicts`.
+
+Go further
+----------
+
+.. grid:: 1 1 2 2
+   :gutter: 3
+
+   .. grid-item-card:: :octicon:`play;1.3em` See the ideas at work
+      :link: ug_interactive
+      :link-type: doc
+      :class-card: md-card
+
+      Interactive figures: where to sample (D, A, E), separating rival models, measurement error.
+
+   .. grid-item-card:: :octicon:`stack;1.3em` Package structure
+      :link: package_structure
+      :link-type: doc
+      :class-card: md-card
+
+      The modules, what each one does, and which dictionaries and files it reads and writes.
+
+.. toctree::
+   :hidden:
+
+   ug_interactive
+   package_structure

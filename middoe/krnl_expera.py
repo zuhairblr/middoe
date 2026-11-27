@@ -480,6 +480,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import os
+import matplotlib.pyplot as plt
+from middoe.iden_utils import _styled, _color, _can_show, _INK2
 
 
 def expera(system, models, insilicos, design_decisions, expr, swps=None):
@@ -509,12 +511,17 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
             - 'tvo' : dict
                 Time-variant output definitions:
                     * 'meas' : bool — measurement flag
-                    * 'unc' : float — measurement uncertainty (std dev)
+                    * 'unc' : float — measurement uncertainty: a standard deviation
+                      with errt='abs', a relative fraction of ``|y|`` with errt='rel'.
+                      Required (> 0) for every measured output; a missing or
+                      non-positive value raises ValueError.
                     * 'sp' : int — number of sampling points
             - 'tio' : dict
-                Time-invariant output definitions.
+                Time-invariant output definitions; measured ones also need a
+                positive 'unc' (same rule as 'tvo').
     models : dict
-        Model definitions (currently unused but passed for extensibility).
+        Model definitions, passed to the simulator (simula needs e.g.
+        ``models['krt']`` for the true model).
     insilicos : dict
         In-silico experiment configuration:
             - 'tr_m' : str
@@ -522,15 +529,21 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
             - 'theta' : list[float]
                 True parameter values (ground truth).
             - 'prels' : dict
-                Preliminary/classic design values.
+                Preliminary/classic design values, keyed by ``str(expr)``:
+                ``{'1': {'T': 350, 'P': 3.0}, ...}``; a missing input takes its 'max'.
             - 'errt' : str, optional
                 Error type: 'abs' (absolute) or 'rel' (relative, default: 'abs').
             - 'sigma_floor' : float, optional
                 Lower bound on the noise standard deviation for ``errt='rel'``
                 (default: 1e-6). The written ``MES_E`` is ``max(unc * |y|, sigma_floor)``,
                 so a zero true response (e.g. y(0) = 0) no longer gives sigma = 0.
+            - 'plt' : bool, optional
+                Draw a small preview of the new data (default True): per measured output
+                the noise-free model with the noisy samples (+-2 sigma) and the noise itself.
+                Saved as ``./data_plots/experiment_<expr>.png``; displayed when matplotlib
+                can show figures.
     design_decisions : dict or None
-        MBDoE design decisions. If None, runs preliminary design. If provided:
+        MBDoE design decisions. If None or empty (``{}``), runs the preliminary design. If provided:
             - 'St' : dict[str, np.ndarray]
                 Sampling times for each output variable (unscaled).
             - 't_values' : np.ndarray
@@ -570,7 +583,7 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         6. **Export**: Save to Excel with experiment number as sheet name
 
     **Preliminary vs MBDoE Designs**:
-        - **Preliminary** (design_decisions=None):
+        - **Preliminary** (design_decisions None or ``{}``):
             * Uses classic_des values from insilicos['prels']
             * Uniform sampling in time for each output
             * Simple input profiles (constant or default CVP)
@@ -587,7 +600,9 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         - **Relative ('rel')**: \( y_{noisy} = y_{true} + \mathcal{N}(0, s^2) \) with
           :math:`s = \max(\sigma \cdot |y_{true}|, \sigma_{floor})`
 
-    Negative values are clipped to zero (physical constraint).
+    Here \( \sigma \) is the output's 'unc' (a relative fraction for 'rel').
+    Negative samples of time-variant outputs ('tvo') are clipped to zero (physical
+    constraint); time-invariant outputs ('tio') are not clipped.
 
     **DataFrame Structure**:
     The output DataFrame contains multiple sections separated by blank columns:
@@ -791,6 +806,15 @@ def expera(system, models, insilicos, design_decisions, expr, swps=None):
         unc = system['tvo'][response].get('unc', 'N/A')
         status = "measurable" if meas else "non-measurable"
         print(f"   - {response:<10} | {status:<15} | std.dev = {unc}")
+
+    # Small preview of the new data and its noise (insilicos['plt'], default True)
+    if insilicos.get('plt', True):
+        try:
+            path = _plot_insilico(df_combined.attrs.get('preview'), expr, system)
+            if path is not None:
+                print(f"[INFO] Data preview       : {path}")
+        except Exception as exc:   # the preview must never cost the experiment
+            print(f"[INFO] Data preview not drawn: {exc!r}")
 
     return excel_path, df_combined
 
@@ -1141,6 +1165,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
 
     # 1. Per-variable DataFrames for tv_ophi
     var_dfs = []
+    preview_samples = {}   # (time, true value, noisy value, sigma) per sample, for the data preview
     for indep_var, dep_var in indep_to_dep_mapping.items():
         var_times = [t * tsc for t in t_values[dep_var]]
         var_results = []
@@ -1161,6 +1186,7 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
             noisy_val = np.random.normal(loc=original_val, scale=sigma)
             noisy_val = max(noisy_val, 0.0)
             var_results.append([t, noisy_val, sigma])
+            preview_samples.setdefault(dep_var, []).append((t, original_val, noisy_val, sigma))
 
         df_var = pd.DataFrame(var_results, columns=[f"MES_X:{dep_var}", f"MES_Y:{dep_var}", f"MES_E:{dep_var}"])
         var_dfs.append(df_var)
@@ -1242,4 +1268,64 @@ def _inssimulator(t_values, swps, swpsu, phi, phisc, phit, phitsc, tsc, theta, t
         # Combine all into one DataFrame
         df_combined = pd.concat([df_main, df_blank_1, df_piecewise, df_blank_2, df_swps], axis=1)
 
+    # Noise-free model and samples for the data preview of expera (not written to data.xlsx)
+    df_combined.attrs['preview'] = {
+        't': np.asarray(t_valuesc, dtype=float) * tsc,
+        'true': {v: np.asarray(tv_ophi[v], dtype=float).ravel() for v in dep_vars},
+        'samples': {v: np.asarray(preview_samples.get(v, []), dtype=float).reshape(-1, 4) for v in dep_vars},
+        'tio': {v: (float(np.ravel(np.asarray(ti_ophi[v], dtype=float))[0]), float(ti_ophi_noisy_once[v]),
+                    ti_ophi_sig[v]) for v in ti_ophi_sig},
+        'errt': errortype,
+    }
     return df_combined
+
+
+@_styled
+def _plot_insilico(preview, expr, system, show=True):
+    """Small figure of one in-silico experiment: per measured output the noise-free model with the
+    noisy samples (+-2 sigma), and below it the noise itself (data - true) inside its +-2 sigma band.
+    Saved as ./data_plots/experiment_<expr>.png."""
+    if not preview or not preview.get('samples'):
+        return None
+    out_vars = [v for v, smp in preview['samples'].items() if smp.size]
+    if not out_vars:
+        return None
+    n = len(out_vars)
+    fig, axes = plt.subplots(2, n, figsize=(2.6 * n + 0.6, 3.3), squeeze=False, sharex='col',
+                             gridspec_kw={'height_ratios': [2.2, 1]})
+    for j, v in enumerate(out_vars):
+        c = _color(j)
+        smp = preview['samples'][v]
+        t, y_true, y, sig = smp[:, 0], smp[:, 1], smp[:, 2], smp[:, 3]
+        ax, axn = axes[0, j], axes[1, j]
+        tt, yy = preview['t'], preview['true'].get(v)
+        if yy is not None and yy.size == tt.size:
+            ax.plot(tt, yy, color=_INK2, lw=1.0, label='model (true θ)')
+        ax.errorbar(t, y, yerr=2 * sig, fmt='o', ms=3, mfc='white', mec=c, ecolor=c, elinewidth=0.8,
+                    capsize=1.5, label='data ± 2σ')
+        ax.set_title(v, fontsize=9)
+        order = np.argsort(t)
+        axn.fill_between(t[order], -2 * sig[order], 2 * sig[order], color=c, alpha=0.15, lw=0, step='mid')
+        axn.axhline(0, color=_INK2, lw=0.8)
+        axn.plot(t, y - y_true, 'o', ms=3, color=c)
+        axn.set_xlabel('time', fontsize=8)
+        if j == 0:
+            ax.set_ylabel('value', fontsize=8)
+            axn.set_ylabel('noise', fontsize=8)
+            ax.legend(fontsize=6.5, loc='best')
+        for a in (ax, axn):
+            a.tick_params(labelsize=7)
+    title = f"experiment {expr}: in-silico data, {preview.get('errt', 'abs')} noise (band: ±2σ)"
+    if preview.get('tio'):
+        title += '\n' + ', '.join(f'{v}: true {tr:.4g}, data {no:.4g} ± {2 * sg:.2g}'
+                                  for v, (tr, no, sg) in preview['tio'].items())
+    fig.suptitle(title, fontsize=9)
+    fig.tight_layout()
+    folder = Path.cwd() / 'data_plots'
+    folder.mkdir(exist_ok=True)
+    path = folder / f'experiment_{expr}.png'
+    fig.savefig(path, bbox_inches='tight')
+    if show and _can_show():
+        plt.show()
+    plt.close(fig)
+    return path

@@ -665,9 +665,12 @@ def sensa(gsa, models, system):
             - 'plt' : bool
                 Generate Sobol plots automatically.
             - 'var_d' : float, optional
-                Variable variation factor (e.g., 1.2 = ±20%). If not provided, uses bounds.
+                Variable variation factor: bounds are (nominal/var_d, nominal*var_d),
+                e.g. 1.2 gives -16.7 % / +20 %. Only used when it is a Python float;
+                otherwise the 'min'/'max' of system 'tii' and 'tvi' are used.
             - 'par_d' : float, optional
-                Parameter variation factor. If not provided, uses t_l and t_u bounds.
+                Parameter variation factor: bounds (theta/par_d, theta*par_d), as for
+                'var_d'. Only used when it is a Python float; otherwise t_l and t_u.
             - 'multi' : False or float, optional
                 Parallel execution: False=single-core, 0.0-1.0=fraction of CPUs to use.
     models : dict
@@ -685,9 +688,11 @@ def sensa(gsa, models, system):
             - 't_s' : tuple[float, float]
                 Time span.
             - 'tvi' : dict
-                Time-variant input definitions.
+                Time-variant input definitions ('min' and 'max' bounds needed when
+                gsa['var_d'] is not given).
             - 'tii' : dict
-                Time-invariant input definitions with 'min' and 'max' bounds.
+                Time-invariant input definitions with 'min' and 'max' bounds (needed
+                when gsa['var_d'] is not given).
             - 'tvo' : dict
                 Time-variant output definitions.
 
@@ -697,12 +702,16 @@ def sensa(gsa, models, system):
         Complete Sobol analysis results:
             - 'analysis' : dict[str, dict[str, list[dict]]]
                 Nested structure: {solver: {response: [time_step_results]}}
-                Each time_step_results contains:
+                (one entry per simulation time except t = 0). Each
+                time_step_results contains:
 
                     * 'S1' : np.ndarray — First-order indices (main effects)
                     * 'ST' : np.ndarray — Total indices (main + interactions)
-                    * 'S1_conf' : np.ndarray — S1 confidence intervals
-                    * 'ST_conf' : np.ndarray — ST confidence intervals
+                    * 'S1_conf' : np.ndarray — S1 confidence intervals (NaN: the
+                      bootstrap resamples are not kept by sensa, so none are computed)
+                    * 'ST_conf' : np.ndarray — ST confidence intervals (NaN, as S1_conf)
+                    * 'S2', 'S2_conf' : np.ndarray — second-order matrices (all NaN;
+                      not computed)
             - 'problem' : dict[str, dict]
                 Sobol problem definitions: {solver: {'num_vars', 'names', 'bounds'}}
 

@@ -1,6 +1,6 @@
 # des_pp.py
 import scipy.linalg
-from middoe.des_utils import _slicer, _reporter, configure_logger, _write_final_results_txt
+from middoe.des_utils import _slicer, _reporter, configure_logger, _write_final_results_txt, _show_design_plot
 from middoe.des_utils import (_validate_des_inputs, _theta_scaling, _sigma_y, _prior_information,
                               _sampling_constraint_list, _sampling_constraint_value, _sampling_gaps,
                               _dead_time)
@@ -66,7 +66,7 @@ def mbdoe_pp(
             * 'SEM': Spectral Entropy Maximization - Uses a Shannon Entropy-inspired approach to maximise the entropy of the normalised FIM, promoting a uniform distribution of information across parameters. Advantages: Encourages balanced parameter precision, robust to scaling issues. Disadvantages: Computationally intensive for each iteration.
 
         - 'itr' : dict
-            Iteration controls with keys 'maxpp' (int, maximum iterations), 'tolpp' (float, constraint tolerance passed to pymoo), 'pps' (int, population size).
+            Iteration controls with keys 'maxpp' (int, number of generations for DE or iterations for PS; with 'DEPS', DE runs maxpp//2 generations, then PS maxpp iterations), 'tolpp' (float, required; passed to pymoo as ``constraint_tolerance``, which pymoo 0.6.1 does not use, so it has no effect), 'pps' (int, DE population size; not used by 'PS').
 
         - 'eps' : float
             Perturbation step size for numerical derivatives (normalised parameter units, > 0). Required; None raises ValueError.
@@ -81,7 +81,9 @@ def mbdoe_pp(
             Add the prior information inv(V) from models['V_matrix'] to the FIM (default False, as in paper eq. 4 where the prior term is neglected). V is converted from physical to normalised units, V_x = V / outer(theta, theta). Without a V for the model no prior is added.
 
         - 'conv_rep' : bool, optional
-            Export convergence/FIM metrics to Excel (default True).
+            Convergence report (default False). True records FIM metrics and a curvature probe after
+            every optimiser iteration and exports them to Excel; this costs about as many extra model
+            evaluations as the optimisation itself, so it is off unless asked for.
 
         The dict passed in is not modified; defaults are applied to an internal copy.
 
@@ -98,7 +100,7 @@ def mbdoe_pp(
             Dead time (scalar, time units): switching and free sampling times are restricted to [t_d, tf - t_d].
 
         - 't_r' : float
-            Time resolution for simulation. Two samples of a response are at least max(offt, t_r) apart (also free vs forced samples), checked after snapping to the grid.
+            Required. Time resolution for simulation. Two samples of a response are at least max(offt, t_r) apart (also free vs forced samples), checked after snapping to the grid.
 
         - 'errt' : str, optional
             Default measurement-error type for all responses: 'abs' (default, 'unc' is an absolute standard deviation) or 'rel' (sigma = ``unc * |y_hat|``). Can be overridden per response with system['tvo'][var]['errt'].
@@ -113,16 +115,19 @@ def mbdoe_pp(
             Time-invariant input definitions ('max', 'min').
 
         - 'tvo' : dict
-            Time-variant output definitions with keys 'meas' (bool, include in measurement), 'sp' (int, number of sampling points), 'offt' (float, minimum time between samples), 'samp_s' (str, sampling synchronisation group), 'samp_f' (list[float], forced sampling times), 'unc' (float, measurement standard deviation if errt='abs', relative fraction if errt='rel'), 'errt' (str, optional, 'abs' or 'rel').
+            Time-variant output definitions with keys 'meas' (bool, include in measurement), 'sp' (int, number of sampling points), 'offt' (float, minimum time between samples), 'samp_s' (str, sampling synchronisation group), 'samp_f' (list[float], forced sampling times; may be empty) — 'sp', 'offt', 'samp_s' and 'samp_f' are required for every measured output —, 'unc' (float, measurement standard deviation if errt='abs', relative fraction if errt='rel'), 'errt' (str, optional, 'abs' or 'rel').
 
         - 'tio' : dict
-            Time-invariant output definitions.
+            Time-invariant output definitions (required; may be empty).
 
     models : dict
         Model definitions and settings:
 
         - 'can_m' : list[str]
             Active model names (typically single model for PP).
+
+        - 'krt' : dict[str, str]
+            Required. Model kind per model name ('pym', 'pys', 'gpr' or a callable), used by the simulator.
 
         - 'theta' : dict[str, list[float]]
             Nominal parameter values for each model (non-zero; negative values keep their sign).
@@ -152,12 +157,12 @@ def mbdoe_pp(
     results : dict
         Best design found with keys:
 
-        - 'tii' : dict[str, float] - Optimal time-invariant input values.
-        - 'tvi' : dict[str, Any] - Optimal time-variant input profiles.
-        - 'swps' : dict[str, list[float]] - Switching times for time-variant controls.
-        - 'St' : dict[str, np.ndarray] - Sampling times for each output variable.
+        - 'tii' : dict[str, float] - Optimal time-invariant input values (physical units).
+        - 'tvi' : dict[str, Any] - Optimal time-variant input profiles, normalised by the input's 'max' (u / max, not physical units).
+        - 'swps' : dict[str, list[float]] - Switching points of the time-variant controls in physical units: '<var>t' switching times and '<var>l' levels.
+        - 'St' : dict[str, list[float]] - Sampling times for each output variable (physical time units).
         - 'pp_obj' : float - Parameter precision objective value (maximised).
-        - 't_values' : list[float] - Full simulation time vector.
+        - 't_values' : list[float] - Full simulation time vector, normalised to [0, 1] (multiply by tf).
 
     Raises
     ------
@@ -213,16 +218,20 @@ def mbdoe_pp(
     >>>
     >>> # Define system configuration
     >>> system = {
-    ...     'tvo': {'mu0': {'init': 1e15, 'meas': True, 'unc': 1e13, 'sp': 8}},
+    ...     'tvo': {'mu0': {'init': 1e15, 'meas': True, 'unc': 1e13, 'sp': 8,
+    ...                     'offt': 5.0, 'samp_s': 'A', 'samp_f': [0, 180.0]}},
     ...     'tvi': {'T': {'min': 278, 'max': 313, 'stps': 3, 'cvp': 'CPF',
     ...                   'const': 'rel', 'offt': 5.0, 'offl': 1.0}},
     ...     'tii': {'C0': {'min': 0.15, 'max': 0.35}},
-    ...     't_s': (0.0, 180.0), 't_d': 10.0
+    ...     'tio': {},
+    ...     't_s': (0.0, 180.0), 't_d': 10.0, 't_r': 1.0
     ... }
     >>>
     >>> # Define model
     >>> models = {
     ...     'can_m': ['M1'],
+    ...     'krt': {'M1': 'pys'},
+    ...     'src': {'M1': 'path/to/model.py'},
     ...     'theta': {'M1': [0.42, 2.5e5, 1.2e11]},
     ...     'mutation': {'M1': [True, True, True]},
     ...     'V_matrix': {'M1': np.diag([0.01, 0.01, 0.01])}
@@ -246,7 +255,7 @@ def mbdoe_pp(
         insilicos = None
 
     # Validate up front (clear ValueError instead of a 1e6 penalty at every point) and work on a
-    # copy: defaults (meth='PS', priors=False, conv_rep=True) are not written into the user's dict.
+    # copy: defaults (meth='PS', priors=False, conv_rep=False) are not written into the user's dict.
     des_opt = _validate_des_inputs(des_opt, system, models, 'pp')
 
     # Assuming active solvers and mutation info available
@@ -296,6 +305,9 @@ def mbdoe_pp(
         print("  swps  :", best_design_decisions['swps'])
         print("  St    :", best_design_decisions['St'])
         print("  pp_obj:", best_design_decisions['pp_obj'])
+
+    if des_opt.get('plt'):
+        _show_design_plot(round, best_core)
 
     # Write final short TXT summary in design folder
     _write_final_results_txt(
@@ -476,7 +488,7 @@ def _run_single_pp(des_opt, system, models, insilicos=None, core_number=0, round
             raise
 
     # Only export convergence metrics if conv_rep is True
-    if des_opt.get('conv_rep', True):
+    if des_opt.get('conv_rep', False):
         _export_metrics_to_excel(
             metrics_history,
             design_criteria,
@@ -1359,14 +1371,18 @@ def _optimiser(
 
     metrics_history = []
 
-    callback = MetricsCallback(
-        metrics_history=metrics_history,
-        criterion=design_criteria,
-        worker_num=core_number,
-        core_number=core_number,
-        round_num=round_num,
-        evaluation_func=evaluate_full_metrics,  # NEW
-    )
+    # The per-iteration metrics (and their extra model evaluations) are only computed for the
+    # convergence report, des_opt['conv_rep'] = True.
+    conv_rep = bool(des_opt.get('conv_rep', False))
+
+    def _callback(history):
+        if not conv_rep:
+            return Callback()                     # pymoo's no-op callback (None is not accepted)
+        return MetricsCallback(metrics_history=history, criterion=design_criteria, worker_num=core_number,
+                               core_number=core_number, round_num=round_num,
+                               evaluation_func=evaluate_full_metrics)
+
+    callback = _callback(metrics_history)
 
     if optmethod == 'PS':
         algorithm = PatternSearch()
@@ -1383,12 +1399,7 @@ def _optimiser(
     elif optmethod == 'DEPS':
         algorithm_de = DE(pop_size=population_size, sampling=LHS(), variant='DE/rand/1/bin', CR=0.9)
         metrics_history_de = []
-        callback_de = MetricsCallback(metrics_history=metrics_history_de,
-                                      criterion=design_criteria,
-                                      worker_num=core_number,
-                                      core_number=core_number,
-                                      round_num=round_num,
-                                      evaluation_func=evaluate_full_metrics)
+        callback_de = _callback(metrics_history_de)
         res_de = pymoo_minimize(problem, algorithm_de,
                                termination=('n_gen', maxpp // 2),
                                callback=callback_de,
@@ -1397,12 +1408,7 @@ def _optimiser(
                                save_history=True)
         metrics_history.extend(metrics_history_de)
         algorithm_refine = PatternSearch()
-        callback_ps = MetricsCallback(metrics_history=metrics_history,
-                                     criterion=design_criteria,
-                                     worker_num=core_number,
-                                     core_number=core_number,
-                                     round_num=round_num,
-                                     evaluation_func=evaluate_full_metrics)
+        callback_ps = _callback(metrics_history)
         res_refine = pymoo_minimize(problem, algorithm_refine,
                                    termination=('n_gen', int(maxpp)),
                                    x0=res_de.X,

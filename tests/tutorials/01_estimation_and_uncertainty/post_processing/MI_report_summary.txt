@@ -1,10 +1,20 @@
+Round 3  (design: classic)
+
 Model: MI
-Scaled Parameters: [0.22852581 0.29250185 0.78820349 0.06804738]
-T-Values: [24.73222713 16.82864139 18.48985234  7.51243466]
-CI 95% confidence: [0.01850995 0.03481871 0.0853961  0.01814529]
+                   parameter      estimate estimated       sd  CI95 (±)  CI95 (% of estimate)         t    t_ref significant
+                      mu_max      0.228526      True 0.009240  0.018510              8.099718 24.732227 2.003241        True
+                          Ks      0.292502      True 0.017381  0.034819             11.903758 16.828641 2.003241        True
+                         Yxs      0.788203      True 0.042629  0.085396             10.834271 18.489852 2.003241        True
+                           m      0.068047      True 0.009058  0.018145             26.665666  7.512435 2.003241        True
+                                                                                                                            
+            N (measurements)            60                                                                                  
+    p (estimated parameters)             4                                                                                  
+  sum((y - y_model)/sigma)^2     60.709216                                                                                  
+ratio to N - p (expected ~1)      1.084093                                                                                  
+     95 % range of the ratio 0.664 - 1.403                                                                                  
 Overall R²: 0.9867728984019787
-Overall Chi-square: 0.4081335996898787
-R² by Response:
-  y1: 0.9677039112836369
-  y2: 0.9963745394512207
-Parameter Ranking:
+  R² y1: 0.9677039112836369
+  R² y2: 0.9963745394512207
+Chi (relative LS): 0.4081335996898787
+P (%): 100.0
+

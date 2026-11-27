@@ -1,0 +1,8 @@
+{# The whole documentation tree, on every page: every section and every page, the current one highlighted. #}
+<nav class="bd-docs-nav bd-links md-globalnav" aria-label="Documentation">
+  <p class="bd-links__title" role="heading" aria-level="1">Documentation</p>
+  <div class="bd-toc-item navbar-nav">
+    {{- generate_toctree_html("sidebar", startdepth=0, show_nav_level=2, maxdepth=2,
+                              collapse=False, includehidden=True, titles_only=True) -}}
+  </div>
+</nav>

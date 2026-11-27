@@ -1,0 +1,4 @@
+.md-classic-bar { position: sticky; top: 0; z-index: 1000; background: #2a78d6; color: #fff; text-align: center;
+  font: 600 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 8px 12px; }
+.md-classic-bar a { color: #fff; text-decoration: underline; margin-left: 6px; }
+.md-classic-bar b { font-weight: 700; }

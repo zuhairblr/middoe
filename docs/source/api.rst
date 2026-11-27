@@ -56,7 +56,8 @@ Which function do I call?
      - confidence intervals, t-values, R², model probabilities P
    * - Choose which parameters to fit
      - :func:`~middoe.sc_estima.estima`
-     - the ``uncert`` results, ``system``, ``models``, ``iden_opt``, the round
+     - ``unc['results']`` (the ``'results'`` entry of the ``uncert`` output), ``system``,
+       ``models``, ``iden_opt``, the round
      - a ranking and the best number of parameters to estimate
    * - Plan the next experiment (precision)
      - :func:`~middoe.des_pp.mbdoe_pp`
@@ -68,7 +69,7 @@ Which function do I call?
      - the designed inputs and sampling times
    * - Store a round
      - :func:`~middoe.log_utils.save_rounds`
-     - the round number, the ``uncert`` results and the settings
+     - the round number, ``unc['results']``, ``unc['obs']`` and the settings
      - an entry in ``round_data`` (used by the next three)
    * - Cross-validate
      - :func:`~middoe.iden_valida.validation`
@@ -97,7 +98,8 @@ The two results you will use most:
    r['estimations']                # parameter estimates (all parameters, physical units)
    r['CI']                         # 95 % confidence half-widths (estimated parameters only)
    r['t_values']                   # t-values; compare with the reference t (about 2)
-   r['V_matrix']                   # covariance matrix of the estimated parameters
+   r['V_matrix']                   # covariance matrix: estimated parameters only ('M'/'H');
+                                   # full size with zero rows/columns for fixed ones ('B')
    r['R2_responses']               # R² per measured output
    r['P']                          # model probability in % (when several models compete)
 
@@ -185,7 +187,7 @@ plotting routines and the built-in test models. Most users never need them.
    * - :mod:`middoe.des_md`
      - Design for model discrimination: HR, BFF criteria
    * - :mod:`middoe.des_utils`
-     - Shared design helpers (control profiles, sampling times, constraints)
+     - Internal design helpers; the only public function is ``configure_logger``
    * - :mod:`middoe.sc_sensa`
      - Sobol sampling and indices
    * - :mod:`middoe.sc_estima`
@@ -280,6 +282,8 @@ Built-in models
 
 Right-hand-side functions available with ``models['krt'][name] = 'pym'``
 (the model name must equal one of the function names below, e.g. ``'f05'``).
+Only the ``f*`` functions are models usable with ``'pym'``; the ``thetadic*``
+functions return parameter sets for them, not models.
 
 .. automodule:: middoe.krnl_models
    :members:

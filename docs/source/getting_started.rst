@@ -1,24 +1,42 @@
 Getting started
 ===============
 
-This page takes you from nothing to a finished MIDDoE study in about 15 minutes. You do not need
-programming experience: you will copy two files and run one command.
+.. include:: _ribbon.rst
+
+.. rst-class:: md-lead
+
+From nothing to a finished study in about 15 minutes: install, copy two files, run one command.
 
 1. Install Python and MIDDoE
 ----------------------------
 
-#. **Install Python** (version 3.9 to 3.13) from https://www.python.org/downloads/.
-   On Windows, tick **"Add python.exe to PATH"** in the first installer window.
-#. **Open a terminal.** On Windows: press Start, type ``cmd``, press Enter. On macOS: open the
-   *Terminal* app. On Linux: open your usual terminal.
-#. **Install MIDDoE** by typing this line and pressing Enter:
+Install Python 3.9–3.13 from https://www.python.org/downloads/, then, in a terminal:
 
-   .. code-block:: bash
+.. tab-set::
 
-      pip install middoe
+   .. tab-item:: :fab:`windows` Windows
 
-   (If ``pip`` is not found, try ``python -m pip install middoe``, or ``py -m pip install middoe``
-   on Windows.)
+      Tick **"Add python.exe to PATH"** in the installer. Open a terminal (Start → ``cmd``) and run:
+
+      .. code-block:: bash
+
+         py -m pip install middoe
+
+   .. tab-item:: :fab:`apple` macOS
+
+      Open the *Terminal* app and run:
+
+      .. code-block:: bash
+
+         python3 -m pip install middoe
+
+   .. tab-item:: :fab:`linux` Linux
+
+      In your terminal:
+
+      .. code-block:: bash
+
+         python3 -m pip install middoe
 
 2. The example
 --------------
@@ -62,8 +80,8 @@ In the terminal, go to the folder and run the study:
    cd path/to/my_first_middoe
    python run.py
 
-It takes about a minute. MIDDoE prints its progress, then results like these (the numbers vary a
-little from run to run because the noise is random):
+It takes about a minute. MIDDoE prints its progress, then results like these (the noise is random,
+so your numbers differ a little):
 
 .. code-block:: text
 
@@ -78,15 +96,15 @@ little from run to run because the noise is random):
 5. Read the results
 -------------------
 
-- The **estimates** are close to the true values used by the virtual lab (``k_ref = 0.3``,
-  ``Ea = 60000``).
-- **+/-** is the 95 % confidence interval: the true value very likely lies within that range.
-- **t** measures precision. A parameter is considered well determined when its t-value is above a
-  reference value of about 2.
-- **The designed experiment pays off.** ``mbdoe_pp`` planned experiment 3: start with as much A as
-  allowed, run hot for about half an hour, then run cold, sampling at the most informative times.
-  This single experiment roughly **halved the uncertainty** of both parameters, more than two
-  ordinary experiments together.
+- The **estimates** are close to the virtual lab's true values (``k_ref = 0.3``, ``Ea = 60000``).
+- **+/-** is the 95 % confidence interval; **t** is the estimate divided by its standard error. Above
+  about 2, the parameter is well determined.
+- ``mbdoe_pp`` designed experiment 3: as much A as allowed, hot for about half an hour, then cold,
+  sampled at the most informative times. That one experiment **halved the uncertainty**:
+
+.. raw:: html
+
+   <div class="mdw" data-widget="quickstart"></div>
 
 Your folder now also contains:
 
@@ -107,13 +125,6 @@ Your folder now also contains:
 
 .. tip::
 
-   On Windows, keep the ``if __name__ == '__main__':`` line in your scripts. MIDDoE runs some steps
-   in parallel, and this line is what makes that work.
-
-Next steps
-----------
-
-- :doc:`concepts`: what each step does and why.
-- :doc:`case_studies`: larger studies with several rival models, sensitivity and estimability
-  analysis, and sequential designs.
-- :doc:`user_guide` and :doc:`api`: every option in detail.
+   Keep the ``if __name__ == '__main__':`` line in your scripts, on every operating system. MIDDoE
+   runs some steps in parallel processes, and this line is what makes that work (notebooks do not
+   need it).

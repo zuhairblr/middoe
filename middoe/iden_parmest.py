@@ -1044,8 +1044,8 @@ def parmest(system, models, iden_opt, case=None, data=None):
         System configuration including:
             - 't_s' : tuple[float, float]
                 Start and end times.
-            - 't_d' : tuple[float, float]
-                Restricted initial/final intervals (dead time).
+            - 't_d' : float, optional
+                Scalar dead time; not used by parmest (only by the designs).
             - 't_r' : float
                 Time resolution.
             - 'tvi' : dict
@@ -1063,6 +1063,9 @@ def parmest(system, models, iden_opt, case=None, data=None):
         Model definitions and parameter bounds:
             - 'can_m' : list[str]
                 Active model/solver names.
+            - 'krt' : dict[str, str]
+                Required. Model kind per model name (e.g. 'pym', 'pys', 'gpr');
+                a ValueError is raised if it is not a dict.
             - 't_u' : dict[str, list[float]]
                 Upper parameter bounds.
             - 't_l' : dict[str, list[float]]
@@ -1171,17 +1174,33 @@ def parmest(system, models, iden_opt, case=None, data=None):
             - 'x' : np.ndarray
                 Optimized normalized parameters (theta / thetac).
             - 'scpr' : np.ndarray
-                Optimized parameters in original scale.
+                Optimized parameters in original scale. With var-cov='B' this is
+                the bootstrap mean (the reference fit is in 'scpr_raw').
+            - 'activeparams' : np.ndarray[bool]
+                Mutation mask (True for free parameters).
             - 'fun' : float
                 Final objective function value.
+            - 'fun_fit' : float
+                Objective without its constant (MLE: without
+                0.5*sum(log 2 pi sigma^2)); equal to 'fun' for the other objectives.
             - 'success' : bool
                 Optimization convergence flag.
             - 'hessian' : np.ndarray, optional
-                Hessian matrix at optimum (if var-cov='H').
+                Hessian of the objective w.r.t. the free scaled parameters
+                (theta/thetac) at the optimum (if var-cov='H').
             - 'hess_inv' : np.ndarray, optional
-                Inverse Hessian / covariance matrix (if var-cov='H').
+                Physical inverse Hessian of the objective, full size with zero
+                rows/columns for fixed parameters (if var-cov='H'); ``uncert``
+                applies the objective-specific factor to obtain the covariance.
             - 'v' : np.ndarray, optional
-                Covariance matrix (if var-cov='B' or 'J').
+                Bootstrap covariance (truncated-normal, full size; only if
+                var-cov='B').
+            - 'scpr_raw', 'v_raw' : np.ndarray, optional
+                Reference-fit parameters and raw empirical bootstrap covariance
+                (if var-cov='B').
+            - 'boot_counts' : dict, optional
+                Requested, kept, rejected, not converged and failed replicates
+                (if var-cov='B').
             - 'X' : np.ndarray, optional
                 Bootstrap parameter samples (if var-cov='B').
             - 'samples' : list, optional
@@ -1190,7 +1209,11 @@ def parmest(system, models, iden_opt, case=None, data=None):
     Raises
     ------
     ValueError
-        If invalid method, objective function, or configuration is provided.
+        If invalid method, objective function, or configuration is provided,
+        or if ``models['krt']`` is not a dict.
+    RuntimeError
+        If estimation fails for every model, or (var-cov='B') every bootstrap
+        replicate of a model is rejected.
 
     Notes
     -----
@@ -1212,16 +1235,18 @@ def parmest(system, models, iden_opt, case=None, data=None):
     - **Jacobian-based (J)**: Local uncertainty from sensitivity matrix (Fisher Information).
       More robust than Hessian for parameter-sensitive models.
 
-    - **Bootstrap (B)**: Global uncertainty via residual resampling with replacement.
-      Most robust but computationally expensive. Uses truncated normal approximation
-      to account for parameter bounds.
+    - **Bootstrap (B)**: Global uncertainty via resampling the observations with
+      replacement (pairs/case bootstrap). Most robust but computationally expensive.
+      Uses truncated normal approximation to account for parameter bounds.
 
     **Bootstrap Procedure**:
         1. Perform reference estimation on full dataset
-        2. Generate bootstrap replicates by resampling residuals
+        2. Generate bootstrap replicates by resampling the observations with replacement
         3. Re-estimate parameters for each replicate
         4. Compute covariance using truncated normal approximation
-        5. Return both raw and truncated-normal statistics
+        5. Return both raw and truncated-normal statistics; 'scpr' becomes the
+           bootstrap mean (so ``uncert``'s 'estimations' equal the bootstrap mean)
+           and the reference fit is kept in 'scpr_raw'
 
     **Objective Functions** (from paper Table S2):
         - **LS**: \( \sum_i (y_i - \hat{y}_i)^2 \)
@@ -1290,7 +1315,8 @@ def parmest(system, models, iden_opt, case=None, data=None):
     ...     'var-cov': 'J'
     ... }
     >>> results = parmest(system, models, iden_opt)
-    >>> print(f"Parameter covariance: {results['M1'].v}")
+    >>> unc = uncert(results, system, models, iden_opt)
+    >>> print(f"Parameter covariance: {unc['results']['M1']['V_matrix']}")
 
     >>> # Bootstrap uncertainty quantification
     >>> iden_opt = {
@@ -1300,6 +1326,7 @@ def parmest(system, models, iden_opt, case=None, data=None):
     ...     'nboot': 500
     ... }
     >>> results = parmest(system, models, iden_opt)
+    >>> print(f"Bootstrap mean: {results['M1'].scpr}, reference fit: {results['M1'].scpr_raw}")
     >>> print(f"Bootstrap covariance: {results['M1'].v}")
     >>> print(f"Bootstrap samples shape: {results['M1'].X.shape}")
     """

@@ -464,10 +464,11 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
                 Model type/function mapping:
                     * 'pym' : Internal Python model (from krnl_models module)
                     * 'pys' : External Python script with solve_model()
-                    * 'gpr' : gPROMS model via pygpas interface
+                    * 'gpr' : gPROMS model via pygpas interface (nothing is
+                      imported in Python; the .gPAS file is opened by pygpas)
                     * callable : Direct function reference
             - 'src' : dict[str, str], optional
-                File paths for 'pys' and 'gpr' models.
+                File paths for 'pys' (.py script) and 'gpr' (.gPAS file) models.
             - 'creds' : dict[str, str], optional
                 Credentials for gPROMS models.
 
@@ -478,7 +479,8 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
             - Keys: output variable names (e.g., 'y1', 'y2', 'CA', 'T')
             - Values: arrays of shape (len(t),) with simulation results
     ti_ophi : dict[str, float]
-        Time-invariant output values (currently empty dict, for future use).
+        Time-invariant output values: the model's 'tio' for 'pys' and 'gpr'
+        models; an empty dict for 'pym' models and callables.
     phit : dict[str, np.ndarray]
         Scaled and interpolated time-variant input profiles:
             - Keys: input variable names
@@ -487,10 +489,12 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
     Raises
     ------
     KeyError
-        If model_name is not found in models['krt'], or if required keys are missing
-        from swps or uphit for specified CVP methods.
+        If model_name is not found in models['krt'] or its kind is not recognised,
+        if the model cannot be loaded ('pym' function missing from krnl_models,
+        'pys' script not loadable), or if required keys are missing from swps or
+        uphit for specified CVP methods.
     ImportError
-        If required modules (krnl_models, pygpas) cannot be imported.
+        If pygpas is not installed for a 'gpr' model.
     ValueError
         If CVP method is unrecognized or if switching point arrays have mismatched lengths.
     SimulationError
@@ -515,9 +519,10 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
           Must contain solve_model(t, y0, tii, tvi, theta) function.
           Loaded dynamically via importlib.util.
 
-        - **'gpr' (gPROMS)**: Model defined in gPROMS .gPJ file.
-          Requires pygpas package for interface.
-          Evaluated via gPAS client-server architecture.
+        - **'gpr' (gPROMS)**: Model exported as a gPROMS .gPAS file
+          (models['src'][model_name], password in models['creds'][model_name]).
+          Nothing is imported in Python; solver_selector opens the file through
+          pygpas and evaluates it via the gPAS client-server architecture.
 
         - **callable**: Model function passed directly in models['krt'][model_name].
           Most flexible option for custom models.
@@ -608,7 +613,7 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
     >>> # gPROMS model
     >>> models = {
     ...     'krt': {'gproms_model': 'gpr'},
-    ...     'src': {'gproms_model': '/path/to/model.gPJ'},
+    ...     'src': {'gproms_model': '/path/to/model.gPAS'},
     ...     'creds': {'gproms_model': 'password'}
     ... }
     >>> tv_out, ti_out, tv_in = simula(t, swps, uphi, uphisc, uphitsc,
@@ -625,8 +630,8 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
         except (ImportError, AttributeError) as e:
             raise KeyError(f"Model '{model_name}' not found in middoe.krnl_models. Error: {e}")
 
-    elif model_type in ['pys', 'gpr']:
-        # Load from external script or gPROMS
+    elif model_type == 'pys':
+        # Load the external Python script
         try:
             script_path = models['src'][model_name]
             spec = importlib.util.spec_from_file_location("external_model", script_path)
@@ -635,8 +640,12 @@ def simula(t, swps, uphi, uphisc, uphitsc, utsc, utheta, uthetac, cvp, uphit, mo
             model = getattr(module, 'solve_model')
         except Exception as e:
             raise KeyError(f"External model script for '{model_name}' could not be loaded. Error: {e}")
-        if model_type == 'pys':
-            _check_solve_model_signature(model, model_name, models['src'][model_name])
+        _check_solve_model_signature(model, model_name, models['src'][model_name])
+
+    elif model_type == 'gpr':
+        # gPROMS: solver_selector opens models['src'][model_name] (the .gPAS file) with
+        # models['creds'][model_name] through pygpas; there is no Python module to load here.
+        model = None
 
     elif callable(model_type):
         # Direct function reference

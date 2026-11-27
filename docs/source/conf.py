@@ -23,6 +23,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
+    'sphinx_design',
 ]
 
 # Autodoc settings
@@ -49,8 +50,25 @@ napoleon_attr_annotations = True
 
 
 # HTML theme
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
+templates_path = ['_templates']
+html_css_files = ['middoe.css', 'middoe-widgets.css']
+html_js_files = ['middoe.js', 'middoe-widgets.js']
+html_title = 'MIDDoE'
+html_sidebars = {'**': ['md-globalnav']}        # the full tree on every page, the front page included
+html_theme_options = {
+    'icon_links': [{'name': 'GitHub', 'url': 'https://github.com/zuhairblr/middoe',
+                    'icon': 'fa-brands fa-github'},
+                   {'name': 'PyPI', 'url': 'https://pypi.org/project/middoe/',
+                    'icon': 'fa-solid fa-box'}],
+    'navbar_align': 'left',
+    'show_toc_level': 2,
+    'secondary_sidebar_items': ['page-toc', 'md-help'],
+    'footer_start': ['copyright'],
+    'show_prev_next': True,
+    'navbar_end': ['classic-toggle', 'theme-switcher', 'navbar-icon-links'],
+}
 
 # Intersphinx
 intersphinx_mapping = {
@@ -111,3 +129,19 @@ def _latex_to_rst(app, what, name, obj, options, lines):
 
 def setup(app):
     app.connect('autodoc-process-docstring', _latex_to_rst, priority=400)
+    app.connect('build-finished', _build_classic)
+
+exclude_patterns = ['_ribbon.rst']
+
+
+# -- Classic documentation ---------------------------------------------------
+# The documentation as it was before the redesign lives in docs/classic and is built into
+# <html>/classic/, so the 'Classic docs' button in the top bar switches the whole site back.
+def _build_classic(app, exception):
+    if exception is not None or app.builder.format != 'html':
+        return
+    import subprocess
+    src = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'classic'))
+    out = os.path.join(app.outdir, 'classic')
+    subprocess.run([sys.executable, '-m', 'sphinx', '-q', '-b', 'html', src, out], check=False)
+

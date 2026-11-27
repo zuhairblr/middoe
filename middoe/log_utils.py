@@ -287,8 +287,10 @@
 
 #log_utils.py
 
+import copy
 import pickle
 import os
+import warnings
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -457,6 +459,14 @@ def read_excel():
     return data
 
 
+def _snapshot(obj):
+    """Deep copy for storage; falls back to a shallow copy for objects that cannot be copied."""
+    try:
+        return copy.deepcopy(obj)
+    except Exception:
+        return dict(obj) if isinstance(obj, dict) else obj
+
+
 def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, system,
                 ranking=None, k_optimal_value=None, rCC_values=None, J_k_values=None,
                 best_uncert_result=None, data=None):
@@ -473,7 +483,7 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     round : int
         Round number (1, 2, 3, ...) indicating experimental campaign progression.
     result : dict[str, dict]
-        Uncertainty analysis results for each model/solver containing:
+        The ``'results'`` entry of the uncert() output (``uncert(...)['results']``), one dict per model/solver containing:
             - 'estimations': Estimated parameter values
             - 'V_matrix': Covariance matrix
             - 'CI': Confidence intervals
@@ -489,10 +499,13 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     iden_opt : dict
         Identification options including plotting flags:
             - 'c_plt': bool — Generate confidence plots
-            - 'f_plt': bool — Generate fit plots
-            - 'plt_s': str — Plotting style/folder
+            - 'f_plt': bool — Generate fit and parity plots
+            - 'plt_s': bool — Also show the figures (they are always saved);
+              default False here (estima and validation default to True)
+            - 'model_update': bool — Use ``best_uncert_result`` (default True)
     obs : int
-        Total number of observations (measurements) across all experiments.
+        Total number of observations (measurements) across all experiments
+        (``uncert(...)['obs']``).
     system : dict
         System configuration with variable definitions.
     ranking : list[str], optional
@@ -505,7 +518,10 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
         Objective function values for each k: {solver: [J_1, J_2, ...]}.
     best_uncert_result : dict, optional
         If estimability analysis was performed, the uncertainty results for the
-        optimal parameter subset. Overrides 'result' if provided.
+        optimal parameter subset (the uncert-style dict returned by estima). Its
+        ``['results']`` replace 'result' only when
+        ``iden_opt.get('model_update', True)`` is true; it is stored as 'est_EA'
+        in any case.
     data : dict, optional
         Experimental data as returned by ``read_excel()``, used for the fit plots. Pass the same
         ``data`` given to ``parmest``/``uncert`` when they were run on a subset of the experiments.
@@ -516,7 +532,7 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     trv : dict[str, float]
         Reference t-values for 95% confidence level:
             \[
-            t_{ref} = t_{0.975, \nu} \quad \text{where } \nu = n_{obs} - n_{params}
+            t_{ref} = t_{0.975, \nu} \quad \text{where } \nu = n_{obs} - n_{active}
             \]
 
         Keys: solver names. Used to assess parameter significance.
@@ -538,21 +554,21 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
         - 'rCC_values': Corrected Critical Ratios
         - 'J_k_values': Objective function values
         - 'design_type': 'classic' or 'DOE'
-        - 'mutation': Parameter activity masks
+        - 'mutation': Copy of the parameter activity masks
         - 'original_positions': Parameter reordering info
         - 'trv': Reference t-values
         - 'scaled_params': Estimated parameter values
         - 'result': Full uncertainty analysis results
-        - 'iden_opt': Copy of identification options
-        - 'models': Copy of model definitions
-        - 'system': Copy of system configuration
+        - 'iden_opt': Copy (deep copy) of identification options
+        - 'models': Copy (deep copy) of model definitions
+        - 'system': Copy (deep copy) of system configuration
         - 'est_EA': Estimability analysis results
 
     **Reference t-Values**:
     Computed from Student's t-distribution:
 
         \[
-        t_{ref} = t_{1 - \alpha/2, \nu} \quad \text{with } \alpha = 0.05, \nu = n_{obs} - n_{params}
+        t_{ref} = t_{1 - \alpha/2, \nu} \quad \text{with } \alpha = 0.05, \nu = n_{obs} - n_{active}
         \]
 
     Used to assess parameter significance:
@@ -565,12 +581,15 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
         1. **Confidence plots**: 2D ellipsoids showing parameter correlations
         2. **Fit plots**: Model predictions vs experimental data
 
-    Plots are saved to folders named by round and solver.
+    Plots are saved in the working directory as
+    ``./modelling/<round>_round_<sheet>.png`` (fit), ``./modelling/<round>_parity_<model>.png``
+    (parity) and ``./confidence/<round>_th_round_<model>.png`` (confidence).
 
     **Estimability Analysis Integration**:
     If best_uncert_result is provided, it indicates that estimability analysis
-    was performed to select a subset of parameters. This result is used instead
-    of the full uncertainty analysis.
+    was performed to select a subset of parameters. Its ``['results']`` are used
+    instead of the full uncertainty analysis when ``iden_opt.get('model_update', True)``
+    is true.
 
     **Mutation Tracking**:
     Parameter activity masks (mutation) track which parameters are estimated
@@ -589,12 +608,12 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     >>> round_data = {}
     >>> trv = save_rounds(
     ...     round=1,
-    ...     result=uncert_results,
+    ...     result=unc['results'],
     ...     design_type='classic',
     ...     round_data=round_data,
     ...     models=models,
-    ...     iden_opt={'c_plt': True, 'f_plt': True, 'plt_s': './plots'},
-    ...     obs=50,
+    ...     iden_opt={'c_plt': True, 'f_plt': True, 'plt_s': False},
+    ...     obs=unc['obs'],
     ...     system=system
     ... )
     >>>
@@ -602,7 +621,7 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     >>> print(f"Stored data: {list(round_data['Round 1'].keys())}")
     >>>
     >>> # Check parameter significance
-    >>> for i, t_val in enumerate(uncert_results['M1']['t_values']):
+    >>> for i, t_val in enumerate(unc['results']['M1']['t_values']):
     ...     significant = "✓" if abs(t_val) > trv['M1'] else "✗"
     ...     print(f"  θ{i+1}: t={t_val:.2f} {significant}")
     """
@@ -612,6 +631,9 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
         result = best_uncert_result['results']
 
     round_key = f'Round {round}'
+    # Store snapshots, not references: the caller keeps changing models/mutation/iden_opt in
+    # place in later rounds, which would otherwise rewrite the stored earlier rounds.
+    models_snap, iden_opt_snap, system_snap = _snapshot(models), _snapshot(iden_opt), _snapshot(system)
     # dof = N - N_active (same as uncert); fixed parameters are not estimated
     def _n_active(solver):
         act = result[solver].get('optimization_result', {}).get('activeparams', None)
@@ -633,15 +655,15 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
         'trv': trv,
         'scaled_params': scaled_params,
         'result': result,
-        'iden_opt': iden_opt,
-        'models': models,
-        'system': system,
+        'iden_opt': iden_opt_snap,
+        'models': models_snap,
+        'system': system_snap,
         'est_EA': best_uncert_result
     }
 
-    # Save mutation information
+    # Save mutation information (copies)
     for solver, mutation in models['mutation'].items():
-        round_data[round_key]['mutation'][solver] = mutation
+        round_data[round_key]['mutation'][solver] = list(np.asarray(mutation, dtype=bool).ravel())
 
     # Save original positions information
     for solver in models['can_m']:
@@ -653,12 +675,20 @@ def save_rounds(round, result, design_type, round_data, models, iden_opt, obs, s
     solver_cov_matrices = {solver: result[solver]['V_matrix'] for solver in models['can_m']}
     solver_confidence_intervals = {solver: result[solver]['CI'] for solver in models['can_m']}
 
-    # Generate plots
-    plotting1 = Plotting_Results(models, iden_opt['plt_s'], round)
-    if iden_opt['c_plt'] == True:
-        plotting1.conf_plot(scaled_params, solver_cov_matrices, solver_confidence_intervals)
-    if iden_opt['f_plt'] == True:
-        plotting1.fit_plot(data, result, system)
+    # Generate plots (each plot is optional; a failing plot never stops the workflow)
+    plotting1 = Plotting_Results(models_snap, iden_opt.get('plt_s', False), round)
+    if iden_opt.get('c_plt', False):
+        try:
+            plotting1.conf_plot(scaled_params, solver_cov_matrices, solver_confidence_intervals,
+                                result=result)
+        except Exception as exc:
+            warnings.warn(f"save_rounds: confidence plot of round {round} failed: {exc!r}")
+    if iden_opt.get('f_plt', False):
+        for plot in (plotting1.fit_plot, plotting1.parity_plot):
+            try:
+                plot(data, result, system)
+            except Exception as exc:
+                warnings.warn(f"save_rounds: {plot.__name__} of round {round} failed: {exc!r}")
 
     # Print summary
     for solver in models['can_m']:
@@ -694,15 +724,13 @@ def save_to_jac(results, purpose):
     None
         File is written to disk as a side effect.
 
-    Raises
-    ------
-    ValueError
-        If purpose is neither 'iden' nor 'sensa'.
-    Exception
-        If file writing fails (permissions, disk space, etc.).
-
     Notes
     -----
+    **Errors**:
+    Nothing is raised. Errors (a purpose other than 'iden'/'sensa', or a failed
+    write due to permissions, disk space, etc.) are caught and printed as
+    ``[ERROR] Failed to save results: ...``.
+
     **Pickle Protocol**:
     Uses pickle.HIGHEST_PROTOCOL for maximum compatibility with future Python
     versions while maintaining backward compatibility.
@@ -741,9 +769,9 @@ def save_to_jac(results, purpose):
     >>> save_to_jac(sobol_results, purpose='sensa')
     # [INFO] Results saved to: .../sensa_results.jac
     >>>
-    >>> # Invalid purpose
+    >>> # Invalid purpose (printed, not raised)
     >>> save_to_jac(results, purpose='invalid')
-    # ValueError: Purpose must be 'iden' or 'sensa'
+    # [ERROR] Failed to save results: Purpose must be 'iden' or 'sensa'
     """
     try:
         if purpose == "iden":
@@ -928,9 +956,9 @@ def add_norm_par(modelling_settings):
     r"""
     Initialize normalized parameter vectors for all models.
 
-    This utility creates 'normalized_parameters' entries (all ones) from the
-    'theta' parameter scaling factors. It's used during setup to establish the
-    normalization convention used throughout the package.
+    This utility creates 'normalized_parameters' entries, sign(theta) (+1 or -1
+    per parameter), from the 'theta' values. It's used during setup to establish
+    the normalization convention used throughout the package.
 
     Parameters
     ----------
@@ -944,12 +972,15 @@ def add_norm_par(modelling_settings):
     modelling_settings : dict
         Updated dictionary with added:
             - 'normalized_parameters' : dict[str, list[float]]
-                Normalized parameter vectors (all ones) for each model.
+                Normalized parameter vectors sign(theta) (entries +1 or -1) for
+                each model.
 
     Raises
     ------
     KeyError
         If 'theta' key is not present in modelling_settings.
+    ValueError
+        If a nominal parameter value is 0 (it cannot be used for scaling).
 
     Notes
     -----
@@ -960,11 +991,12 @@ def add_norm_par(modelling_settings):
         \theta_{physical} = \theta_{normalized} \cdot \theta_c
         \]
 
-    where \( \theta_{normalized} = [1, 1, ..., 1] \) represents the baseline
-    (true or initial) parameter values.
+    where \( \theta_c = |\theta| \) and \( \theta_{normalized} = \text{sign}(\theta) \)
+    (all ones for positive nominal values) represents the baseline (true or initial)
+    parameter values.
 
-    **Why All Ones?**:
-    Using ones as the baseline simplifies:
+    **Why Unit Values?**:
+    Using +-1 as the baseline simplifies:
 
         - Parameter estimation: Optimize \( \theta_{normalized} \) around 1.0
         - Bounds specification: Bounds become multiplicative factors (e.g., [0.5, 2.0])
@@ -990,7 +1022,7 @@ def add_norm_par(modelling_settings):
     ... }
     >>> models = add_norm_par(models)
     >>> print(models['normalized_parameters'])
-    # {'M1': [1, 1, 1], 'M2': [1, 1, 1]}
+    # {'M1': [1.0, 1.0, 1.0], 'M2': [1.0, 1.0, 1.0]}  (-1.0 for a negative theta)
     """
     if 'theta' in modelling_settings:
         # theta = |theta| * sign(theta): the normalised vector carries the sign

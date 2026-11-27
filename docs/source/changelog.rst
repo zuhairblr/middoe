@@ -75,11 +75,46 @@ Experiments, data and models
 - ``expera``: outputs with ``'meas': False`` work, re-running a round replaces its sheet, and
   time-invariant outputs are written with noise. New option ``sigma_floor`` keeps relative errors
   above zero where the output is zero.
+- ``expera`` shows a small figure of each new data set and its noise (``insilicos['plt']``,
+  default on; saved in ``./data_plots/``).
+- gPROMS models (``models['krt'] = 'gpr'``) are no longer loaded as a Python file before the
+  simulation, which made every gPROMS run fail.
+- ``des_opt['conv_rep']`` now defaults to ``False``; the per-iteration design metrics (FIM metrics and
+  a curvature probe, about as many extra model evaluations as the optimisation itself) are computed
+  only when it is ``True``. Designs are unchanged; MBDoE-PP runs about twice as fast by default.
 - The model file and the data file are checked, with clear messages for missing or invalid
   entries.
 - ``save_rounds`` accepts ``data=``, like ``parmest`` and ``uncert``.
 - ``run_postprocessing(..., show=False)`` saves the figures without opening a window, so scripts
   no longer stop at every figure.
+
+Plots
+~~~~~
+
+- Confidence ellipses are drawn at the 95 % joint level (they were 1σ, about 39 %, next to 95 %
+  intervals), each parameter on its own axis range; correlation coefficients are shown, and the
+  bootstrap replicates for ``var-cov='B'``.
+- The parameter-estimate plot shows the physical estimates ± 95 % CI (it plotted normalised values
+  against a "true value = 1" line); optional true values with ``run_postprocessing(true_theta=...)``.
+- The t-test plot maps t-values to the right parameter when the estimated subset changes, the
+  design-type shading works for the labels used with ``save_rounds``, and the P plot is skipped
+  for a single model. Relative standard deviations replace absolute ones; a change in the number
+  of estimated parameters is marked on the volume plot. Rounds with ``var-cov='B'`` are no longer
+  left out of these plots.
+- Fit plots show error bars (±2σ), a 95 % prediction band, weighted residuals with
+  :math:`\sum r^2/(N-p)`, one panel per output and per input; a parity plot is added.
+- Excel reports add σ, model values at the sampling times, residuals and weighted residuals, and a
+  summary sheet; the text summary has a parameter table and the fit statistics.
+- Design figures have one panel per output and input; with ``des_opt['plt']`` the best core's
+  figure is displayed by the main process (displaying from the worker processes did not work and
+  needed IPython).
+- ``estima``, ``validation`` and the step-size test use the same style; ``iden_opt['plt_s']``
+  controls their display. The validation summary no longer fails when all folds give the same
+  value, and the MSE plot no longer labels its reference "R²".
+- ``save_rounds`` stores copies of ``models``, ``iden_opt``, ``system`` and the masks, so later
+  rounds cannot change earlier ones; a failing plot only gives a warning.
+- Plotting no longer changes the global matplotlib settings; the optional
+  ``models['theta_names']`` labels the parameters.
 
 Compatibility
 ~~~~~~~~~~~~~
@@ -92,8 +127,11 @@ Compatibility
 Documentation
 ~~~~~~~~~~~~~
 
-- New pages: :doc:`getting_started` (a complete study in a minute), :doc:`concepts` and
-  :doc:`case_studies` (the paper's case studies, ready to run).
+- An :doc:`onboarding guide <user_guide>` in five steps, from :doc:`getting_started` (a complete
+  study in a minute) to the reference, with interactive figures; :doc:`concepts`; the whole page
+  tree in the side menu.
+- :doc:`case_studies`: the four case studies of the MIDDoE paper as notebooks, one folder per case
+  with only the notebook and its model files. They and the tutorials open in Google Colab.
 - The :doc:`api` starts with the functions you call, in workflow order, and how to read their
   results.
 - Formulas in the docstrings are rendered as mathematics.

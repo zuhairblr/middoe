@@ -1,0 +1,134 @@
+/* MIDDoE documentation: workflow ribbon and small touches on top of the PyData theme. */
+:root {
+  --md-accent: #2a78d6;
+  --md-accent-soft: rgba(42, 120, 214, 0.10);
+  --md-ink-2: var(--pst-color-text-muted);
+}
+
+/* ---------- workflow ribbon: numbered steps joined by a line ---------- */
+.md-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0;
+  align-items: center;
+  margin: 0.6rem 0 1.6rem 0;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--pst-color-border);
+  border-radius: 0.75rem;
+  background: var(--pst-color-surface);
+}
+.md-ribbon a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  color: var(--pst-color-text-base);
+  text-decoration: none !important;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.md-ribbon a:hover { background: var(--md-accent-soft); }
+.md-ribbon a .md-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--md-accent);
+  color: var(--md-accent);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.md-ribbon a.md-current { background: var(--md-accent-soft); font-weight: 600; }
+.md-ribbon a.md-current .md-num { background: var(--md-accent); color: #fff; }
+.md-ribbon .md-sep {
+  flex: 0 0 0.5rem;
+  height: 1.5px;
+  background: var(--pst-color-border);
+}
+
+/* ---------- cards: lift on hover, icon in accent colour ---------- */
+.sd-card.md-card { transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.sd-card.md-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); }
+.sd-card.md-card .sd-card-title { font-size: 1.02rem; }
+.sd-card.md-card .sd-card-title svg { color: var(--md-accent); margin-right: 0.35rem; }
+.sd-card.md-card .sd-card-text { color: var(--md-ink-2); font-size: 0.92rem; }
+
+/* ---------- step headings ---------- */
+.md-step-badge { margin-left: 0.4rem; vertical-align: middle; font-size: 0.7rem; }
+.md-next { margin-top: 1.2rem; }
+
+/* badges inside headings: small, like a label */
+h1 .sd-badge, h2 .sd-badge, h3 .sd-badge {
+  font-size: 0.42em;
+  vertical-align: middle;
+  padding: 0.3em 0.6em;
+  margin-left: 0.3rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.bd-toc-nav .sd-badge, .toc-entry .sd-badge { font-size: 0.65em; }
+
+/* wider reading column (code in tabs fits without scrolling) */
+.bd-main .bd-content .bd-article-container { max-width: 62rem; }
+.bd-page-width { max-width: 92rem; }
+
+/* front page */
+.md-tagline { text-align: center; font-size: 1.15rem; margin-top: -0.4rem; }
+.md-tagline + p { text-align: center; }
+.md-ribbon.md-loop a code { font-size: 0.8em; background: transparent; padding: 0; }
+section#middoe > h1 { text-align: center; }
+
+/* ---------- top bar: switch to the classic documentation ---------- */
+.md-classic-btn {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .8rem; margin-right: .4rem;
+  border: 1px solid var(--pst-color-border); border-radius: 999px; font-size: .82rem; white-space: nowrap;
+  color: var(--pst-color-text-muted) !important; text-decoration: none !important; transition: border-color .15s, color .15s;
+}
+.md-classic-btn:hover { border-color: var(--md-accent); color: var(--md-accent) !important; }
+
+/* onboarding path: one row per step */
+.md-path .sd-card.md-step .sd-card-body { display: grid; grid-template-columns: 9rem 1fr; gap: .2rem 1rem; align-items: baseline; padding: .65rem 1rem; }
+.md-path .sd-card.md-step .sd-card-title { margin: 0; font-size: 1rem; }
+.md-path .sd-card.md-step .sd-card-text { margin: 0; }
+@media (max-width: 34rem) { .md-path .sd-card.md-step .sd-card-body { grid-template-columns: 1fr; } }
+
+/* ---------- steady layout: nothing moves when content changes ---------- */
+html { overflow-y: scroll; scrollbar-gutter: stable; }
+.bd-main .bd-content .bd-article-container { width: 100%; min-width: 0; flex: 1 1 auto; }
+.bd-sidebar-secondary { flex: 0 0 auto; }
+.sd-tab-set > label { white-space: nowrap; }
+.sd-tab-content { min-width: 0; }
+.highlight pre { overflow-x: auto; }
+
+/* ---------- page lead: one sentence under the title ---------- */
+.md-lead { font-size: 1.06rem; color: var(--pst-color-text-muted); margin: -0.2rem 0 1.2rem; }
+
+/* ---------- step headings carry a number badge ---------- */
+.md-steps > section > h2 { display: flex; align-items: center; gap: .6rem; }
+
+/* ---------- gentle reveal on scroll (no layout change: opacity and transform only) ---------- */
+.md-reveal { opacity: 0; transform: translateY(10px); transition: opacity .5s ease, transform .5s ease; }
+.md-reveal.md-shown { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .md-reveal { opacity: 1; transform: none; transition: none; } }
+
+/* ---------- glossary as compact chips ---------- */
+dl.md-gloss { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr; gap: .1rem 1rem; }
+dl.md-gloss dt { font-weight: 600; }
+dl.md-gloss { margin: .2rem 0; }
+dl.md-gloss dt, dl.md-gloss dd { padding: .35rem 0; border-top: 1px solid var(--pst-color-border); margin: 0; }
+dl.md-gloss dd > p { margin: 0; }
+@media (max-width: 40rem) { dl.md-gloss { grid-template-columns: 1fr; } }
+
+/* right sidebar: always present (keeps the same column width on every page) */
+.md-help { margin-top: 1.2rem; font-size: .8rem; }
+.md-help-h { margin: 0 0 .2rem; font-weight: 600; color: var(--pst-color-text-muted); }
+
+/* ---------- left menu: the whole tree, sections as headings ---------- */
+.md-globalnav .bd-toc-item > ul > li { margin-bottom: .55rem; }
+.md-globalnav .bd-toc-item > ul > li > a { font-weight: 650; color: var(--pst-color-text-base); }
+.md-globalnav .bd-toc-item > ul > li > ul { margin-left: .2rem; border-left: 1px solid var(--pst-color-border); padding-left: .3rem; }
+.md-globalnav .bd-toc-item > ul > li > ul a { font-size: .88rem; }
+.md-globalnav li.current > a { color: var(--pst-color-primary); }
