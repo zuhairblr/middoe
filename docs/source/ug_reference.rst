@@ -800,7 +800,7 @@ Complete, runnable examples
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The four case studies of the MIDDoE paper follow this workflow from start to end, as notebooks: see
-:doc:`case_studies`.
+:doc:`tutorials`.
 
 .. _math:
 

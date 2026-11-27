@@ -65,24 +65,11 @@ does, the function you call and the idea behind it.
 
    Start with step 1: get started  →
 
-.. _tutorials:
-
 When you want more examples
 ===========================
 
-Notebooks that go further than this guide. Each link opens it in Google Colab, ready to run in
-the browser; the files are in ``tests/tutorials`` and ``tests/middoe_paper`` of the repository.
-
-- **Tutorial 1** (`open in Colab <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_estimation_and_uncertainty/tutorial.ipynb>`__): every
-  dictionary key, optimiser, objective and uncertainty method explained and compared on one model.
-- **Tutorial 1, short versions**, one notebook per setting:
-  `A <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_simple/a_relative_fisher_fast/runner.ipynb>`__ relative noise, Fisher matrix, fast optimiser ·
-  `B <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_simple/b_relative_fisher_best/runner.ipynb>`__ with multi-start ·
-  `B2 <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_simple/b2_relative_bootstrap_best/runner.ipynb>`__ as B with the bootstrap ·
-  `C <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_simple/c_absolute_hessian_estimability/runner.ipynb>`__ absolute noise, Hessian, estimability ·
-  `D <https://colab.research.google.com/github/zuhairblr/middoe/blob/main/tests/tutorials/01_simple/d_absolute_bootstrap_mle/runner.ipynb>`__ absolute noise, bootstrap, maximum likelihood.
-- :doc:`case_studies`: the four case studies of the MIDDoE paper, step by step: model
-  discrimination (HR and BFF), calibration from available data, and sequential design.
+The :doc:`tutorials` go further than this guide: five notebooks on two real systems, from a first
+fit to designing experiments, each runnable in the browser.
 
 .. toctree::
    :hidden:

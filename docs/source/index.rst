@@ -1,14 +1,34 @@
-.. image:: _static/middoe-logo.png
-   :alt: CAPE-Lab / MIDDoE
-   :align: center
-   :width: 320
+:html_theme.sidebar_secondary.remove: true
 
 MIDDoE
 ======
 
-.. rst-class:: md-tagline
+.. raw:: html
 
-**Model Identification, Discrimination and Design of Experiments** in Python.
+   <section class="md-hero">
+     <div class="md-hero-text">
+       <img class="md-hero-logo" src="_static/middoe-logo.png" alt="MIDDoE logo">
+       <p class="md-hero-title">Model Identification, Discrimination and Design&nbsp;of&nbsp;Experiments</p>
+       <p class="md-hero-sub">Turn a process model and a few experiments into a <b>trustworthy model</b>.
+         Describe your process in plain Python dictionaries and call one function per step:
+         MIDDoE fits the parameters, tells you how sure they are, picks the right model and
+         designs the next experiment.</p>
+       <div class="md-hero-cta">
+         <a class="md-cta md-cta-primary" href="user_guide.html">Get started</a>
+         <a class="md-cta" href="tutorials.html">Hands-on tutorials</a>
+         <a class="md-cta md-cta-ghost" href="api.html">API</a>
+       </div>
+       <div class="md-install"><code>pip install middoe</code><button type="button" class="md-copy" data-copy="pip install middoe" aria-label="Copy the install command">Copy</button></div>
+     </div>
+     <div class="md-hero-art"><div class="mdw md-hero-anim" data-widget="hero"></div></div>
+   </section>
+
+   <div class="md-stats">
+     <div><b>3</b><span>questions it answers</span></div>
+     <div><b>12</b><span>functions, one per step</span></div>
+     <div><b>6</b><span>dictionaries describe a study</span></div>
+     <div><b>5</b><span>tutorials that run in the browser</span></div>
+   </div>
 
 |pypi| |pyver| |license|
 
@@ -22,100 +42,50 @@ MIDDoE
    :target: https://github.com/zuhairblr/middoe/blob/main/LICENSE
    :alt: License
 
-MIDDoE turns a process model and a few experiments into a **trustworthy model**. You describe your
-process in a few plain Python dictionaries and call one function per step; no knowledge of
-optimisation or statistics is needed to get started.
-
-.. grid:: 1 3 3 3
-   :gutter: 2
-
-   .. grid-item::
-
-      .. button-ref:: user_guide
-         :ref-type: doc
-         :color: primary
-         :shadow:
-         :expand:
-
-         :octicon:`rocket` Onboarding guide
-
-   .. grid-item::
-
-      .. button-ref:: concepts
-         :ref-type: doc
-         :color: primary
-         :outline:
-         :expand:
-
-         :octicon:`light-bulb` Key ideas & structure
-
-   .. grid-item::
-
-      .. button-ref:: api
-         :ref-type: doc
-         :color: secondary
-         :outline:
-         :expand:
-
-         :octicon:`code` API reference
-
 What MIDDoE answers
 -------------------
 
 .. grid:: 1 1 3 3
    :gutter: 3
 
-   .. grid-item-card:: :octicon:`git-compare;1.3em` Which model is right?
-      :class-card: md-card
+   .. grid-item-card:: :octicon:`git-compare;1.6em` Which model is right?
+      :class-card: md-card md-feature
 
-      Several candidate models? MIDDoE plans the experiment that best tells them apart and ranks
-      them by probability (*model discrimination*).
+      Several candidate models? MIDDoE designs the experiment that best tells them apart and ranks
+      them by probability.
 
-   .. grid-item-card:: :octicon:`shield-check;1.3em` How sure are the parameters?
-      :class-card: md-card
+      :bdg-primary-line:`model discrimination`
+
+   .. grid-item-card:: :octicon:`shield-check;1.6em` How sure are the parameters?
+      :class-card: md-card md-feature
 
       MIDDoE fits the unknown parameters to your data and tells you how precise each one is:
-      confidence intervals, t-tests, correlations (*estimation and uncertainty*).
+      confidence intervals, t-tests, correlations.
 
-   .. grid-item-card:: :octicon:`goal;1.3em` Which experiment next?
-      :class-card: md-card
+      :bdg-primary-line:`estimation & uncertainty`
 
-      MIDDoE plans the inputs and sampling times that reduce that uncertainty the most
-      (*model-based design of experiments*, MBDoE).
+   .. grid-item-card:: :octicon:`goal;1.6em` Which experiment next?
+      :class-card: md-card md-feature
 
-How a study looks
------------------
+      MIDDoE chooses the inputs and sampling times that shrink that uncertainty the most.
 
-A study is a loop of **rounds**. Each round plans an experiment, runs it, and refits the model:
+      :bdg-primary-line:`MBDoE`
 
-.. raw:: html
+One round in four lines
+-----------------------
 
-   <nav class="md-ribbon md-loop" aria-label="A MIDDoE round">
-     <a href="ug_setup.html#setup-data"><span class="md-num">1</span>Run experiments</a><span class="md-sep"></span>
-     <a href="ug_setup.html#setup-rounds"><span class="md-num">2</span>Fit: <code>parmest</code></a><span class="md-sep"></span>
-     <a href="ug_setup.html#setup-rounds"><span class="md-num">3</span>Precision: <code>uncert</code></a><span class="md-sep"></span>
-     <a href="ug_setup.html#setup-design"><span class="md-num">4</span>Plan the next: <code>mbdoe_pp</code> / <code>mbdoe_md</code></a><span class="md-sep"></span>
-     <a href="ug_setup.html#setup-report"><span class="md-num">5</span>Report: <code>run_postprocessing</code></a>
-   </nav>
-
-Repeat steps 1–4 until the parameters are precise enough (or one model clearly wins). In code, one
-round is four lines:
+A study is a loop of **rounds**: plan an experiment, run it, refit, check. Repeat until the
+parameters are precise enough or one model clearly wins.
 
 .. code-block:: python
 
-   from middoe.iden_parmest import parmest
-   from middoe.iden_uncert import uncert
-   from middoe.des_pp import mbdoe_pp
-   from middoe.krnl_expera import expera
+   est = parmest(system, models, iden_opt)                # fit the parameters
+   unc = uncert(est, system, models, iden_opt)            # how sure are they?
+   design = mbdoe_pp(des_opt, system, models, round=1)    # plan the next experiment
+   expera(system, models, insilicos, design, expr=3)      # run it (here in silico)
 
-   est = parmest(system, models, iden_opt)                    # fit to data.xlsx
-   unc = uncert(est, system, models, iden_opt)                # CI, t-values, R2
-   design = mbdoe_pp(des_opt, system, models, round=1)        # plan the next experiment
-   expera(system, models, insilicos, design, expr=3, swps=design['swps'])  # run it (virtual lab)
-
-``system`` describes the experiment (inputs, outputs, limits), ``models`` the candidate models and
-their parameters, and ``iden_opt`` / ``des_opt`` the options. :doc:`getting_started` builds all of
-them for a complete example you can run in a minute.
+``system`` describes the experiment, ``models`` the candidate models, ``iden_opt`` and ``des_opt``
+the options. :doc:`getting_started` builds them all for a study you can run in a minute.
 
 Where to go
 -----------
@@ -131,6 +101,14 @@ Where to go
       Install MIDDoE, run a first study, then set up your own: dictionaries, settings, results.
       **Start here.**
 
+   .. grid-item-card:: :octicon:`play;1.3em` Hands-on tutorials
+      :link: tutorials
+      :link-type: doc
+      :class-card: md-card
+
+      Five notebooks on two real systems, from a first fit to designing experiments, including the
+      paper's case studies. They run in the browser (Google Colab).
+
    .. grid-item-card:: :octicon:`light-bulb;1.3em` Key ideas & package structure
       :link: concepts
       :link-type: doc
@@ -138,14 +116,6 @@ Where to go
 
       The ideas behind MIDDoE, interactive figures that show them at work, and how the package is
       organised.
-
-   .. grid-item-card:: :octicon:`play;1.3em` Paper case studies
-      :link: case_studies
-      :link-type: doc
-      :class-card: md-card
-
-      The four case studies of the MIDDoE paper as notebooks; open them in Google Colab and run them
-      in the browser.
 
    .. grid-item-card:: :octicon:`code;1.3em` API reference
       :link: api
@@ -160,47 +130,42 @@ Where to go
 
    user_guide
    concepts
-   case_studies
+   tutorials
    api
    changelog
 
-.. note::
+Cite MIDDoE
+-----------
 
-   MIDDoE implements the methods of the MIDDoE paper (Tabrizi et al., *Digital Chemical Engineering*
-   17 (2025) 100276). It also offers features beyond that paper, e.g. the ORB and SEM design
-   criteria, FIM spectral metrics and the MBDoE Excel/text reports; see the :doc:`api`.
+MIDDoE implements the methods of the MIDDoE paper and goes beyond it, for example with the ORB and
+SEM design criteria, FIM spectral metrics and the MBDoE Excel and text reports (see the :doc:`api`).
+If you use it in your research, please cite:
 
-Citation
---------
+.. tab-set::
 
-If you use MIDDoE in your research, please cite:
+   .. tab-item:: MIDDoE
 
-#. Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025). MIDDoE: An MBDoE Python
-   package for model identification, discrimination, and calibration. *Digital Chemical
-   Engineering*, 17, 100276. https://doi.org/10.1016/j.dche.2025.100276
-#. Tabrizi, S.Z.B., Barbera, E., Da Silva, W.R.L., & Bezzo, F. (2025). A Python/Numpy-based package
-   to support model discrimination and identification. In J.F.M. Van Impe et al. (Eds.), *Systems
-   and Control Transactions*, 4, 1282–1287. https://doi.org/10.69997/sct.192104
+      Tabrizi, Z., Barbera, E., Leal da Silva, W.R., & Bezzo, F. (2025). MIDDoE: An MBDoE Python
+      package for model identification, discrimination, and calibration. *Digital Chemical
+      Engineering*, 17, 100276. https://doi.org/10.1016/j.dche.2025.100276
 
-MBDoE in ill-conditioned systems
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   .. tab-item:: Conference paper
 
-For the design criteria for ill-conditioned systems (ORB and SEM), please also cite:
+      Tabrizi, S.Z.B., Barbera, E., Da Silva, W.R.L., & Bezzo, F. (2025). A Python/Numpy-based
+      package to support model discrimination and identification. In J.F.M. Van Impe et al. (Eds.),
+      *Systems and Control Transactions*, 4, 1282–1287. https://doi.org/10.69997/sct.192104
 
-#. Tabrizi, Z., Leal da Silva, W.R., & Bezzo, F. (2026). Two novel criteria for model-based design
-   of experiments in ill-conditioned systems. *Computers & Chemical Engineering*, 214, 109806.
-   https://doi.org/10.1016/j.compchemeng.2026.109806
+   .. tab-item:: ORB & SEM criteria
+
+      For the design criteria for ill-conditioned systems, please also cite: Tabrizi, Z., Leal da
+      Silva, W.R., & Bezzo, F. (2026). Two novel criteria for model-based design of experiments in
+      ill-conditioned systems. *Computers & Chemical Engineering*, 214, 109806.
+      https://doi.org/10.1016/j.compchemeng.2026.109806
 
 Applied in, for example: Tabrizi, Z., Rodriguez, C., Barbera, E., Leal da Silva, W.R., & Bezzo, F.
 (2025). Wet carbonation of industrial recycled concrete fines: experimental study and reaction
 kinetic modeling. *Ind. Eng. Chem. Res.*, 64(45), 21412–21425. https://doi.org/10.1021/acs.iecr.5c02835
 
-Resources
----------
-
-- **Source code:** https://github.com/zuhairblr/middoe
-- **PyPI:** https://pypi.org/project/middoe/
-- **Questions and bug reports:** https://github.com/zuhairblr/middoe/issues
-
-* :ref:`genindex`
-* :ref:`search`
+**Source code** on `GitHub <https://github.com/zuhairblr/middoe>`__ · **package** on
+`PyPI <https://pypi.org/project/middoe/>`__ · **questions and bug reports** in the
+`issue tracker <https://github.com/zuhairblr/middoe/issues>`__ · :ref:`genindex`

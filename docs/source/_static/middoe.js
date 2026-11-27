@@ -22,3 +22,12 @@ document.addEventListener('DOMContentLoaded', function () {
     n.classList.add('md-reveal'); io.observe(n);
   });
 });
+
+// Copy buttons (front page install command).
+document.addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('.md-copy') : null;
+  if (!b || !navigator.clipboard) return;
+  navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function () {
+    b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1400);
+  });
+});

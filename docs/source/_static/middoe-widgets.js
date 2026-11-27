@@ -14,6 +14,8 @@
  *   quickstart   the getting-started results, round by round
  *   datafile     the layout of data.xlsx, column by column
  *   residuals    how to read weighted residuals and the fit statistic
+ *   hero         the front page: a study in four rounds
+ *   tut          one looping animation per hands-on tutorial (data-kind: fit, recipes, discrim, calib, design)
  */
 (function () {
   'use strict';
@@ -1374,7 +1376,268 @@
     draw(cur); go('good');
   }
 
-  var REG = { flow: flowWidget, quickstart: quickstartWidget, datafile: datafileWidget, residuals: residualsWidget, loop: loopWidget, sampling: samplingWidget, discrim: discrimWidget, noise: noiseWidget, designspace: designspaceWidget };
+
+  // ======================================================================= 10. tutorial animations
+  // One looping animation per tutorial (data-kind): it plays while visible, restarts on click and
+  // shows its final frame when the reader prefers reduced motion.
+  function tutWidget(root) {
+    var kind = root.getAttribute('data-kind'), W = 340, H = 210;
+    var svg = svgBox(root, W, H, 'Animation: ' + kind);
+    svg.classList.add('mdw-tutsvg');
+    var cap = h('div', { 'class': 'mdw-tutcap', 'aria-live': 'off' }, root);
+    var ease = function (a) { a = clamp(a, 0, 1); return a < 0.5 ? 4 * a * a * a : 1 - Math.pow(-2 * a + 2, 3) / 2; };
+    var seg = function (t, a, b) { return ease((t - a) / (b - a)); };          // 0 -> 1 between a and b
+    var say = function (s) { if (cap.textContent !== s) cap.textContent = s; };
+    var frame = (KINDS[kind] || KINDS.fit)(svg, W, H, seg, say);
+    var dur = 9000, t0 = null, id = null, on = false;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      frame(((ts - t0) % dur) / dur);
+      id = on ? requestAnimationFrame(step) : null;
+    }
+    function play() { if (REDUCED) { frame(0.92); return; } if (!on) { on = true; id = requestAnimationFrame(step); } }
+    function pause() { on = false; if (id !== null) cancelAnimationFrame(id); id = null; }
+    root.addEventListener('click', function () { t0 = null; play(); });
+    root.title = 'Click to replay';
+    frame(REDUCED ? 0.92 : 0);
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (es) { if (es[0].isIntersecting) play(); else pause(); }, { threshold: 0.3 }).observe(root);
+    } else play();
+  }
+
+  var KINDS = {
+    // ---- fit a model to data and shrink the confidence band
+    fit: function (svg, W, H, seg, say) {
+      var x = scale(0, 10, 34, W - 10), y = scale(0, 5.5, H - 28, 12);
+      drawAxes(el('g', null, svg), x, y, { xt: [0, 5, 10], yt: [0, 2.5, 5], xl: 'time [h]', yl: 'biomass' });
+      var f = function (p, t) { return p[0] / (1 + Math.exp(-p[1] * (t - p[2]))); };
+      var truth = [5, 1.1, 4.5], guess = [3.2, 0.6, 6.2], r = rng(4), ts = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5];
+      var obs = ts.map(function (t) { return f(truth, t) + 0.18 * r.n(); });
+      var band = el('path', { 'class': 'mdw-bandfill' }, svg), line = el('path', { 'class': 'mdw-l1 mdw-thick' }, svg);
+      var dots = ts.map(function (t, i) { return el('circle', { cx: x(t), cy: y(obs[i]), r: 4, 'class': 'mdw-obs' }, svg); });
+      var lab = el('text', { x: W - 12, y: H - 40, 'text-anchor': 'end', 'class': 'mdw-label' }, svg);
+      return function (t) {
+        var nIn = Math.floor(clamp(t / 0.3, 0, 1) * ts.length + 1e-9), a = seg(t, 0.33, 0.6), b = seg(t, 0.62, 0.85);
+        dots.forEach(function (d, i) { d.setAttribute('opacity', i < nIn ? 1 : 0); });
+        var p = guess.map(function (g, i) { return g + (truth[i] - g) * a; }), wid = 0.9 * (1 - 0.8 * b) * (a > 0 ? 1 : 0);
+        var up = [], lo = [], cv = [];
+        for (var k = 0; k <= 60; k++) { var tt = k / 6, v = f(p, tt), w = wid * (0.4 + 0.6 * Math.exp(-Math.pow(tt - p[2], 2) / 6)); cv.push([x(tt), y(v)]); up.push([x(tt), y(v + w)]); lo.unshift([x(tt), y(v - w)]); }
+        line.setAttribute('d', pathD(cv)); band.setAttribute('d', wid > 0 ? pathD(up.concat(lo)) + 'Z' : '');
+        txt(lab, t < 0.33 ? '' : t < 0.62 ? 'parmest: fitting…' : 'uncert: ± ' + (12 * (1 - 0.8 * b) + 2).toFixed(0) + ' %');
+        say(t < 0.33 ? '1 · in-silico data arrive (expera)' : t < 0.62 ? '2 · the model is fitted (parmest)' : '3 · the confidence band shrinks to the data (uncert)');
+      };
+    },
+    // ---- five recipes on the same data: different settings, different intervals
+    recipes: function (svg, W, H, seg, say) {
+      var R = [['A', 'relative σ · Fisher · fast', 0.62], ['B', 'relative σ · Fisher · multi-start', 0.55], ['B2', 'relative σ · bootstrap', 0.78],
+               ['C', 'absolute σ · Hessian · estimability', 0.42], ['D', 'absolute σ · bootstrap · likelihood', 0.5]];
+      var x0 = 150, cx = 255, half = 70, rows = R.map(function (r, i) {
+        var yy = 26 + i * 37, g = el('g', { 'class': 'mdw-recipe' }, svg);
+        el('rect', { x: 4, y: yy - 15, width: W - 8, height: 32, rx: 9, 'class': 'mdw-recbg' }, g);
+        txt(el('text', { x: 14, y: yy + 5, 'class': 'mdw-reckey' }, g), r[0]);
+        txt(el('text', { x: 40, y: yy + 4, 'class': 'mdw-tick' }, g), r[1]);
+        el('line', { x1: cx, x2: cx, y1: yy - 9, y2: yy + 9, 'class': 'mdw-zero' }, g);
+        var bar = el('rect', { y: yy - 5, height: 10, rx: 5, 'class': 'mdw-cibar' }, g);
+        el('circle', { cx: cx, cy: yy, r: 3, 'class': 'mdw-true' }, g);
+        return { g: g, bar: bar, w: r[2] };
+      });
+      void x0;
+      return function (t) {
+        var k = Math.min(4, Math.floor(t * 5.6));
+        rows.forEach(function (r, i) {
+          var a = seg(t, i * 0.12, i * 0.12 + 0.2), w = half * r.w * (0.15 + 0.85 * a);
+          set(r.bar, { x: (cx - w).toFixed(1), width: (2 * w).toFixed(1) });
+          r.g.classList.toggle('mdw-on', i === k);
+        });
+        say('Recipe ' + R[k][0] + ': ' + R[k][1] + ' → its own 95 % interval');
+      };
+    },
+    // ---- four rival models, data decide: P-test before and after the designed experiment
+    discrim: function (svg, W, H, seg, say) {
+      var x = scale(0, 40, 30, 214), y = scale(0, 1, H - 26, 14);
+      drawAxes(el('g', null, svg), x, y, { xt: [0, 20, 40], yt: [0, 1], xl: 'time [h]', yl: 'y' });
+      var M = [function (t) { return 1 - Math.exp(-t / 9); }, function (t) { return 1 - Math.exp(-t / 9) + 0.12 * Math.max(0, t - 18) / 22; },
+               function (t) { return 0.6 * (1 - Math.exp(-t / 5)); }, function (t) { return t / (t + 9); }];
+      var cls = ['mdw-l1', 'mdw-l2', 'mdw-l3', 'mdw-l4'], names = ['MI', 'MII', 'MIII', 'MIV'];
+      var P1 = [75.6, 10.9, 0.1, 13.5], P2 = [92.0, 8.0, 0, 0];
+      var hi = el('rect', { x: x(24), y: 12, width: x(40) - x(24), height: H - 38, 'class': 'mdw-range mdw-desreg' }, svg);
+      var lines = M.map(function (f, i) { var pts = []; for (var k = 0; k <= 40; k++) pts.push([x(k), y(clamp(f(k), 0, 1))]); return el('path', { d: pathD(pts), 'class': cls[i] }, svg); });
+      var r = rng(9), d1 = [3, 7, 11, 15, 19].map(function (t) { return [t, M[0](t) + 0.03 * r.n()]; }), d2 = [26, 30, 34, 38].map(function (t) { return [t, M[0](t) + 0.03 * r.n()]; });
+      var dots = d1.concat(d2).map(function (p) { return el('circle', { cx: x(p[0]), cy: y(p[1]), r: 3.6, 'class': 'mdw-obs' }, svg); });
+      var bars = names.map(function (n, i) {
+        var yy = 34 + i * 36;
+        txt(el('text', { x: 232, y: yy + 4, 'class': 'mdw-tick mdw-mono' }, svg), n);
+        el('rect', { x: 268, y: yy - 6, width: 64, height: 12, rx: 6, 'class': 'mdw-tbg' }, svg);
+        var b = el('rect', { x: 268, y: yy - 6, height: 12, rx: 6, 'class': 'mdw-pbar ' + cls[i].replace('mdw-l', 'mdw-c') }, svg);
+        var v = el('text', { x: 332, y: yy + 20, 'text-anchor': 'end', 'class': 'mdw-tick' }, svg);
+        return { b: b, v: v };
+      });
+      txt(el('text', { x: 232, y: 14, 'class': 'mdw-colhead' }, svg), 'P-test');
+      return function (t) {
+        var a = seg(t, 0.08, 0.3), b = seg(t, 0.55, 0.8);
+        dots.forEach(function (d, i) { d.setAttribute('opacity', i < 5 ? (t > 0.05 + i * 0.03 ? 1 : 0) : (t > 0.5 + (i - 5) * 0.04 ? 1 : 0)); });
+        hi.setAttribute('opacity', t > 0.42 ? 1 : 0);
+        lines.forEach(function (l, i) { l.setAttribute('opacity', (i === 2 || i === 3) && t > 0.4 ? 0.12 : 1); });
+        bars.forEach(function (o, i) { var p = P1[i] * a + (P2[i] - P1[i]) * b; set(o.b, { width: Math.max(0.5, 0.64 * p).toFixed(1) }); txt(o.v, p.toFixed(p < 1 ? 1 : 0) + ' %'); });
+        say(t < 0.4 ? '1 · two preliminary runs: all four models fit; P-test ranks them' : t < 0.55 ? '2 · MIII and MIV dropped; mbdoe_md designs where MI and MII diverge' : '3 · the designed experiment decides: MI wins');
+      };
+    },
+    // ---- existing experiments, added one by one: which parameters can the data support?
+    calib: function (svg, W, H, seg, say) {
+      var rank = [2, 3, 4, 5, 0, 1], kopt = [2, 3, 3, 3], names = ['θ1', 'θ2', 'θ3', 'θ4', 'θ5', 'θ6'];
+      txt(el('text', { x: 10, y: 14, 'class': 'mdw-colhead' }, svg), 'experiments');
+      var exps = [0, 1, 2, 3].map(function (i) {
+        var g = el('g', null, svg);
+        el('rect', { x: 10 + i * 34, y: 22, width: 28, height: 36, rx: 6, 'class': 'mdw-expbox' }, g);
+        var pts = []; for (var k = 0; k <= 8; k++) pts.push([14 + i * 34 + k * 2.5, 52 - 26 * (1 - Math.exp(-k / (2 + i)))]);
+        el('path', { d: pathD(pts), 'class': 'mdw-l1' }, g);
+        txt(el('text', { x: 24 + i * 34, y: 72, 'text-anchor': 'middle', 'class': 'mdw-tick' }, g), String(i + 1));
+        return g;
+      });
+      txt(el('text', { x: 160, y: 14, 'class': 'mdw-colhead' }, svg), 'estimability rank');
+      var bars = rank.map(function (p, j) {
+        var yy = 30 + j * 26, g = el('g', null, svg);
+        txt(el('text', { x: 160, y: yy + 4, 'class': 'mdw-tick mdw-mono' }, g), names[p]);
+        el('rect', { x: 186, y: yy - 6, width: 96, height: 12, rx: 6, 'class': 'mdw-tbg' }, g);
+        var b = el('rect', { x: 186, y: yy - 6, height: 12, rx: 6, 'class': 'mdw-tbar' }, g);
+        var st = el('text', { x: 288, y: yy + 4, 'class': 'mdw-tick mdw-state' }, g);
+        return { g: g, b: b, st: st, w: 96 * (1 - j * 0.15) };
+      });
+      var rcc = el('line', { x1: 156, x2: 336, 'class': 'mdw-cut' }, svg);
+      txt(el('text', { x: 10, y: 100, 'class': 'mdw-label' }, svg), 'rCC picks how');
+      txt(el('text', { x: 10, y: 114, 'class': 'mdw-label' }, svg), 'many to estimate;');
+      txt(el('text', { x: 10, y: 128, 'class': 'mdw-label' }, svg), 'the rest stay fixed');
+      return function (t) {
+        var n = Math.min(4, 1 + Math.floor(t / 0.2)), k = kopt[n - 1], grow = seg(t, 0, 0.12);
+        exps.forEach(function (g, i) { g.setAttribute('opacity', i < n ? 1 : 0.15); });
+        bars.forEach(function (o, j) {
+          set(o.b, { width: (o.w * grow).toFixed(1) });
+          var est = j < k; o.g.setAttribute('opacity', est ? 1 : 0.4); txt(o.st, est ? 'estimated' : 'fixed');
+        });
+        var cy = 30 + (k - 0.5) * 26; set(rcc, { y1: cy, y2: cy });
+        say('Round ' + n + ': ' + n + ' experiment' + (n > 1 ? 's' : '') + ' → estimate ' + k + ' of 6 parameters');
+      };
+    },
+    // ---- sensitivity first, then designed experiments shrink the confidence region
+    design: function (svg, W, H, seg, say) {
+      var S = [0.05, 0.02, 0.55, 0.28, 0.4, 0.33], names = ['θ1', 'θ2', 'θ3', 'θ4', 'θ5', 'θ6'];
+      txt(el('text', { x: 10, y: 14, 'class': 'mdw-colhead' }, svg), 'Sobol index');
+      var sb = S.map(function (s, i) {
+        var xx = 14 + i * 24, g = el('g', null, svg);
+        var b = el('rect', { x: xx, width: 16, rx: 4, 'class': 'mdw-sobol' }, g);
+        txt(el('text', { x: xx + 8, y: 104, 'text-anchor': 'middle', 'class': 'mdw-tick' }, g), names[i]);
+        return { g: g, b: b, s: s };
+      });
+      txt(el('text', { x: 10, y: 130, 'class': 'mdw-colhead' }, svg), 'designed temperature u1(t)');
+      var tx = scale(0, 16, 14, 150), ty = scale(296, 306, 200, 140), lv = [296.5, 298, 300.5, 302, 304.5, 305.8];
+      var prof = el('path', { 'class': 'mdw-l2 mdw-thick' }, svg);
+      var smp = [1.5, 4, 6.5, 9, 11.5, 14].map(function (tt) { return el('circle', { cx: tx(tt), cy: 200, r: 3.2, 'class': 'mdw-obs' }, svg); });
+      txt(el('text', { x: 200, y: 14, 'class': 'mdw-colhead' }, svg), 'joint confidence region');
+      var ex = 266, ey = 110;
+      el('line', { x1: 196, x2: 336, y1: ey, y2: ey, 'class': 'mdw-grid' }, svg);
+      el('line', { x1: ex, x2: ex, y1: 24, y2: 196, 'class': 'mdw-grid' }, svg);
+      var ell = el('ellipse', { cx: ex, cy: ey, 'class': 'mdw-ell' }, svg);
+      el('circle', { cx: ex, cy: ey, r: 3, 'class': 'mdw-true' }, svg);
+      var rl = el('text', { x: 336, y: 204, 'text-anchor': 'end', 'class': 'mdw-label' }, svg);
+      return function (t) {
+        var a = seg(t, 0, 0.18), fixedOut = t > 0.2;
+        sb.forEach(function (o) { var hgt = 80 * o.s * a; set(o.b, { y: (94 - hgt).toFixed(1), height: hgt.toFixed(1) }); o.g.setAttribute('opacity', fixedOut && o.s < 0.1 ? 0.3 : 1); });
+        var p = seg(t, 0.22, 0.45), pts = [], n = 6, L = 16 / n;
+        for (var i = 0; i < n; i++) { pts.push([tx(i * L), ty(lv[i])]); pts.push([tx((i + 1) * L), ty(lv[i])]); }
+        var keep = Math.max(2, Math.round(pts.length * p)); prof.setAttribute('d', pathD(pts.slice(0, keep)));
+        smp.forEach(function (c, i) { c.setAttribute('opacity', p > (i + 1) / 7 ? 1 : 0); });
+        var rd = clamp(Math.floor((t - 0.45) / 0.12) + 1, 0, 4), sc = [1, 0.62, 0.42, 0.3, 0.22][rd];
+        var shrink = seg(t, 0.45, 0.95);
+        set(ell, { rx: (62 * (1 - 0.75 * shrink)).toFixed(1), ry: (24 * (1 - 0.55 * shrink)).toFixed(1), transform: 'rotate(-28 ' + ex + ' ' + ey + ')' });
+        void sc;
+        txt(rl, rd ? 'round ' + rd + ' of 4' : '');
+        say(t < 0.2 ? '1 · sensa: which parameters matter at all' : t < 0.45 ? '2 · mbdoe_pp: a rising temperature profile and sampling times' : '3 · each designed round shrinks the confidence region');
+      };
+    }
+  };
+
+
+  // ======================================================================= 11. front-page hero
+  // A study in four rounds: design an input profile, run it, refit, and watch the confidence region
+  // shrink. Plays while visible; reduced motion shows the last round.
+  function heroWidget(root) {
+    var W = 440, H = 318;
+    var svg = svgBox(root, W, H, 'A MIDDoE study: design, run, fit and check, round after round');
+    svg.classList.add('md-hero-svg');
+    var px = scale(0, 10, 34, 270);
+    // panel A: designed input
+    txt(el('text', { x: 34, y: 16, 'class': 'mdw-colhead' }, svg), 'designed input u(t)');
+    var uy = scale(0, 1, 92, 30);
+    el('line', { x1: 34, x2: 270, y1: 92, y2: 92, 'class': 'mdw-axis' }, svg);
+    var prof = el('path', { 'class': 'mdw-l2 mdw-thick' }, svg);
+    // panel B: data and model
+    txt(el('text', { x: 34, y: 120, 'class': 'mdw-colhead' }, svg), 'measurements and model');
+    var yy = scale(0, 1.1, 250, 130);
+    el('line', { x1: 34, x2: 270, y1: 250, y2: 250, 'class': 'mdw-axis' }, svg);
+    var band = el('path', { 'class': 'mdw-bandfill' }, svg);
+    var curve = el('path', { 'class': 'mdw-l1 mdw-thick' }, svg);
+    var LV = [[0.3, 0.7, 0.5], [0.9, 0.2, 0.6], [0.5, 1.0, 0.15], [0.8, 0.4, 0.95]];
+    var TS = [[1.5, 4, 7.5], [1, 3, 6, 9], [2, 3.5, 5, 8.5], [0.8, 2.6, 4.4, 6.8, 9.2]];
+    var truth = [1, 0.55, 4], guess = [0.7, 0.25, 6.5], f = function (p, t) { return p[0] / (1 + Math.exp(-p[1] * 2 * (t - p[2]))); };
+    var r0 = rng(21), dots = [];
+    TS.forEach(function (ts, r) { ts.forEach(function (t) { dots.push({ r: r, c: el('circle', { cx: px(t), cy: yy(f(truth, t) + 0.035 * r0.n()), r: 4, 'class': 'mdw-obs' }, svg) }); }); });
+    // panel C: confidence region
+    var ex = 362, ey = 150;
+    txt(el('text', { x: 296, y: 16, 'class': 'mdw-colhead' }, svg), 'parameter confidence');
+    el('rect', { x: 296, y: 26, width: 134, height: 224, rx: 12, 'class': 'md-hero-panel' }, svg);
+    el('line', { x1: 306, x2: 420, y1: ey, y2: ey, 'class': 'mdw-grid' }, svg);
+    el('line', { x1: ex, x2: ex, y1: 36, y2: 240, 'class': 'mdw-grid' }, svg);
+    var ghost = el('ellipse', { cx: ex, cy: ey, rx: 52, ry: 22, transform: 'rotate(-32 ' + ex + ' ' + ey + ')', 'class': 'mdw-ellref' }, svg);
+    var ell = el('ellipse', { cx: ex, cy: ey, transform: 'rotate(-32 ' + ex + ' ' + ey + ')', 'class': 'mdw-ell' }, svg);
+    el('circle', { cx: ex, cy: ey, r: 3, 'class': 'mdw-true' }, svg);
+    var rl = el('text', { x: ex, y: 236, 'text-anchor': 'middle', 'class': 'mdw-label' }, svg);
+    void ghost;
+    // stepper
+    var ST = ['Design', 'Run', 'Fit', 'Check'], CALL = ['mbdoe_pp', 'expera', 'parmest', 'uncert'];
+    var pills = ST.map(function (s, i) {
+      var g = el('g', { 'class': 'md-hero-step', transform: 'translate(' + (34 + i * 101) + ',272)' }, svg);
+      el('rect', { width: 94, height: 38, rx: 19 }, g);
+      txt(el('text', { x: 47, y: 16, 'text-anchor': 'middle', 'class': 'md-hero-st' }, g), (i + 1) + ' · ' + s);
+      txt(el('text', { x: 47, y: 30, 'text-anchor': 'middle', 'class': 'md-hero-call' }, g), CALL[i]);
+      if (i < 3) el('path', { d: 'M96,19 l5,0', 'class': 'mdw-arrow' }, g);
+      return g;
+    });
+    var SIZE = [1, 0.64, 0.42, 0.28, 0.2];
+    function frame(t) {
+      var R = 4, r = Math.min(R - 1, Math.floor(t * R)), u = t * R - r, stage = Math.min(3, Math.floor(u * 4)), su = u * 4 - stage;
+      pills.forEach(function (g, i) { g.classList.toggle('md-on', i === stage); });
+      // input profile of this round, drawn during "Design"
+      var lv = LV[r], pts = [], n = lv.length, L = 10 / n;
+      for (var i = 0; i < n; i++) { pts.push([px(i * L), uy(lv[i])]); pts.push([px((i + 1) * L), uy(lv[i])]); }
+      var keep = stage === 0 ? Math.max(2, Math.round(pts.length * su)) : pts.length;
+      prof.setAttribute('d', pathD(pts.slice(0, keep)));
+      // data: earlier rounds stay (faded), this round's appear during "Run"
+      dots.forEach(function (d) {
+        var k = TS[d.r].length, idx = dots.filter(function (o) { return o.r === d.r; }).indexOf(d);
+        var op = d.r < r ? 0.45 : d.r > r ? 0 : stage === 0 ? 0 : stage === 1 ? (su > idx / k ? 1 : 0) : 1;
+        d.c.setAttribute('opacity', op);
+      });
+      // model: converges a little more in every round's "Fit"
+      var prog = (r + (stage < 2 ? 0 : stage === 2 ? su : 1)) / R, e = 1 - Math.pow(1 - prog, 2);
+      var p = guess.map(function (g, j) { return g + (truth[j] - g) * e; }), w = 0.16 * (1 - 0.8 * e);
+      var cv = [], up = [], lo = [];
+      for (var k2 = 0; k2 <= 50; k2++) { var tt = k2 / 5, v = f(p, tt); cv.push([px(tt), yy(v)]); up.push([px(tt), yy(v + w)]); lo.unshift([px(tt), yy(v - w)]); }
+      curve.setAttribute('d', pathD(cv)); band.setAttribute('d', pathD(up.concat(lo)) + 'Z');
+      // confidence region shrinks in "Check"
+      var s = SIZE[r] + (SIZE[r + 1] - SIZE[r]) * (stage === 3 ? 1 - Math.pow(1 - su, 3) : 0);
+      set(ell, { rx: (52 * s).toFixed(1), ry: (22 * Math.sqrt(s)).toFixed(1) });
+      txt(rl, 'round ' + (r + 1) + ' · ±' + Math.round(40 * s) + ' %');
+    }
+    var dur = 16000, t0 = null, id = null, on = false;
+    function step(ts) { if (t0 === null) t0 = ts; frame(((ts - t0) % dur) / dur); id = on ? requestAnimationFrame(step) : null; }
+    function play() { if (REDUCED) { frame(0.999); return; } if (!on) { on = true; id = requestAnimationFrame(step); } }
+    function pause() { on = false; if (id !== null) cancelAnimationFrame(id); id = null; }
+    frame(REDUCED ? 0.999 : 0);
+    if (window.IntersectionObserver) new IntersectionObserver(function (es) { if (es[0].isIntersecting) play(); else pause(); }, { threshold: 0.2 }).observe(root);
+    else play();
+  }
+
+  var REG = { hero: heroWidget, tut: tutWidget, flow: flowWidget, quickstart: quickstartWidget, datafile: datafileWidget, residuals: residualsWidget, loop: loopWidget, sampling: samplingWidget, discrim: discrimWidget, noise: noiseWidget, designspace: designspaceWidget };
   function boot() {
     document.querySelectorAll('.mdw[data-widget]').forEach(function (n) {
       if (n.dataset.ready) return;

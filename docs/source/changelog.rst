@@ -130,7 +130,7 @@ Documentation
 - An :doc:`onboarding guide <user_guide>` in five steps, from :doc:`getting_started` (a complete
   study in a minute) to the reference, with interactive figures; :doc:`concepts`; the whole page
   tree in the side menu.
-- :doc:`case_studies`: the four case studies of the MIDDoE paper as notebooks, one folder per case
+- :doc:`tutorials`: the four case studies of the MIDDoE paper as notebooks, one folder per case
   with only the notebook and its model files. They and the tutorials open in Google Colab.
 - The :doc:`api` starts with the functions you call, in workflow order, and how to read their
   results.
