@@ -4,7 +4,7 @@ The full, formatted changelog is in the documentation:
 https://middoe.readthedocs.io/en/latest/changelog.html
 
 
-## Unreleased
+## 0.2.2
 
 Tutorials and documentation only; the code is unchanged.
 

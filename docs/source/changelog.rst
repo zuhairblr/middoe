@@ -1,8 +1,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+0.2.2
+-----
 
 Tutorials and documentation only; the code is unchanged.
 
