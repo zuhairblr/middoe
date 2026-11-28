@@ -189,5 +189,11 @@ tests/tutorials/01_simple/**
 !tests/tutorials/01_simple/**/*.py
 !tests/tutorials/01_simple/**/*.ipynb
 
+# Tutorials 2 to 6: keep only the notebooks and model files
+tests/tutorials/0[2-9]_*/**
+!tests/tutorials/0[2-9]_*/**/
+!tests/tutorials/0[2-9]_*/**/*.py
+!tests/tutorials/0[2-9]_*/**/*.ipynb
+
 # IDE settings (personal, not part of the project)
 .idea/

@@ -22,7 +22,7 @@ Main functions, in workflow order: `middoe.sc_sensa.sensa`, `middoe.krnl_expera.
 
 ## Tutorials
 
-- [Hands-on tutorials](https://middoe.readthedocs.io/en/latest/tutorials.html): five notebooks that run in Google Colab, on a fed-batch yeast fermentation (estimation, uncertainty, model discrimination) and a pharmaceutical batch reaction (estimability, sequential design)
+- [Hands-on tutorials](https://middoe.readthedocs.io/en/latest/tutorials.html): notebooks that run in Google Colab. Tutorials, one per function: parameter estimation and uncertainty, global sensitivity analysis (parameters and inputs), estimability analysis, MBDoE for precision (D, A, E, ME, ORB, SEM; profile and sampling constraints), MBDoE for model discrimination (Hunter-Reiner, Buzzi-Ferraris-Forzatti), cross-validation. Case studies: the MIDDoE paper on a fed-batch yeast fermentation and a pharmaceutical batch reaction
 
 ## Source and citation
 

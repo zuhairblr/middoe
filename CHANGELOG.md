@@ -3,6 +3,18 @@
 The full, formatted changelog is in the documentation:
 https://middoe.readthedocs.io/en/latest/changelog.html
 
+
+## Unreleased
+
+Tutorials and documentation only; the code is unchanged.
+
+- Tutorials page in two parts: tutorials, one per function with notebooks that compare its options
+  (estimation and uncertainty; sensitivity of parameters and inputs; estimability; design for
+  precision with D, A, E, ME, ORB, SEM and profile/sampling constraints; design for discrimination
+  with HR and BFF; cross-validation), and the case studies of the MIDDoE paper.
+- Every new tutorial has a `QUICK` switch for a quick check of the set-up.
+- Interactive figures for every tutorial.
+
 ## 0.2.1
 
 Documentation and package information only; the code is the same as in 0.2.0.

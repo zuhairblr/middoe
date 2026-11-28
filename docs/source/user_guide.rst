@@ -68,8 +68,9 @@ does, the function you call and the idea behind it.
 When you want more examples
 ===========================
 
-The :doc:`tutorials` go further than this guide: five notebooks on two real systems, from a first
-fit to designing experiments, each runnable in the browser.
+The :doc:`tutorials` go further than this guide: a tutorial for every function (estimation,
+sensitivity, estimability, design, validation) and the case studies of the paper, each runnable in
+the browser.
 
 .. toctree::
    :hidden:

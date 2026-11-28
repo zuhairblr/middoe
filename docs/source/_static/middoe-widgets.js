@@ -1384,12 +1384,14 @@
     var kind = root.getAttribute('data-kind'), W = 340, H = 210;
     var svg = svgBox(root, W, H, 'Animation: ' + kind);
     svg.classList.add('mdw-tutsvg');
+    var ui = h('div', { 'class': 'mdw-tutui' }, root);
+    ui.addEventListener('click', function (e) { e.stopPropagation(); });
     var cap = h('div', { 'class': 'mdw-tutcap', 'aria-live': 'off' }, root);
     var ease = function (a) { a = clamp(a, 0, 1); return a < 0.5 ? 4 * a * a * a : 1 - Math.pow(-2 * a + 2, 3) / 2; };
     var seg = function (t, a, b) { return ease((t - a) / (b - a)); };          // 0 -> 1 between a and b
     var say = function (s) { if (cap.textContent !== s) cap.textContent = s; };
-    var frame = (KINDS[kind] || KINDS.fit)(svg, W, H, seg, say);
-    var dur = 9000, t0 = null, id = null, on = false;
+    var t0 = null, frame = (KINDS[kind] || KINDS.fit)(svg, W, H, seg, say, ui, function () { t0 = null; if (REDUCED) frame(0.92); else play(); });
+    var dur = 9000, id = null, on = false;
     function step(ts) {
       if (t0 === null) t0 = ts;
       frame(((ts - t0) % dur) / dur);
@@ -1556,6 +1558,289 @@
     }
   };
 
+
+
+  // ----------------------------------------------------------------------- interactive tutorial kinds
+  // Same contract as the kinds above, plus `ui` (a row for buttons under the figure) and `replay`.
+  var BARCLS = ['mdw-c1', 'mdw-c2', 'mdw-c3', 'mdw-c4'];
+
+  // ---- Sobol indices of the parameters: pick the output and the temperature
+  KINDS.sobol = function (svg, W, H, sg, say, ui, replay) {
+    var names = ['kf', 'Ef', 'kfs', 'Efs', 'K', 'ΔH'];
+    var ST = {
+      '296': { y1: [0.58, 0.02, 0.06, 0.01, 0.36, 0.01], y2: [0.47, 0.02, 0.16, 0.01, 0.41, 0.01], y3: [0.10, 0.01, 0.72, 0.02, 0.21, 0.01] },
+      '306': { y1: [0.42, 0.31, 0.05, 0.04, 0.21, 0.11], y2: [0.31, 0.22, 0.14, 0.19, 0.26, 0.16], y3: [0.08, 0.05, 0.41, 0.46, 0.10, 0.06] }
+    };
+    var st = { y: 'y3', T: '296' };
+    var x0 = 44, bw = 38, y = scale(0, 1, H - 30, 18);
+    drawAxes(el('g', null, svg), scale(0, 6, x0, x0 + 6 * 48), y, { xt: [], yt: [0, 0.5, 1], yl: 'ST' });
+    var cut = el('line', { x1: x0, x2: W - 6, y1: y(0.05), y2: y(0.05), 'class': 'mdw-cut' }, svg);
+    txt(el('text', { x: W - 6, y: 26, 'text-anchor': 'end', 'class': 'mdw-tick' }, svg), 'dashed: ST = 0.05');
+    var r = rng(3), bars = names.map(function (n, i) {
+      var xx = x0 + 6 + i * 48, g = el('g', null, svg);
+      var b = el('rect', { x: xx, width: bw, rx: 4, 'class': 'mdw-sobol' }, g);
+      txt(el('text', { x: xx + bw / 2, y: H - 14, 'text-anchor': 'middle', 'class': 'mdw-tick mdw-mono' }, g), n);
+      var v = el('text', { x: xx + bw / 2, 'text-anchor': 'middle', 'class': 'mdw-tick' }, g);
+      return { g: g, b: b, v: v, jit: [r.n(), r.n(), r.n(), r.n()] };
+    });
+    var nl = el('text', { x: W - 6, y: 12, 'text-anchor': 'end', 'class': 'mdw-label' }, svg);
+    void cut;
+    seg(ui, [['y1', 'SM'], ['y2', 'product'], ['y3', 'impurity']], st.y, function (v) { st.y = v; replay(); }, 'output');
+    seg(ui, [['296', '296 K'], ['306', '306 K']], st.T, function (v) { st.T = v; replay(); }, 'T');
+    return function (t) {
+      var a = sg(t, 0, 0.18), k = Math.min(3, Math.floor(t / 0.16)), noise = [0.18, 0.09, 0.04, 0.01][k], N = [32, 128, 512, 2048][k];
+      var vals = ST[st.T][st.y], fade = t > 0.7;
+      bars.forEach(function (o, i) {
+        var v = clamp(vals[i] + noise * o.jit[k] * (vals[i] + 0.05), 0, 1) * a, top = y(v);
+        set(o.b, { y: top.toFixed(1), height: (y(0) - top).toFixed(1) });
+        set(o.v, { y: (top - 4).toFixed(1) }); txt(o.v, a > 0.5 ? v.toFixed(2) : '');
+        o.g.setAttribute('opacity', fade && vals[i] < 0.05 ? 0.3 : 1);
+      });
+      txt(nl, 'Sobol sample N = ' + N);
+      say(t < 0.66 ? 'More samples, steadier indices: ' + (st.y === 'y3' ? 'impurity' : st.y === 'y2' ? 'product' : 'starting material') + ' at ' + st.T + ' K'
+        : st.T === '296' ? 'At the reference temperature the energies barely matter: fix them' : 'At 306 K the energies matter: vary the temperature to estimate them');
+    };
+  };
+
+  // ---- Sobol indices of the inputs along the batch
+  KINDS.sobolin = function (svg, W, H, sg, say, ui, replay) {
+    var st = { y: 'y3', w: 'wide' };
+    var x = scale(0, 16, 34, W - 70), y = scale(0, 1, H - 28, 14);
+    drawAxes(el('g', null, svg), x, y, { xt: [0, 8, 16], yt: [0, 0.5, 1], xl: 'time [h]', yl: 'ST' });
+    var F = {
+      wide: { y2: [function (t) { return 0.15 + 0.1 * Math.exp(-t / 3); }, function (t) { return 0.55 - 0.1 * Math.exp(-t / 3); }, function (t) { return 0.3; }],
+              y3: [function (t) { return 0.2 + 0.35 * (1 - Math.exp(-t / 5)); }, function (t) { return 0.45 - 0.15 * (1 - Math.exp(-t / 5)); }, function (t) { return 0.2; }] },
+      narrow: { y2: [function (t) { return 0.55 + 0.2 * (1 - Math.exp(-t / 4)); }, function (t) { return 0.2 - 0.08 * (1 - Math.exp(-t / 4)); }, function (t) { return 0.12; }],
+                y3: [function (t) { return 0.7 + 0.2 * (1 - Math.exp(-t / 4)); }, function (t) { return 0.15 - 0.08 * (1 - Math.exp(-t / 4)); }, function (t) { return 0.06; }] }
+    };
+    var lab = ['T(t)', 'SM₀', 'TMA₀'], cls = ['mdw-l2', 'mdw-l1', 'mdw-l3'];
+    var lines = cls.map(function (c) { return el('path', { 'class': c + ' mdw-thick' }, svg); });
+    var tags = lab.map(function (s, i) { return txt(el('text', { x: W - 64, 'class': 'mdw-tick' }, svg), s); });
+    seg(ui, [['y2', 'product'], ['y3', 'impurity']], st.y, function (v) { st.y = v; replay(); }, 'output');
+    seg(ui, [['wide', 'whole window'], ['narrow', '±2 %']], st.w, function (v) { st.w = v; replay(); }, 'inputs');
+    return function (t) {
+      var p = sg(t, 0.02, 0.6), tend = 16 * p, fs = F[st.w][st.y];
+      lines.forEach(function (l, i) {
+        var pts = []; for (var k = 0; k <= 64; k++) { var tt = 0.25 + k / 64 * Math.max(0.01, tend - 0.25); pts.push([x(tt), y(fs[i](tt))]); }
+        l.setAttribute('d', p > 0 ? pathD(pts) : '');
+        set(tags[i], { y: (y(fs[i](16)) + 4).toFixed(1), opacity: p > 0.98 ? 1 : 0 });
+      });
+      var top = fs.map(function (f) { return f(16); }), i0 = top.indexOf(Math.max.apply(null, top));
+      say(t < 0.62 ? 'Sobol indices of the inputs, along the batch' : 'Here ' + lab[i0] + ' matters most: design it, keep the others fixed');
+    };
+  };
+
+  // ---- estimability: rCC against k, for 1 to 4 batches
+  KINDS.estima = function (svg, W, H, sg, say, ui, replay) {
+    var st = { n: '2' }, KOPT = { 1: 2, 2: 3, 3: 4, 4: 4 };
+    var x = scale(1, 6, 44, 186), y = scale(0, 1, H - 30, 18);
+    drawAxes(el('g', null, svg), x, y, { xt: [1, 2, 3, 4, 5, 6], yt: [0, 1], xl: 'parameters estimated k', yl: 'rCC' });
+    var line = el('path', { 'class': 'mdw-l1 mdw-thick' }, svg);
+    var dots = [1, 2, 3, 4, 5, 6].map(function () { return el('circle', { r: 4, 'class': 'mdw-obs' }, svg); });
+    var best = el('circle', { r: 8, 'class': 'mdw-ellref' }, svg);
+    var rank = ['Efs', 'kfs', 'K', 'kf', 'ΔH', 'Ef'];
+    txt(el('text', { x: 214, y: 14, 'class': 'mdw-colhead' }, svg), 'ranking');
+    var rows = rank.map(function (n, j) {
+      var yy = 30 + j * 27, g = el('g', null, svg);
+      el('rect', { x: 208, y: yy - 10, width: 126, height: 20, rx: 6, 'class': 'mdw-recbg' }, g);
+      txt(el('text', { x: 216, y: yy + 4, 'class': 'mdw-tick mdw-mono' }, g), (j + 1) + '  ' + n);
+      var s = el('text', { x: 328, y: yy + 4, 'text-anchor': 'end', 'class': 'mdw-tick mdw-state' }, g);
+      return { g: g, s: s };
+    });
+    function rcc(k, n) { var ko = KOPT[n]; return clamp(0.18 + 0.12 * Math.pow(k - ko, 2) / (1 + 0.25 * n) + (k > ko ? 0.06 * (k - ko) : 0), 0, 1); }
+    seg(ui, [['1', '1 batch'], ['2', '2'], ['3', '3'], ['4', '4 batches']], st.n, function (v) { st.n = v; replay(); }, 'data');
+    return function (t) {
+      var n = +st.n, ko = KOPT[n], p = sg(t, 0, 0.45), shown = 1 + Math.floor(p * 5.999);
+      var pts = [];
+      dots.forEach(function (d, i) { var k = i + 1, v = rcc(k, n); set(d, { cx: x(k), cy: y(v), opacity: k <= shown ? 1 : 0 }); if (k <= shown) pts.push([x(k), y(v)]); });
+      line.setAttribute('d', pts.length > 1 ? pathD(pts) : '');
+      set(best, { cx: x(ko), cy: y(rcc(ko, n)), opacity: t > 0.5 ? 1 : 0 });
+      rows.forEach(function (o, j) { var on = t > 0.5 && j < ko; o.g.setAttribute('opacity', t > 0.5 ? (on ? 1 : 0.4) : 1); txt(o.s, t > 0.5 ? (on ? 'estimate' : 'fix') : ''); });
+      say(t < 0.5 ? 'rCC for every subset size k, with ' + n + ' batch' + (n > 1 ? 'es' : '') : 'Smallest rCC at k = ' + ko + ': estimate ' + ko + ', fix ' + (6 - ko));
+    };
+  };
+
+  // ---- design criteria: the shape each criterion gives the confidence region
+  KINDS.criteria = function (svg, W, H, sg, say, ui, replay) {
+    var st = { c: 'D' };
+    var C = { D: { rx: 30, ry: 9, rot: -30, lv: [0.9, 0.3, 0.75, 0.2, 0.6], txt: 'D: smallest area' },
+              A: { rx: 24, ry: 12, rot: -24, lv: [0.8, 0.45, 0.7, 0.3, 0.5], txt: 'A: smallest average variance' },
+              E: { rx: 20, ry: 15, rot: -12, lv: [1, 0.2, 0.2, 0.9, 0.4], txt: 'E: shortest longest axis' },
+              ME: { rx: 17, ry: 16, rot: 0, lv: [0.6, 0.6, 1, 0.1, 0.8], txt: 'ME: roundest region' } };
+    txt(el('text', { x: 12, y: 14, 'class': 'mdw-colhead' }, svg), 'designed feed u2(t)');
+    var tx = scale(0, 40, 14, 150), ty = scale(0, 1, 112, 34);
+    el('line', { x1: 14, x2: 150, y1: 112, y2: 112, 'class': 'mdw-axis' }, svg);
+    var prof = el('path', { 'class': 'mdw-l2 mdw-thick' }, svg);
+    var smp = [3, 8, 12, 17, 21, 25, 29, 33, 36, 39].map(function (s) { return el('circle', { cx: tx(s), cy: 140, r: 3, 'class': 'mdw-obs' }, svg); });
+    txt(el('text', { x: 14, y: 160, 'class': 'mdw-tick' }, svg), 'sampling times');
+    txt(el('text', { x: 196, y: 14, 'class': 'mdw-colhead' }, svg), 'confidence region');
+    var ex = 266, ey = 104;
+    el('line', { x1: 192, x2: 338, y1: ey, y2: ey, 'class': 'mdw-grid' }, svg);
+    el('line', { x1: ex, x2: ex, y1: 24, y2: 186, 'class': 'mdw-grid' }, svg);
+    el('ellipse', { cx: ex, cy: ey, rx: 64, ry: 22, transform: 'rotate(-30 ' + ex + ' ' + ey + ')', 'class': 'mdw-ellref' }, svg);
+    var ell = el('ellipse', { cx: ex, cy: ey, 'class': 'mdw-ell' }, svg);
+    el('circle', { cx: ex, cy: ey, r: 3, 'class': 'mdw-true' }, svg);
+    txt(el('text', { x: 338, y: 200, 'text-anchor': 'end', 'class': 'mdw-tick' }, svg), 'dashed: before the design');
+    seg(ui, [['D', 'D'], ['A', 'A'], ['E', 'E'], ['ME', 'ME']], st.c, function (v) { st.c = v; replay(); }, 'criterion');
+    return function (t) {
+      var c = C[st.c], p = sg(t, 0.02, 0.4), q = sg(t, 0.45, 0.8), pts = [], L = 8;
+      for (var i = 0; i < 5; i++) { pts.push([tx(i * L), ty(c.lv[i])]); pts.push([tx((i + 1) * L), ty(c.lv[i])]); }
+      prof.setAttribute('d', pathD(pts.slice(0, Math.max(2, Math.round(pts.length * p)))));
+      smp.forEach(function (s, i) { s.setAttribute('opacity', p > (i + 1) / 11 ? 1 : 0); });
+      var rx = 64 + (c.rx - 64) * q, ry = 22 + (c.ry - 22) * q, rot = -30 + (c.rot + 30) * q;
+      set(ell, { rx: rx.toFixed(1), ry: ry.toFixed(1), transform: 'rotate(' + rot.toFixed(1) + ' ' + ex + ' ' + ey + ')' });
+      say(t < 0.45 ? 'mbdoe_pp (' + st.c + '): choosing the feed and the sampling times' : c.txt + ' after the designed run');
+    };
+  };
+
+  // ---- ill-conditioned problems: the eigenvalue spectrum of the Fisher matrix
+  KINDS.illcond = function (svg, W, H, sg, say, ui, replay) {
+    var st = { c: 'SEM' }, prior = [4, 3, 2, 0.6, -0.8, -2];
+    var POST = { D: [5.2, 4.3, 3, 1, -0.5, -1.8], ORB: [4.3, 3.4, 2.6, 1.8, 1.2, 0.9], SEM: [4, 3.3, 2.7, 2.1, 1.6, 1.2] };
+    var x0 = 46, y = scale(-2.5, 6, H - 30, 18);
+    drawAxes(el('g', null, svg), scale(0, 6, x0, x0 + 6 * 44), y, { xt: [], yt: [-2, 0, 2, 4, 6], yl: 'log₁₀ λ' });
+    var ghosts = [], bars = [];
+    for (var i = 0; i < 6; i++) {
+      var xx = x0 + 8 + i * 44;
+      ghosts.push(el('rect', { x: xx, width: 28, rx: 4, 'class': 'mdw-tbg' }, svg));
+      bars.push(el('rect', { x: xx + 6, width: 16, rx: 4, 'class': 'mdw-sobol' }, svg));
+      txt(el('text', { x: xx + 14, y: H - 14, 'text-anchor': 'middle', 'class': 'mdw-tick' }, svg), 'λ' + (i + 1));
+    }
+    var cn = el('text', { x: W - 8, y: 14, 'text-anchor': 'end', 'class': 'mdw-label' }, svg);
+    function rect(r, v) { var a = y(Math.max(v, 0)), b = y(Math.min(v, 0)); set(r, { y: a.toFixed(1), height: Math.max(1, b - a).toFixed(1) }); }
+    seg(ui, [['D', 'D'], ['ORB', 'ORB'], ['SEM', 'SEM']], st.c, function (v) { st.c = v; replay(); }, 'criterion');
+    return function (t) {
+      var q = sg(t, 0.3, 0.75), post = POST[st.c], v = prior.map(function (p, i) { return p + (post[i] - p) * q; });
+      prior.forEach(function (p, i) { rect(ghosts[i], p); rect(bars[i], v[i]); });
+      var c = Math.max.apply(null, v) - Math.min.apply(null, v);
+      txt(cn, 'condition number 10^' + c.toFixed(1));
+      say(t < 0.3 ? 'Two isothermal batches: information spans six orders of magnitude' :
+        st.c === 'D' ? 'D adds most where there is already plenty' : st.c === 'ORB' ? 'ORB lifts the weakest directions' : 'SEM spreads the information evenly');
+    };
+  };
+
+  // ---- the design space: profile types, monotone feeds, fewer samples
+  KINDS.profiles = function (svg, W, H, sg, say, ui, replay) {
+    var st = { v: 'free' };
+    var V = { free: { cvp: 'CPF', lv: [0.9, 0.2, 0.7, 0.35, 0.6], n: 10, f: false, info: 1 },
+              ramps: { cvp: 'LPF', lv: [0.9, 0.2, 0.7, 0.35, 0.6], n: 10, f: false, info: 0.93 },
+              monotone: { cvp: 'CPF', lv: [0.15, 0.35, 0.55, 0.7, 0.95], n: 10, f: false, info: 0.86 },
+              constant: { cvp: 'C', lv: [0.6], n: 10, f: false, info: 0.45 },
+              few: { cvp: 'CPF', lv: [0.9, 0.2, 0.7, 0.35, 0.6], n: 5, f: true, info: 0.62 } };
+    var tx = scale(0, 40, 34, W - 12), ty = scale(0, 1, 120, 26);
+    drawAxes(el('g', null, svg), tx, ty, { xt: [0, 20, 40], yt: [0, 1], yl: 'u1' });
+    var prof = el('path', { 'class': 'mdw-l2 mdw-thick' }, svg);
+    var smp = []; for (var i = 0; i < 10; i++) smp.push(el('circle', { cy: 150, r: 3.6, 'class': 'mdw-obs' }, svg));
+    var forced = el('circle', { cx: tx(40), cy: 150, r: 7, 'class': 'mdw-ellref' }, svg);
+    txt(el('text', { x: 34, y: 168, 'class': 'mdw-tick' }, svg), 'samples');
+    txt(el('text', { x: 34, y: 192, 'class': 'mdw-tick' }, svg), 'information');
+    el('rect', { x: 110, y: 183, width: 180, height: 12, rx: 6, 'class': 'mdw-tbg' }, svg);
+    var info = el('rect', { x: 110, y: 183, height: 12, rx: 6, 'class': 'mdw-tbar' }, svg);
+    var iv = el('text', { x: W - 6, y: 193, 'text-anchor': 'end', 'class': 'mdw-tick' }, svg);
+    seg(ui, [['free', 'free'], ['ramps', 'ramps'], ['monotone', 'monotone'], ['constant', 'constant'], ['few', '5 samples']], st.v, function (v) { st.v = v; replay(); });
+    return function (t) {
+      var c = V[st.v], p = sg(t, 0.02, 0.45), n = c.lv.length, L = 40 / n, pts = [];
+      for (var i = 0; i < n; i++) {
+        if (c.cvp === 'LPF') pts.push([tx(i * L), ty(i ? c.lv[i - 1] : c.lv[0])], [tx((i + 1) * L), ty(c.lv[i])]);
+        else pts.push([tx(i * L), ty(c.lv[i])], [tx((i + 1) * L), ty(c.lv[i])]);
+      }
+      prof.setAttribute('d', pathD(pts.slice(0, Math.max(2, Math.round(pts.length * p)))));
+      var gap = 40 / (c.n + 0.5);
+      smp.forEach(function (s, i) { var on = i < c.n; set(s, { cx: tx(c.f ? 40 - (c.n - 1 - i) * 8 : (i + 0.75) * gap), opacity: on && p > (i + 1) / (c.n + 1) ? 1 : 0 }); });
+      forced.setAttribute('opacity', c.f && p > 0.9 ? 1 : 0);
+      var q = sg(t, 0.5, 0.75); set(info, { width: (180 * c.info * q).toFixed(1) }); txt(iv, q > 0 ? Math.round(100 * c.info * q) + ' %' : '');
+      say(t < 0.5 ? 'The rules in system[’tvi’] and [’tvo’] shape what mbdoe_pp may choose' : 'Information relative to the free design: every rule has a price');
+    };
+  };
+
+  // ---- Hunter-Reiner: find where two growth laws disagree
+  KINDS.hr = function (svg, W, H, sg, say) {
+    var x = scale(0, 40, 34, 222), y = scale(0, 6, H - 28, 14);
+    drawAxes(el('g', null, svg), x, y, { xt: [0, 20, 40], yt: [0, 3, 6], xl: 'time [h]', yl: 'biomass' });
+    var mon = function (t, d) { return d ? 1.2 + 4.2 * (1 - Math.exp(-t / 11)) : 5.5 - 1.2 * (1 - Math.exp(-t / 14)); };
+    var con = function (t, d) { return d ? 1.2 + 2.6 * (1 - Math.exp(-t / 15)) : 5.5 - 1.25 * (1 - Math.exp(-t / 14)); };
+    var gap = el('path', { 'class': 'mdw-bandfill' }, svg);
+    var l1 = el('path', { 'class': 'mdw-l1 mdw-thick' }, svg), l2 = el('path', { 'class': 'mdw-l2 mdw-thick' }, svg);
+    txt(el('text', { x: 236, y: 14, 'class': 'mdw-colhead' }, svg), 'P-test');
+    var P = [[52, 48], [97, 3]], nm = ['Monod', 'Contois'];
+    var bars = nm.map(function (n, i) {
+      var yy = 44 + i * 44;
+      txt(el('text', { x: 236, y: yy - 8, 'class': 'mdw-tick' }, svg), n);
+      el('rect', { x: 236, y: yy - 4, width: 96, height: 12, rx: 6, 'class': 'mdw-tbg' }, svg);
+      return { b: el('rect', { x: 236, y: yy - 4, height: 12, rx: 6, 'class': 'mdw-pbar ' + BARCLS[i] }, svg),
+               v: el('text', { x: 332, y: yy + 22, 'text-anchor': 'end', 'class': 'mdw-tick' }, svg) };
+    });
+    return function (t) {
+      var d = t > 0.35 ? 1 : 0, a = d ? sg(t, 0.38, 0.65) : 1, A = [], B = [], G1 = [], G2 = [];
+      for (var k = 0; k <= 50; k++) {
+        var tt = k * 0.8, m = mon(tt, d), c = con(tt, d); c = m + (c - m) * a;
+        A.push([x(tt), y(m)]); B.push([x(tt), y(c)]); G1.push([x(tt), y(m)]); G2.unshift([x(tt), y(c)]);
+      }
+      l1.setAttribute('d', pathD(A)); l2.setAttribute('d', pathD(B)); gap.setAttribute('d', d ? pathD(G1.concat(G2)) + 'Z' : '');
+      var b = sg(t, 0.7, 0.9);
+      bars.forEach(function (o, i) { var p = P[0][i] + (P[1][i] - P[0][i]) * b; set(o.b, { width: (0.96 * p).toFixed(1) }); txt(o.v, p.toFixed(0) + ' %'); });
+      say(t < 0.35 ? '1 · preliminary run: the two laws predict the same biomass' : t < 0.7 ? '2 · mbdoe_md (HR): start with little biomass, where they disagree' : '3 · the designed run decides: Monod');
+    };
+  };
+
+  // ---- HR versus BFF: difference alone, or difference over uncertainty
+  KINDS.bff = function (svg, W, H, sg, say, ui, replay) {
+    var st = { c: 'BFF' };
+    var x = scale(0, 40, 34, W - 10), y = scale(0, 1, H - 30, 14);
+    drawAxes(el('g', null, svg), x, y, { xt: [0, 20, 40], yt: [0, 1], xl: 'time [h]', yl: 'substrate' });
+    var m1 = function (t) { return 0.15 + 0.6 * Math.exp(-Math.pow(t - 10, 2) / 40) + 0.1 * t / 40; };
+    var m2 = function (t) { return 0.15 + 0.45 * Math.exp(-Math.pow(t - 10, 2) / 40) + 0.35 * Math.pow(t / 40, 2); };
+    var s1 = function (t) { return 0.03 + 0.22 * Math.pow(t / 40, 3); };
+    var b1 = el('path', { 'class': 'mdw-bandfill' }, svg), b2 = el('path', { 'class': 'mdw-bandfill' }, svg);
+    var l1 = el('path', { 'class': 'mdw-l1 mdw-thick' }, svg), l2 = el('path', { 'class': 'mdw-l4 mdw-thick' }, svg);
+    var win = el('rect', { y: 14, height: H - 44, rx: 6, 'class': 'mdw-range mdw-desreg' }, svg);
+    var wl = el('text', { y: 28, 'text-anchor': 'middle', 'class': 'mdw-label' }, svg);
+    seg(ui, [['HR', 'HR'], ['BFF', 'BFF']], st.c, function (v) { st.c = v; replay(); }, 'criterion');
+    return function (t) {
+      var a = sg(t, 0.02, 0.4), A = [], B = [], U1 = [], L1 = [], U2 = [], L2 = [];
+      for (var k = 0; k <= 50; k++) {
+        var tt = k * 0.8 * a, s = s1(tt);
+        A.push([x(tt), y(m1(tt))]); B.push([x(tt), y(m2(tt))]);
+        U1.push([x(tt), y(m1(tt) + s)]); L1.unshift([x(tt), y(m1(tt) - s)]); U2.push([x(tt), y(m2(tt) + s)]); L2.unshift([x(tt), y(m2(tt) - s)]);
+      }
+      l1.setAttribute('d', pathD(A)); l2.setAttribute('d', pathD(B));
+      var showU = t > 0.42; b1.setAttribute('d', showU ? pathD(U1.concat(L1)) + 'Z' : ''); b2.setAttribute('d', showU ? pathD(U2.concat(L2)) + 'Z' : '');
+      var c = st.c === 'HR' ? [30, 40] : [6, 16], on = t > 0.55;
+      set(win, { x: x(c[0]), width: x(c[1]) - x(c[0]), opacity: on ? 1 : 0 }); set(wl, { x: (x(c[0]) + x(c[1])) / 2, opacity: on ? 1 : 0 }); txt(wl, st.c);
+      say(t < 0.42 ? 'MI (maintenance) and MIV (none) predict different substrate' : t < 0.55 ? 'Their parameters are uncertain: the bands widen late in the run'
+        : st.c === 'HR' ? 'HR samples where the means differ most, even inside the bands' : 'BFF samples where the difference beats the uncertainty');
+    };
+  };
+
+  // ---- leave-one-out cross-validation
+  KINDS.valid = function (svg, W, H, sg, say, ui, replay) {
+    var st = { m: 'MI' }, R2 = { MI: [0.99, 0.98], MIV: [0.97, 0.81] };
+    txt(el('text', { x: 12, y: 14, 'class': 'mdw-colhead' }, svg), 'batches');
+    var chips = [0, 1, 2, 3].map(function (i) {
+      var g = el('g', null, svg), yy = 26 + i * 40;
+      var r = el('rect', { x: 12, y: yy, width: 92, height: 30, rx: 8, 'class': 'mdw-expbox' }, g);
+      txt(el('text', { x: 24, y: yy + 19, 'class': 'mdw-tick' }, g), 'batch ' + (i + 1));
+      var s = el('text', { x: 98, y: yy + 19, 'text-anchor': 'end', 'class': 'mdw-tick mdw-state' }, g);
+      return { r: r, s: s };
+    });
+    var x = scale(0, 6, 140, 300), y = scale(0, 6, 186, 26);
+    drawAxes(el('g', null, svg), x, y, { xt: [0, 6], yt: [0, 6], xl: 'measured', yl: 'predicted' });
+    el('line', { x1: x(0), y1: y(0), x2: x(6), y2: y(6), 'class': 'mdw-zero' }, svg);
+    var r = rng(5), base = []; for (var i = 0; i < 4; i++) for (var j = 0; j < 7; j++) base.push({ b: i, v: 0.6 + j * 0.75 + 0.2 * r.n(), e: r.n() });
+    var pts = base.map(function () { return el('circle', { r: 3.4, 'class': 'mdw-obs' }, svg); });
+    var lab = el('text', { x: 148, y: 40, 'class': 'mdw-label' }, svg);
+    seg(ui, [['MI', 'MI (maintenance)'], ['MIV', 'MIV (none)']], st.m, function (v) { st.m = v; replay(); }, 'model');
+    return function (t) {
+      var out = Math.min(3, Math.floor(t / 0.22)), sp = st.m === 'MI' ? 0.12 : 0.7, bias = st.m === 'MI' ? 0 : 0.5;
+      chips.forEach(function (c, i) { c.r.classList.toggle('mdw-on', i === out && t < 0.88); txt(c.s, t < 0.88 ? (i === out ? 'left out' : 'fit') : ''); c.r.setAttribute('opacity', t < 0.88 && i !== out ? 0.6 : 1); });
+      pts.forEach(function (c, k) {
+        var o = base[k], held = o.b === out || t >= 0.88, pred = o.v + (held ? sp * o.e + bias * Math.sin(o.v) : 0.1 * o.e);
+        set(c, { cx: x(o.v).toFixed(1), cy: y(clamp(pred, 0, 6)).toFixed(1), opacity: held ? 1 : 0.25 });
+      });
+      txt(lab, t < 0.88 ? 'R² fit ' + R2[st.m][0].toFixed(2) : 'R² unseen ' + R2[st.m][1].toFixed(2));
+      say(t < 0.88 ? 'Fit three batches, predict batch ' + (out + 1) : st.m === 'MI' ? 'MI predicts unseen batches almost as well as it fits' : 'MIV fits, but fails on batches it has not seen');
+    };
+  };
 
   // ======================================================================= 11. front-page hero
   // A study in four rounds: design an input profile, run it, refit, and watch the confidence region

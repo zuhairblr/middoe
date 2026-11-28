@@ -279,3 +279,10 @@ table.mdw-xl { border-collapse: collapse; font-size: .76rem; font-variant-numeri
 .mdw-tutsvg .mdw-colhead { font-size: 11px; }
 .mdw-tutsvg .mdw-state { font-size: 10.5px; }
 .mdw-tutcap { font-size: .86rem; }
+
+/* interactive tutorial figures: option buttons under the animation (fixed place, no layout shift) */
+.mdw-tutui { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem .5rem; margin-top: .35rem; cursor: default; }
+.mdw-tutui:empty { display: none; }
+.mdw-tutui .mdw-seg button { font-size: .72rem; padding: .16rem .5rem; white-space: nowrap; }
+.mdw-tutui .mdw-seg-l { font-size: .7rem; }
+.mdw-expbox.mdw-on { fill: rgba(42, 120, 214, .14); stroke: var(--mdw-c1); }

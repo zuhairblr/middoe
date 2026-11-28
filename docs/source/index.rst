@@ -31,7 +31,7 @@ MIDDoE
      <div><b>3</b><span>questions it answers</span></div>
      <div><b>12</b><span>functions, one per step</span></div>
      <div><b>6</b><span>dictionaries describe a study</span></div>
-     <div><b>5</b><span>tutorials that run in the browser</span></div>
+     <div><b>11</b><span>tutorials + 4 case studies, in the browser</span></div>
    </div>
 
 |pypi| |pyver| |license|
@@ -110,8 +110,8 @@ Where to go
       :link-type: doc
       :class-card: md-card
 
-      Five notebooks on two real systems, from a first fit to designing experiments, including the
-      paper's case studies. They run in the browser (Google Colab).
+      One tutorial per function, from fitting and sensitivity to designing experiments and
+      validation, plus the paper's case studies. They run in the browser (Google Colab).
 
    .. grid-item-card:: :octicon:`light-bulb;1.3em` Key ideas & package structure
       :link: concepts

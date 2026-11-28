@@ -64,9 +64,10 @@ dictionaries for a complete example that runs in a minute.
 
 - **Documentation:** [middoe.readthedocs.io](https://middoe.readthedocs.io/en/latest/): an onboarding
   guide, interactive figures, every configuration key and the full API reference.
-- **Hands-on tutorials:** [five notebooks](https://middoe.readthedocs.io/en/latest/tutorials.html) on
-  two real systems (a fed-batch yeast fermentation and a pharmaceutical batch reaction), from a first
-  fit to designing experiments, including the case studies of the MIDDoE paper. They run in the
+- **Hands-on tutorials:** [tutorials](https://middoe.readthedocs.io/en/latest/tutorials.html) on
+  two real systems (a fed-batch yeast fermentation and a pharmaceutical batch reaction), one per
+  function: estimation and uncertainty, sensitivity, estimability, design for precision and for
+  discrimination, validation; plus the case studies of the MIDDoE paper. They run in the
   browser with Google Colab. Files: [`tests/tutorials`](https://github.com/zuhairblr/middoe/tree/main/tests/tutorials)
   and [`tests/middoe_paper`](https://github.com/zuhairblr/middoe/tree/main/tests/middoe_paper).
 

@@ -1,15 +1,26 @@
 # MIDDoE tutorials
 
-Short, heavily explained notebooks. All of them use the same model: the fed-batch yeast fermentation
-of Case Study 1 of the MIDDoE paper (Monod growth with maintenance, 4 parameters). Each notebook
-covers one group of MIDDoE modules and explains every option it uses.
+Short, heavily explained notebooks, one MIDDoE function each, on two systems: a fed-batch yeast
+fermentation (Monod growth, 4 parameters) and a pharmaceutical batch reaction (Arrhenius kinetics,
+6 parameters). The paper case studies are in `tests/middoe_paper`. All notebooks open in Google Colab
+from the [tutorials page](https://middoe.readthedocs.io/en/latest/tutorials.html).
 
-| Folder | Covers | Modules | Run time |
-|---|---|---|---|
-| `01_estimation_and_uncertainty` | model file, `system` and `models` dictionaries, in-silico data, `data.xlsx` layout; estimation with every optimiser and objective; uncertainty with every covariance method; error types and noise levels; reporting (rounds, plots, saved results, final report) | `krnl_expera`, `iden_parmest`, `iden_uncert`, `log_utils`, `iden_utils` | about 25 min |
+| Folder | Question | Functions |
+|---|---|---|
+| `01_estimation_and_uncertainty` | Fit a Monod model and know how sure you are (every optimiser, objective, covariance method) | `expera`, `parmest`, `uncert`, `save_rounds`, `run_postprocessing` |
+| `01_simple/a` ... `d` | Five estimation recipes side by side | `iden_opt` settings |
+| `02_sensitivity/a_kinetic_parameters` | Which kinetic constants shape the product and the impurity? | `sensa` (parameters) |
+| `02_sensitivity/b_operating_conditions` | Temperature or feed: which operating condition matters? | `sensa` (inputs) |
+| `03_estimability` | How many of six Arrhenius parameters can four batches support? | `estima` |
+| `04_design_precision/a_criteria` | Which feeding policy pins down the growth kinetics? D, A, E, ME | `mbdoe_pp` |
+| `04_design_precision/b_ill_conditioned` | Correlated Arrhenius parameters: ORB and SEM designs | `mbdoe_pp` |
+| `04_design_precision/c_profiles_and_sampling` | Steps, ramps, monotone feeds, fewer samples: what each rule costs | `mbdoe_pp`, `system` |
+| `05_design_discrimination/a_hunter_reiner` | Monod or Contois? The run that tells them apart | `mbdoe_md` (HR) |
+| `05_design_discrimination/b_hr_vs_bff` | Is there a maintenance term? HR versus BFF | `mbdoe_md` (HR, BFF) |
+| `06_validation` | Does the model predict batches it has never seen? | `validation` |
 
-More notebooks (experiment design, sensitivity and estimability analysis, validation and reports) will
-follow.
+Tutorials 2 to 6 have a `QUICK` switch in their first cell: `True` checks the set-up in minutes with tiny
+budgets and a single design, `False` gives the real result.
 
 **How to run:** open `tutorial.ipynb` from its own folder in Jupyter or PyCharm and run all cells.
 Each notebook deletes and recreates its own outputs (`data.xlsx`, `error_study/`, plot folders,

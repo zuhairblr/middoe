@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+Tutorials and documentation only; the code is unchanged.
+
+- The :doc:`tutorials` page has two parts. **Tutorials**, one per function, with notebooks that
+  compare its options: estimation and uncertainty; global sensitivity of the parameters and of the
+  inputs; estimability analysis; design for precision (D, A, E, ME; ORB and SEM for ill-conditioned
+  problems; profile and sampling constraints); design for model discrimination (Hunter-Reiner,
+  Buzzi-Ferraris-Forzatti); cross-validation. **Case studies**: the notebooks of the MIDDoE paper.
+- Every new tutorial has a ``QUICK`` switch for a quick check of the set-up.
+- Interactive figures for every tutorial: buttons switch the output, criterion, rule set or model.
+
 0.2.1
 -----
 
